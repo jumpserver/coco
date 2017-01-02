@@ -1,3 +1,0 @@
-[submodule "jms"]
-	path = jms
-	url = git@code.jumpserver.org:Jumpserver/jumpserver-python-sdk.git

@@ -2,7 +2,7 @@
 #
 
 """
-    coco
+    coco.app
     ~~~~~~~~~
 
     This module implements a ssh server and proxy with backend server
@@ -23,148 +23,23 @@ import socket
 import select
 import datetime
 import re
+import logging
 
 import paramiko
+from dotmap import DotMap
+from werkzeug.datastructures import ImmutableDict
 
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-PROJECT_DIR = os.path.dirname(os.path.dirname(BASE_DIR))
-sys.path.append(os.path.dirname(BASE_DIR))
-sys.path.append(PROJECT_DIR)
+from . import BASE_DIR, Config, AppService, UserService
+from .interface import SSHInterface
+from .utils import SSHServerException, control_char, ssh_key_gen, TtyIOParser, wrap_with_line_feed as wr, \
+    wrap_with_info as info, wrap_with_warning as warning, wrap_with_primary as primary, \
+    wrap_with_title as title, compute_max_length as cml
+from .ctx import request
+from .loggings import create_logger
 
-from config import config, TerminalConfig
-from utils import get_logger, SSHServerException, control_char, ssh_key_gen, \
-     wrap_with_line_feed as wr, TerminalApiRequest, Dict, TtyIOParser, \
-     wrap_with_info as info, wrap_with_warning as warning, wrap_with_primary as primary, \
-     wrap_with_title as title, compute_max_length as cml
-from tasks import Task
-
-
-CONFIG = config.get('terminal', TerminalConfig)
-NAME = CONFIG.NAME
-api = TerminalApiRequest(NAME)
-task = Task(NAME)
-logger = get_logger(__name__)
-paramiko.util.log_to_file(os.path.join(PROJECT_DIR, 'logs', 'paramiko.log'))
+__version__ = '0.3.3'
+logger = logging.getLogger(__file__)
 ENTER_CHAR = ['\r', '\n', '\r\n']
-# request save threading context
-# use request.meta save request meta info
-# request.meta = Dict{'user': {}, 'username', 'asset': {} or None, 'proxy_log_id': '' or None,
-#                     'client_addr': (ip, port), 'client': client_sock, 'client_channel': <Channel object>,
-#                     'backend_channel': <Channel object>,  'channel_width': '', 'channel_height': '',
-#                     'command': ''}
-request = threading.local()
-g = type(b'Global', (), {'__getattr__': None, 'requests': {}})()
-
-
-class SSHInterface(paramiko.ServerInterface):
-    """Use this ssh interface to implement a ssh server
-
-    More see paramiko ssh server demo
-    https://github.com/paramiko/paramiko/blob/master/demos/demo_server.py
-    """
-    host_key_path = os.path.join(BASE_DIR, 'keys', 'host_rsa_key')
-
-    def __init__(self):
-        self.meta = request.meta
-        self.shell_event = threading.Event()
-        self.command_event = threading.Event()
-        self.meta.change_channel_size_event = threading.Event()
-
-    @classmethod
-    def host_key(cls):
-        return cls.get_host_key()
-
-    @classmethod
-    def get_host_key(cls):
-        logger.debug("Get ssh server host key")
-        if not os.path.isfile(cls.host_key_path):
-            cls.host_key_gen()
-        return paramiko.RSAKey(filename=cls.host_key_path)
-
-    @classmethod
-    def host_key_gen(cls):
-        logger.debug("Generate ssh server host key")
-        ssh_key, ssh_pub_key = ssh_key_gen()
-        with open(cls.host_key_path, 'w') as f:
-            f.write(ssh_key)
-
-    def check_channel_request(self, kind, chanid):
-        if kind == 'session':
-            return paramiko.OPEN_SUCCEEDED
-        return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
-
-    def check_auth_password(self, username, password):
-        user = api.login(username=username, password=password, remote_addr=self.meta.addr[0])
-        if user:
-            self.meta.user = user
-            self.meta.username = username
-            logger.info('Accepted password for %(username)s from %(host)s port %(port)s ' % {
-                'username': username,
-                'host': self.meta.addr[0],
-                'port': self.meta.addr[1],
-            })
-            return paramiko.AUTH_SUCCESSFUL
-        else:
-            logger.info('Authentication password failed for %(username)s from %(host)s port %(port)s ' % {
-                'username': username,
-                'host': self.meta.addr[0],
-                'port': self.meta.addr[1],
-            })
-        return paramiko.AUTH_FAILED
-
-    def check_auth_publickey(self, username, public_key):
-        public_key_s = public_key.get_base64()
-        user = api.login(username=username, public_key=public_key_s, remote_addr=self.meta.addr[0])
-
-        if user:
-            self.meta.user = user
-            self.meta.username = username
-            logger.info('Accepted public key for %(username)s from %(host)s port %(port)s ' % {
-                'username': username,
-                'host': self.meta.addr[0],
-                'port': self.meta.addr[1],
-            })
-            return paramiko.AUTH_SUCCESSFUL
-        else:
-            logger.info('Authentication public key failed for %(username)s from %(host)s port %(port)s ' % {
-                'username': username,
-                'host': self.meta.addr[0],
-                'port': self.meta.addr[1],
-            })
-        return paramiko.AUTH_FAILED
-
-    def get_allowed_auths(self, username):
-        auth_method_list = []
-        if CONFIG.SSH_PASSWORD_AUTH:
-            auth_method_list.append('password')
-        if CONFIG.SSH_PUBLIC_KEY_AUTH:
-            auth_method_list.append('publickey')
-        return ','.join(auth_method_list)
-
-    def check_channel_shell_request(self, channel):
-        self.shell_event.set()
-        return True
-
-    def check_channel_pty_request(self, channel, term, width, height,
-                                  pixelwidth, pixelheight, modes):
-        self.meta.channel_width = width
-        self.meta.channel_height = height
-        return True
-
-    def check_channel_exec_request(self, channel, command):
-        self.meta.command = command
-        print(command)
-        self.command_event.set()
-        return True
-
-    def check_channel_subsystem_request(self, channel, name):
-        return super(SSHInterface, self).check_channel_subsystem_request(channel, name)
-
-    def check_channel_window_change_request(self, channel, width, height, pixelwidth, pixelheight):
-        self.meta.change_channel_size_event.set()
-        self.meta.channel_width = width
-        self.meta.channel_height = height
-        return True
 
 
 class ProxyServer(object):
@@ -180,10 +55,13 @@ class ProxyServer(object):
     output_data = b''
     history = {}
 
-    def __init__(self, client_channel, asset, system_user):
-        self.client_channel = client_channel
-        self.asset = asset
-        self.system_user = system_user
+    def __init__(self, app):
+        self.app = app
+        self.client_channel = request.client_channel
+        self.asset = request.asset
+        self.app_service = app.app_service
+        self.user_service = app.user_service
+        self.system_user = request.system_user
         self.backend_channel = None
         self.ssh = None
         # Whether the terminal in input mode or output mode
@@ -191,7 +69,7 @@ class ProxyServer(object):
         # If is first input, will clear the output data: ssh banner and PS1
         self.is_first_input = True
         # This ssh session command serial no
-        self.no = 0
+        self.cms_no = 0
         self.in_vim_mode = False
         self.vim_pattern = re.compile(r'\x1b\[\?1049', re.X)
         self.input = ''
@@ -206,18 +84,16 @@ class ProxyServer(object):
 
     def get_output(self):
         if self.in_input_mode is False:
-            parser = TtyIOParser(width=request.meta.channel_width,
-                                 height=request.meta.channel_height)
+            parser = TtyIOParser(width=request.channel_width,
+                                 height=request.channel_height)
             self.output = parser.parse_output(self.__class__.output_data)
             print('>' * 10 + 'Output' + '<' * 10)
             print(self.output)
             print('>' * 10 + 'End output' + '<' * 10)
             if self.input:
-                task.create_command_log.delay(task, self.no, self.input, self.output,
-                                              request.meta.proxy_log_id, datetime.datetime.utcnow())
-                self.no += 1
-            del self.__class__.output_data
-            self.__class__.output_data = b''
+                # task.create_command_log.delay(task, self.no, self.input, self.output,
+                #                               request.proxy_log_id, datetime.datetime.utcnow())
+                self.cms_no += 1
 
     def get_input(self, client_data):
         if self.is_finish_input(client_data):
@@ -229,20 +105,17 @@ class ProxyServer(object):
                     self.in_vim_mode = True
 
             if not self.in_vim_mode:
-                parser = TtyIOParser(width=request.meta.channel_width,
-                                     height=request.meta.channel_height)
+                parser = TtyIOParser(width=request.channel_width,
+                                     height=request.channel_height)
                 self.input = parser.parse_input(self.__class__.output_data)
                 print('#' * 10 + 'Command' + '#' * 10)
                 print(self.input)
                 print('#' * 10 + 'End command' + '#' * 10)
 
             self.in_input_mode = False
-            del self.__class__.output_data
-            self.__class__.output_data = b''
 
-    @staticmethod
-    def validate_user_permission(asset, system_user):
-        assets = api.get_user_assets_granted(request.meta.user)
+    def validate_user_permission(self, asset, system_user):
+        assets = self.user_service.get_user_assets_granted(request.user)
         for a in assets:
             if asset.id == a.id:
                 for s in asset.system_users:
@@ -250,25 +123,24 @@ class ProxyServer(object):
                         return True
         return False
 
-    @staticmethod
-    def get_asset_auth(system_user):
-        return api.get_asset_auth(system_user)
+    def get_asset_auth(self, system_user):
+        return self.app_service.get_asset_auth(system_user)
 
     def connect(self, term=b'xterm', width=80, height=24, timeout=10):
         asset = self.asset
         system_user = self.system_user
         if not self.validate_user_permission(asset, system_user):
-            logger.warning('User %s have no permission connect %s with %s' % (request.meta.user.username,
+            logging.warning('User %s have no permission connect %s with %s' % (request.user.username,
                                                                               asset.ip, system_user.username))
             return None
         self.ssh = ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         password, private_key = self.get_asset_auth(self.system_user)
-        data = Dict({"username": request.meta.user.username, "name": request.meta.user.name,
-                     "hostname": self.asset.hostname, "ip": self.asset.ip,
-                     'system_user': self.system_user.username,  "login_type": 'S',
-                     "date_start": datetime.datetime.utcnow(), "was_failed": 0})
-        request.meta.proxy_log_id = proxy_log_id = api.create_proxy_log(data)
+        data = DotMap({"username": request.user.username, "name": request.user.name,
+                      "hostname": self.asset.hostname, "ip": self.asset.ip,
+                      'system_user': self.system_user.username,  "login_type": 'S',
+                      "date_start": datetime.datetime.utcnow(), "was_failed": 0})
+        # request.proxy_log_id = proxy_log_id = api.create_proxy_log(data)
         try:
             self.client_channel.send(wr('Connecting %s@%s:%s ... ' % (system_user.username, asset.ip, asset.port)))
             ssh.connect(hostname=asset.ip, port=asset.port, username=system_user.username,
@@ -277,12 +149,12 @@ class ProxyServer(object):
 
         except (paramiko.AuthenticationException, paramiko.ssh_exception.SSHException):
             msg = 'Connect backend server %s failed: %s' % (asset.ip, 'Auth failed')
-            logger.warning(msg)
+            logging.warning(msg)
             failed = True
 
         except socket.error:
             msg = 'Connect backend server %s failed: %s' % (asset.ip, 'Timeout')
-            logger.warning(msg)
+            logging.warning(msg)
             failed = True
         else:
             msg = 'Connect backend server %(username)s@%(host)s:%(port)s successfully' % {
@@ -290,16 +162,17 @@ class ProxyServer(object):
                        'host': asset.ip,
                        'port': asset.port}
             failed = False
-            logger.info(msg)
+            logging.info(msg)
 
         if failed:
             self.client_channel.send(wr(warning(msg+'\r\n')))
-            data = Dict({
-                "proxy_log_id": proxy_log_id,
+            data = DotMap({
+                # "proxy_log_id": proxy_log_id,
+                "proxy_log_id": 1,
                 "date_finished": datetime.datetime.utcnow(),
                 "was_failed": 1
             })
-            api.finish_proxy_log(data)
+            # api.finish_proxy_log(data)
             return None
 
         self.backend_channel = channel = ssh.invoke_shell(term=term, width=width, height=height)
@@ -319,10 +192,10 @@ class ProxyServer(object):
         while True:
             r, w, x = select.select([client_channel, backend_channel], [], [])
 
-            if request.meta.change_channel_size_event.is_set():
-                request.meta.change_channel_size_event.clear()
-                backend_channel.resize_pty(width=request.meta.channel_width,
-                                           height=request.meta.channel.channel_height)
+            if request.change_channel_size_event.is_set():
+                request.change_channel_size_event.clear()
+                backend_channel.resize_pty(width=request.channel_width,
+                                           height=request.channel.channel_height)
 
             if client_channel in r:
                 # Get output of the command
@@ -336,10 +209,10 @@ class ProxyServer(object):
                 self.get_input(client_data)
 
                 if len(client_data) == 0:
-                    print(request.meta)
-                    logger.info('Logout from ssh server %(host)s: %(username)s' % {
-                        'host': request.meta.addr[0],
-                        'username': request.meta.username,
+                    print(request)
+                    logging.info('Logout from ssh server %(host)s: %(username)s' % {
+                        'host': request.addr[0],
+                        'username': request.username,
                     })
                     break
                 backend_channel.send(client_data)
@@ -348,7 +221,7 @@ class ProxyServer(object):
                 backend_data = backend_channel.recv(1024)
                 if len(backend_data) == 0:
                     client_channel.send(wr('Disconnect from %s' % backend_channel.host))
-                    logger.info('Logout from backend server %(host)s: %(username)s' % {
+                    logging.info('Logout from backend server %(host)s: %(username)s' % {
                         'host': backend_channel.host,
                         'username': backend_channel.username,
                     })
@@ -356,11 +229,11 @@ class ProxyServer(object):
                 if not self.is_first_input:
                     self.__class__.output_data += backend_data
                 client_channel.send(backend_data)
-        data = Dict({
-                "proxy_log_id": request.meta.proxy_log_id,
+        data = DotMap({
+                "proxy_log_id": request.proxy_log_id,
                 "date_finished": datetime.datetime.utcnow(),
                 })
-        api.finish_proxy_log(data)
+        # api.finish_proxy_log(data)
 
 
 class InteractiveServer(object):
@@ -370,10 +243,13 @@ class InteractiveServer(object):
 
     SPECIAL_CHAR = {'\x08': '\x08\x1b[K', '\x7f': '\x08\x1b[K'}
 
-    def __init__(self, client_channel):
+    def __init__(self, app):
+        self.app = app
+        self.user_service = app.user_service
+        self.app_service = app.app_service
+        self.client_channel = request.client_channel
         self.backend_server = None
         self.backend_channel = None
-        self.client_channel = client_channel
         self.assets = None  # self.get_user_assets_granted()
         self.asset_groups = None  # self.get_user_asset_groups_granted()
         self.search_result = []
@@ -391,7 +267,7 @@ class InteractiveServer(object):
         7) 输入 \033[32mU/u\033[0m 批量上传文件.\r
         8) 输入 \033[32mD/d\033[0m 批量下载文件.\r
         9) 输入 \033[32mH/h\033[0m 帮助.\r
-        0) 输入 \033[32mQ/q\033[0m 退出.\r\n""" % request.meta.username
+        0) 输入 \033[32mQ/q\033[0m 退出.\r\n""" % request.user.username
         client_channel.send(msg)
 
         # client_channel.send('\r\n\r\n\t\tWelcome to use Jumpserver open source system !\r\n\r\n')
@@ -402,7 +278,7 @@ class InteractiveServer(object):
         """Make a prompt let user input, and get user input content"""
 
         input_ = b''
-        parser = TtyIOParser(request.meta.channel_width, request.meta.channel_height)
+        parser = TtyIOParser(request.channel_width, request.channel_height)
         self.client_channel.send(wr(prompt, before=1, after=0))
         while True:
             r, w, x = select.select([self.client_channel], [], [])
@@ -477,7 +353,7 @@ class InteractiveServer(object):
         self.search_and_display('')
 
     def display_asset_groups(self):
-        self.asset_groups = api.get_user_asset_groups_granted(request.meta.user)
+        self.asset_groups = self.app_service.get_user_asset_groups_granted(request.user)
         name_max_length = cml([asset_group.name for asset_group in self.asset_groups], max_length=20)
         comment_max_length = cml([asset_group.comment for asset_group in self.asset_groups], max_length=30)
         line = '[%-3s] %-' + str(name_max_length) + 's %-6s  %-' + str(comment_max_length) + 's'
@@ -495,7 +371,7 @@ class InteractiveServer(object):
 
             if index.isdigit() and len(self.asset_groups) > int(index):
                 asset_group = self.asset_groups[int(index)]
-                self.search_result = api.get_user_asset_group_assets(request.meta.user, asset_group.id)
+                self.search_result = self.user_service.get_user_asset_group_assets(request.user, asset_group.id)
                 self.display_search_result()
                 self.dispatch(twice=True)
 
@@ -503,7 +379,7 @@ class InteractiveServer(object):
 
     def display_search_result(self):
         if not self.assets:
-            self.assets = api.get_user_assets_granted(request.meta.user)
+            self.assets = api.get_user_assets_granted(request.user)
         if not self.search_result:
             self.search_result = self.assets
 
@@ -524,7 +400,7 @@ class InteractiveServer(object):
     def search_and_proxy(self, option, from_result=False):
         self.search_assets(option=option, from_result=from_result)
         if len(self.search_result) == 1:
-            request.meta.asset = asset = self.search_result[0]
+            request.asset = asset = self.search_result[0]
             if len(asset.system_users) == 1:
                 system_user = asset.system_users[0]
             else:
@@ -541,7 +417,7 @@ class InteractiveServer(object):
                         return
                     else:
                         self.client_channel.send(wr(warning('No system user match, please input again')))
-            request.meta.system_user = system_user
+            request.system_user = system_user
             self.return_to_proxy(asset, system_user)
         elif len(self.search_result) == 0:
             self.client_channel.send(wr(warning('No asset match, please input again')))
@@ -557,7 +433,7 @@ class InteractiveServer(object):
 
     def run(self):
         if self.client_channel is None:
-            request.meta.client.close()
+            request.client.close()
             return
 
         self.display_banner()
@@ -569,88 +445,128 @@ class InteractiveServer(object):
                 break
 
     def logout(self):
-        logger.info('Logout from jumpserver %(host)s: %(username)s' % {
-            'host': request.meta.addr[0],
-            'username': request.meta.username,
+        logging.info('Logout from jumpserver %(host)s: %(username)s' % {
+            'host': request.addr[0],
+            'username': request.username,
         })
-        if request.meta.get('proxy_log_id', ''):
-            data = Dict({
-                'proxy_log_id': request.meta.proxy_log_id,
+        if request.get('proxy_log_id', ''):
+            data = DotMap({
+                'proxy_log_id': request.proxy_log_id,
                 'date_finished': datetime.datetime.utcnow(),
             })
-            api.finish_proxy_log(data)
+            # api.finish_proxy_log(data)
         self.client_channel.close()
         del self
 
 
-class JumpServer(object):
-    requests = []
+class Coco(object):
+    config_class = Config
+    default_config = {
+        'NAME': 'coco',
+        'BIND_HOST': '0.0.0.0',
+        'LISTEN_PORT': 2222,
+        'JUMPSERVER_ENDPOINT': 'http://localhost:8080',
+        'DEBUG': True,
+        'SECRET_KEY': None,
+        'ACCESS_KEY_ID': None,
+        'ACCESS_KEY_SECRET': None,
+        'LOG_LEVEL': 'DEBUG',
+        'LOG_PATH': os.path.join(BASE_DIR, 'logs', 'coco.log'),
+        'ASSET_LIST_SORT_BY': 'ip',
+        'SSH_PASSWORD_AUTH': True,
+        'SSH_PUBLIC_KEY_AUTH': True,
+        'HEATBEAT_INTERVAL': 5,
+    }
+    access_key_store = os.path.join(BASE_DIR, 'keys', '.secret_key')
 
     def __init__(self):
-        self.listen_host = CONFIG.SSH_HOST
-        self.listen_port = CONFIG.SSH_PORT
-        self.version = '0.3.3'
+        self.config = self.config_class(defaults=self.default_config)
         self.sock = None
-        self.name = CONFIG.NAME
-        self.terminal_id = ''
+        self.app_service = None
+        self.user_service = None
+        self.root_path = BASE_DIR
+        self.logger = None
+        # self.terminal_id = ''
 
-    def auth(self):
-        while True:
-            result, content = api.terminal_auth()
-            if result:
-                self.terminal_id = content
-                break
-            else:
-                logger.warning('Terminal auth failed: %s' % content)
-                time.sleep(10)
+    def bootstrap(self):
+        self.logger = create_logger(self)
+        self.app_service = AppService(app_name=self.config['NAME'],
+                                      endpoint=self.config['JUMPSERVER_ENDPOINT'])
+        self.user_service = UserService(app_name=self.config['NAME'],
+                                        endpoint=self.config['JUMPSERVER_ENDPOINT'])
+        self.app_auth()
+        self.heatbeat()
+
+    def load_access_key(self):
+        access_key_id = os.environ.get('COCO_ACCESS_KEY_ID', None)
+        access_key_secret = os.environ.get('COCO_ACCESS_KEY_SECRET', None)
+        if access_key_id is None or access_key_secret is None:
+            access_key_id, access_key_secret = self.app_service.load_access_key_from_f(self.access_key_store)
+        return access_key_id, access_key_secret
+
+    def app_auth(self):
+        access_key = self.load_access_key()
+        if None in access_key:
+            access_key = self.register()
+        self.app_service.auth(*access_key)
+
+    def register(self):
+        is_success, content = self.app_service.terminal_register()
+        if is_success:
+            access_key_id = content.access_key_id
+            access_key_secret = content.access_key_secret
+            logging.warning('Your should save access_key: (%s:%s) secret'
+                            % (access_key_id, access_key_secret))
+            self.app_service.save_access_key(access_key_id, access_key_secret, self.access_key_store)
+            return access_key_id, access_key_secret
+        else:
+            logging.warning(content)
+            return None, None
 
     def heatbeat(self):
         def _keep():
             while True:
-                result = api.terminal_heatbeat()
+                result = self.app_service.terminal_heatbeat()
                 if not result:
-                    logger.warning('Terminal heatbeat failed')
-                time.sleep(CONFIG.TERMINAL_HEATBEAT_INTERVAL)
+                    logging.warning('Terminal heatbeat failed or Terminal need accepted')
+                time.sleep(self.config['HEATBEAT_INTERVAL'])
 
         thread = threading.Thread(target=_keep, args=())
         thread.daemon = True
         thread.start()
 
-    @staticmethod
-    def handle_ssh_request(client, addr):
-        logger.info("Get ssh request from %(host)s:%(port)s" % {
+    def handle_ssh_request(self, client, addr):
+        logging.info("Get ssh request from %(host)s:%(port)s" % {
             'host': addr[0],
             'port': addr[1],
         })
-        request.meta = Dict({})
-        request.meta.client = client
-        request.meta.addr = addr
+        request.client = client
+        request.host, request.port = addr
         transport = paramiko.Transport(client, gss_kex=False)
-        # transport.set_gss_host(socket.getfqdn(""))
         try:
             transport.load_server_moduli()
         except:
-            logger.warning('Failed to load moduli -- gex will be unsupported.')
+            logging.warning('Failed to load moduli -- gex will be unsupported.')
             raise
 
         transport.add_server_key(SSHInterface.get_host_key())
-        ssh_interface = SSHInterface()
+        ssh_interface = SSHInterface(self, request)
 
         try:
             transport.start_server(server=ssh_interface)
         except paramiko.SSHException:
-            logger.warning('SSH negotiation failed.')
+            logging.warning('SSH negotiation failed.')
 
         request.client_channel = client_channel = transport.accept(20)
         if client_channel is None:
-            logger.warning('No ssh channel get.')
+            logging.warning('No ssh channel get.')
             return None
 
         # ssh_interface.shell_event.wait(1)
         # ssh_interface.command_event.wait(1)
         if ssh_interface.shell_event.is_set():
-            logger.info('Client asked for a shell.')
-            InteractiveServer(client_channel).run()
+            logging.info('Client asked for a shell.')
+            InteractiveServer(self).run()
 
         if ssh_interface.command_event.is_set():
             client_channel.send(wr(warning('We are not support execute command now')))
@@ -658,21 +574,26 @@ class JumpServer(object):
             sys.exit(1)
 
         while True:
-            if getattr(request.meta, 'user'):
+            if getattr(request, 'user'):
                 break
             else:
                 time.sleep(0.2)
         return client_channel
 
-    def run_forever(self):
+    def run_forever(self, **kwargs):
+        self.bootstrap()
+
+        host = kwargs.pop('host', None) or self.config['BIND_HOST']
+        port = kwargs.pop('port', None) or self.config['LISTEN_PORT']
+
         self.sock = sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((self.listen_host, self.listen_port))
+        sock.bind((host, port))
         sock.listen(5)
 
         print(time.ctime())
-        print('Jumpserver terminal version %s, more see https://www.jumpserver.org' % self.version)
-        print('Starting ssh server at %(host)s:%(port)s' % {'host': self.listen_host, 'port': self.listen_port})
+        print('Coco version %s, more see https://www.jumpserver.org' % __version__)
+        print('Starting ssh server at %(host)s:%(port)s' % {'host': host, 'port': port})
         print('Quit the server with CONTROL-C.')
 
         while True:
@@ -682,7 +603,7 @@ class JumpServer(object):
                 thread.daemon = True
                 thread.start()
             except Exception as e:
-                logger.error('Bind server failed: ' + str(e))
+                logging.error('Bind server failed: ' + str(e))
                 traceback.print_exc()
                 sys.exit(1)
 
@@ -690,13 +611,13 @@ class JumpServer(object):
         self.sock.close()
 
 
-if __name__ == '__main__':
-    server = JumpServer()
-    try:
-        server.auth()
-        server.heatbeat()
-        server.run_forever()
-    except KeyboardInterrupt:
-        server.close()
-        sys.exit(1)
+# if __name__ == '__main__':
+#     server = Coco()
+#     try:
+#         server.auth()
+#         server.heatbeat()
+#         server.run_forever()
+#     except KeyboardInterrupt:
+#         server.close()
+#         sys.exit(1)
 

@@ -3,8 +3,9 @@
 #
 
 import os
+import logging
 from logging.config import dictConfig
-
+from . import BASE_DIR
 
 LOGGING = {
         'version': 1,
@@ -44,8 +45,8 @@ LOGGING = {
         'loggers': {
             'coco': {
                 'handlers': ['console', 'file'],
-                'level': 'debug',
-                'propagate': True,
+                'level': 'DEBUG',
+                'propagate': False,
             },
         }
     }
@@ -53,7 +54,9 @@ LOGGING = {
 
 def create_logger(app):
     level = app.config.get('LOG_LEVEL', 'warning')
-    log_path = app.config.get('LOG_PATH', os.path.join(app.root_path, 'logs', 'coco.log'))
-    LOGGING['file']['filename'] = log_path
-    LOGGING['loggers']['level'] = level
+    log_path = app.config.get('LOG_PATH', os.path.join(BASE_DIR, 'logs', 'coco.log'))
+    LOGGING['handlers']['file']['filename'] = log_path
+    LOGGING['loggers']['coco']['level'] = level
     dictConfig(LOGGING)
+    logger = logging.getLogger('coco')
+    return logger

@@ -30,14 +30,12 @@ import paramiko
 from paramiko.rsakey import RSAKey
 import pyte
 
-from apps import CONFIG, SECRET_KEY
 
-
-def get_logger(name):
-    dictConfig(CONFIG.LOGGING)
-    return logging.getLogger('jumpserver.%s' % name)
-
-logger = get_logger(__name__)
+# def get_logger(name):
+#     dictConfig(CONFIG.LOGGING)
+#     return logging.getLogger('jumpserver.%s' % name)
+#
+# logger = get_logger(__name__)
 
 
 class ControlChar(object):
@@ -57,7 +55,7 @@ class SSHServerException(Exception):
 
 
 class Signer(object):
-    def __init__(self, secret_key=SECRET_KEY):
+    def __init__(self, secret_key=None):
         self.secret_key = secret_key
 
     def sign(self, value):
