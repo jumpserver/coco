@@ -27,15 +27,17 @@ import logging
 
 import paramiko
 from dotmap import DotMap
-from werkzeug.datastructures import ImmutableDict
+from jms import AppService, UserService
+from jms.mixin import AppMixin
 
-from . import BASE_DIR, Config, AppService, UserService
+from . import BASE_DIR
 from .interface import SSHInterface
-from .utils import SSHServerException, control_char, ssh_key_gen, TtyIOParser, wrap_with_line_feed as wr, \
+from .utils import SSHServerException, control_char, TtyIOParser, wrap_with_line_feed as wr, \
     wrap_with_info as info, wrap_with_warning as warning, wrap_with_primary as primary, \
     wrap_with_title as title, compute_max_length as cml
+from .config import Config
 from .ctx import request
-from .loggings import create_logger
+from .logger import create_logger
 
 __version__ = '0.3.3'
 logger = logging.getLogger(__file__)
@@ -137,9 +139,9 @@ class ProxyServer(object):
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         password, private_key = self.get_asset_auth(self.system_user)
         data = DotMap({"username": request.user.username, "name": request.user.name,
-                      "hostname": self.asset.hostname, "ip": self.asset.ip,
-                      'system_user': self.system_user.username,  "login_type": 'S',
-                      "date_start": datetime.datetime.utcnow(), "was_failed": 0})
+                       "hostname": self.asset.hostname, "ip": self.asset.ip,
+                       "system_user": self.system_user.username,  "login_type": "S",
+                       "date_start": datetime.datetime.utcnow(), "was_failed": 0})
         # request.proxy_log_id = proxy_log_id = api.create_proxy_log(data)
         try:
             self.client_channel.send(wr('Connecting %s@%s:%s ... ' % (system_user.username, asset.ip, asset.port)))
@@ -459,7 +461,7 @@ class InteractiveServer(object):
         del self
 
 
-class Coco(object):
+class Coco(AppMixin):
     config_class = Config
     default_config = {
         'NAME': 'coco',
@@ -468,10 +470,11 @@ class Coco(object):
         'JUMPSERVER_ENDPOINT': 'http://localhost:8080',
         'DEBUG': True,
         'SECRET_KEY': None,
-        'ACCESS_KEY_ID': None,
-        'ACCESS_KEY_SECRET': None,
+        'ACCESS_KEY': None,
+        'ACCESS_KEY_ENV': 'COCO_ACCESS_KEY',
+        'ACCESS_KEY_STORE': os.path.join(BASE_DIR, 'keys', '.access_key'),
         'LOG_LEVEL': 'DEBUG',
-        'LOG_PATH': os.path.join(BASE_DIR, 'logs', 'coco.log'),
+        'LOG_DIR': os.path.join(BASE_DIR, 'logs'),
         'ASSET_LIST_SORT_BY': 'ip',
         'SSH_PASSWORD_AUTH': True,
         'SSH_PUBLIC_KEY_AUTH': True,
@@ -495,45 +498,14 @@ class Coco(object):
         self.user_service = UserService(app_name=self.config['NAME'],
                                         endpoint=self.config['JUMPSERVER_ENDPOINT'])
         self.app_auth()
+        while True:
+            if self.check_auth():
+                logger.info('App auth passed')
+                break
+            else:
+                logger.warn('App auth failed, Access key error or need admin active it')
+            time.sleep(5)
         self.heatbeat()
-
-    def load_access_key(self):
-        access_key_id = os.environ.get('COCO_ACCESS_KEY_ID', None)
-        access_key_secret = os.environ.get('COCO_ACCESS_KEY_SECRET', None)
-        if access_key_id is None or access_key_secret is None:
-            access_key_id, access_key_secret = self.app_service.load_access_key_from_f(self.access_key_store)
-        return access_key_id, access_key_secret
-
-    def app_auth(self):
-        access_key = self.load_access_key()
-        if None in access_key:
-            access_key = self.register()
-        self.app_service.auth(*access_key)
-
-    def register(self):
-        is_success, content = self.app_service.terminal_register()
-        if is_success:
-            access_key_id = content.access_key_id
-            access_key_secret = content.access_key_secret
-            logging.warning('Your should save access_key: (%s:%s) secret'
-                            % (access_key_id, access_key_secret))
-            self.app_service.save_access_key(access_key_id, access_key_secret, self.access_key_store)
-            return access_key_id, access_key_secret
-        else:
-            logging.warning(content)
-            return None, None
-
-    def heatbeat(self):
-        def _keep():
-            while True:
-                result = self.app_service.terminal_heatbeat()
-                if not result:
-                    logging.warning('Terminal heatbeat failed or Terminal need accepted')
-                time.sleep(self.config['HEATBEAT_INTERVAL'])
-
-        thread = threading.Thread(target=_keep, args=())
-        thread.daemon = True
-        thread.start()
 
     def handle_ssh_request(self, client, addr):
         logging.info("Get ssh request from %(host)s:%(port)s" % {
@@ -609,15 +581,3 @@ class Coco(object):
 
     def close(self):
         self.sock.close()
-
-
-# if __name__ == '__main__':
-#     server = Coco()
-#     try:
-#         server.auth()
-#         server.heatbeat()
-#         server.run_forever()
-#     except KeyboardInterrupt:
-#         server.close()
-#         sys.exit(1)
-
