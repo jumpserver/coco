@@ -25,7 +25,9 @@ def create_logger(app):
     level = LOG_LEVELS.get(level, logging.INFO)
     log_dir = app.config.get('LOG_DIR', os.path.join(BASE_DIR, 'logs'))
     log_path = os.path.join(log_dir, 'coco.log')
+    logger_root = logging.getLogger()
     logger = logging.getLogger('coco')
+
     main_formatter = logging.Formatter(fmt='%(asctime)s [%(module)s %(levelname)s] %(message)s',
                                        datefmt='%Y-%m-%d %H:%M:%S')
     console_handler = StreamHandler()
@@ -34,4 +36,10 @@ def create_logger(app):
     for handler in [console_handler, file_handler]:
         handler.setFormatter(main_formatter)
         logger.addHandler(handler)
+    logger_root.addHandler(console_handler)
+    logger_root.setLevel(logging.WARNING)
     logger.setLevel(level)
+
+
+def get_logger(name):
+    return logging.getLogger('coco.%s' % name)

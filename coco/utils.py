@@ -31,29 +31,6 @@ from paramiko.rsakey import RSAKey
 import pyte
 
 
-# def get_logger(name):
-#     dictConfig(CONFIG.LOGGING)
-#     return logging.getLogger('jumpserver.%s' % name)
-#
-# logger = get_logger(__name__)
-
-
-class ControlChar(object):
-    CHARS = {
-        'clear': '\x1b[H\x1b[2J',
-    }
-
-    def __init__(self):
-        pass
-
-    def __getattr__(self, item):
-        return self.__class__.CHARS.get(item, '')
-
-
-class SSHServerException(Exception):
-    pass
-
-
 class Signer(object):
     def __init__(self, secret_key=None):
         self.secret_key = secret_key
@@ -252,4 +229,3 @@ def compute_max_length(object_list, max_length=30):
         return length
 
 signer = Signer()
-control_char = ControlChar()

@@ -1,26 +1,33 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-from werkzeug.local import Local
+
+from functools import partial
+
+from dotmap import DotMap
+from werkzeug.local import LocalStack, LocalProxy
+from flask.globals import request, g, _app_ctx_stack as _g_ctx_stack, \
+    _request_ctx_stack, _lookup_req_object
 
 
-class Request(object):
-    def __init__(self):
-        self.remote_addr = None
-        self.port = None
-        self.user = None
-        self.client = None
-        self.channel_height = None
-        self.channel_width = None
+class RawMixin(object):
+    @property
+    def raw(self):
+        return self
 
 
-def get_req_ctx_obj(name, default=None):
-    if default is None:
-        default = {}
-    if not hasattr(ctx, name):
-        setattr(ctx, name, default)
-    return getattr(ctx, name)
+class Request(DotMap, RawMixin):
+    remote_addr = ''
+    client = None
+    user = DotMap()
+    win_width = 80
+    win_height = 24
 
 
-ctx = Local()
-request = get_req_ctx_obj('request', default=Request())
+class G(DotMap, RawMixin):
+    user_service = None
+
+
+_client_channel_ctx_stack = LocalStack()
+client_channel = LocalProxy(partial(_lookup_req_object, 'client_channel'))
+

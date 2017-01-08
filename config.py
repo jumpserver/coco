@@ -2,11 +2,23 @@
 # -*- coding: utf-8 -*-
 #
 
+import os
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
 
 class Config(object):
-    ACCESS_KEY = '0732da41-966d-42c9-9b05-e0fc152f21d0:0eac1749-ef33-48b6-b20a-9136e857951e'
-    pass
-
-
-if __name__ == '__main__':
-    pass
+    NAME = 'coco'
+    # BIND_HOST = '0.0.0.0'
+    # LISTEN_PORT = 2222
+    # JUMPSERVER_ENDPOINT = 'http://localhost:8080'
+    # DEBUG = True
+    # SECRET_KEY = None
+    # ACCESS_KEY = None
+    # ACCESS_KEY_ENV = 'COCO_ACCESS_KEY'
+    # ACCESS_KEY_STORE = os.path.join(BASE_DIR, 'coco', 'keys', '.access_key')
+    # LOG_LEVEL = 'DEBUG'
+    # LOG_DIR = os.path.join(BASE_DIR, 'coco', 'logs')
+    # ASSET_LIST_SORT_BY = 'ip'
+    # SSH_PASSWORD_AUTH = True
+    # SSH_PUBLIC_KEY_AUTH = True
+    # HEATBEAT_INTERVAL = 5
