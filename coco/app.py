@@ -21,20 +21,18 @@ import socket
 import logging
 
 import paramiko
-from dotmap import DotMap
-
 from jms import AppService
 from jms.mixin import AppMixin
 
 from . import BASE_DIR, __version__, wr, warning
-from .ctx import request, g, _request_ctx_stack, _g_ctx_stack, _client_channel_ctx_stack, \
-    Request, G
+from .ctx import RequestContext, AppContext
+from .globals import request, g
 from .interface import SSHInterface
 from .interactive import InteractiveServer
 from .config import Config
 from .logger import create_logger, get_logger
 
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 
 
 class Coco(AppMixin):
@@ -58,13 +56,27 @@ class Coco(AppMixin):
     }
     access_key_store = os.path.join(BASE_DIR, 'keys', '.secret_key')
 
-    def __init__(self):
+    def __init__(self, name='coco'):
+        self._name = name
         self.config = self.config_class(defaults=self.default_config)
         self.sock = None
         self.app_service = None
         self.user_service = None
         self.root_path = BASE_DIR
         self.logger = None
+
+    @property
+    def name(self):
+        if self.config['NAME']:
+            return self.config['NAME']
+        else:
+            return self._name
+
+    def app_context(self):
+        return AppContext(self)
+
+    def request_context(self, environ):
+        return RequestContext(self, environ)
 
     def bootstrap(self):
         self.logger = create_logger(self)
@@ -81,10 +93,10 @@ class Coco(AppMixin):
         self.heatbeat()
 
     def handle_ssh_request(self, client, addr):
-        _request_ctx_stack.push(DotMap({'request': Request({'client': client, 'remote_addr': addr[0]})}))
-        _g_ctx_stack.push(DotMap({'g': G({})}))
-        logger.info("Get ssh request from %s" % request.remote_addr)
-        transport = paramiko.Transport(request.client, gss_kex=False)
+        rc = self.request_context({'REMOTE_ADDR': addr[0]})
+        rc.push()
+        logger.info("Get ssh request from %s" % request.environ['REMOTE_ADDR'])
+        transport = paramiko.Transport(client, gss_kex=False)
         try:
             transport.load_server_moduli()
         except:
@@ -92,7 +104,7 @@ class Coco(AppMixin):
             raise
 
         transport.add_server_key(SSHInterface.get_host_key())
-        ssh_interface = SSHInterface(self, request.raw, g.raw)
+        ssh_interface = SSHInterface(self, rc)
 
         try:
             transport.start_server(server=ssh_interface)
@@ -100,24 +112,27 @@ class Coco(AppMixin):
             logger.warning('SSH negotiation failed.')
 
         _client_channel = transport.accept(20)
-        _client_channel_ctx_stack.push(DotMap({'client_channel': _client_channel}))
+        g.client_channel = _client_channel
         if _client_channel is None:
             logger.warning('No ssh channel get.')
             sys.exit(1)
 
         # ssh_interface.shell_event.wait(1)
         # ssh_interface.command_event.wait(1)
-        if ssh_interface.shell_event.is_set():
+        if request.method == 'shell':
             logger.info('Client asked for a shell.')
             InteractiveServer(self).run()
-
-        if ssh_interface.command_event.is_set():
+        elif request.method == 'command':
             _client_channel.send(wr(warning('We are not support execute command now')))
+            _client_channel.close()
+            sys.exit(2)
+        else:
+            _client_channel.send(wr(warning('Not support the request method')))
             _client_channel.close()
             sys.exit(2)
 
         while True:
-            if getattr(request, 'user'):
+            if request.user is not None:
                 break
             else:
                 time.sleep(0.2)

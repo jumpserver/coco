@@ -210,7 +210,7 @@ def wrap_with_primary(text, bolder=False):
 
 
 def wrap_with_title(text):
-    return wrap_with_color(text, color='white', background='green')
+    return wrap_with_color(text, color='black', background='green')
 
 
 def gen_uuid():
