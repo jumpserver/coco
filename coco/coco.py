@@ -18,18 +18,18 @@ import sys
 import threading
 import traceback
 import socket
-import logging
+from celery import Celery
 
 import paramiko
 from jms import AppService
 from jms.mixin import AppMixin
 
 from . import BASE_DIR, __version__, wr, warning
-from .ctx import RequestContext, AppContext
+from .ctx import RequestContext, AppContext, Request, _AppCtxGlobals
 from .globals import request, g
 from .interface import SSHInterface
 from .interactive import InteractiveServer
-from .config import Config
+from .config import ConfigAttribute, Config
 from .logger import create_logger, get_logger
 
 logger = get_logger(__file__)
@@ -37,13 +37,15 @@ logger = get_logger(__file__)
 
 class Coco(AppMixin):
     config_class = Config
+    request_class = Request
+    app_ctx_globals_class = _AppCtxGlobals
     default_config = {
         'NAME': 'coco',
         'BIND_HOST': '0.0.0.0',
         'LISTEN_PORT': 2222,
         'JUMPSERVER_ENDPOINT': 'http://localhost:8080',
         'DEBUG': True,
-        'SECRET_KEY': None,
+        'SECRET_KEY': '2vym+ky!997d5kkcc64mnz06y1mmui3lut#(^wd=%s_qj$1%x',
         'ACCESS_KEY': None,
         'ACCESS_KEY_ENV': 'COCO_ACCESS_KEY',
         'ACCESS_KEY_STORE': os.path.join(BASE_DIR, 'keys', '.access_key'),
@@ -53,20 +55,25 @@ class Coco(AppMixin):
         'SSH_PASSWORD_AUTH': True,
         'SSH_PUBLIC_KEY_AUTH': True,
         'HEATBEAT_INTERVAL': 5,
+        'BROKER_URL': 'redis://localhost:6379',
+        'CELERY_RESULT_BACKEND': 'redis://localhost:6379',
+        'CELERY_ACCEPT_CONTENT': ['json']
     }
-    access_key_store = os.path.join(BASE_DIR, 'keys', '.secret_key')
 
-    def __init__(self, name='coco'):
+    endpoint = ConfigAttribute('JUMPSERVER_ENDPOINT')
+    debug = ConfigAttribute('DEBUG')
+    host = ConfigAttribute('BIND_HOST')
+    port = ConfigAttribute('LISTEN_PORT')
+
+    def __init__(self, name=None):
         self._name = name
         self.config = self.config_class(defaults=self.default_config)
         self.sock = None
-        self.app_service = None
-        self.user_service = None
-        self.root_path = BASE_DIR
-        self.logger = None
+        self.service = None
 
     @property
     def name(self):
+        """获取app实例名称, 优先使用配置项"""
         if self.config['NAME']:
             return self.config['NAME']
         else:
@@ -79,20 +86,21 @@ class Coco(AppMixin):
         return RequestContext(self, environ)
 
     def bootstrap(self):
-        self.logger = create_logger(self)
-        self.app_service = AppService(app_name=self.config['NAME'],
-                                      endpoint=self.config['JUMPSERVER_ENDPOINT'])
+        """运行之前准备一些动作, 创建日志, 实例化sdk, 认证service"""
+        create_logger(self)
+        self.service = AppService(app_name=self.name, endpoint=self.endpoint)
         self.app_auth()
         while True:
-            if self.app_service.check_auth():
+            if self.service.check_auth():
                 logger.info('App auth passed')
                 break
             else:
-                logger.warn('App auth failed, Access key error or need admin active it')
+                logger.warn('App auth failed, Access key error '
+                            'or need admin active it')
             time.sleep(5)
         self.heatbeat()
 
-    def handle_ssh_request(self, client, addr):
+    def process_request(self, client, addr):
         rc = self.request_context({'REMOTE_ADDR': addr[0]})
         rc.push()
         logger.info("Get ssh request from %s" % request.environ['REMOTE_ADDR'])
@@ -104,6 +112,7 @@ class Coco(AppMixin):
             raise
 
         transport.add_server_key(SSHInterface.get_host_key())
+        # 将app和请求上下文传递过去, ssh_interface 处理ssh认证和建立连接
         ssh_interface = SSHInterface(self, rc)
 
         try:
@@ -117,13 +126,11 @@ class Coco(AppMixin):
             logger.warning('No ssh channel get.')
             sys.exit(1)
 
-        # ssh_interface.shell_event.wait(1)
-        # ssh_interface.command_event.wait(1)
         if request.method == 'shell':
             logger.info('Client asked for a shell.')
             InteractiveServer(self).run()
         elif request.method == 'command':
-            _client_channel.send(wr(warning('We are not support execute command now')))
+            _client_channel.send(wr(warning('We are not support command now')))
             _client_channel.close()
             sys.exit(2)
         else:
@@ -139,9 +146,8 @@ class Coco(AppMixin):
 
     def run_forever(self, **kwargs):
         self.bootstrap()
-
-        host = kwargs.pop('host', None) or self.config['BIND_HOST']
-        port = kwargs.pop('port', None) or self.config['LISTEN_PORT']
+        host = kwargs.pop('host', None) or self.host
+        port = kwargs.pop('port', None) or self.port
 
         self.sock = sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -156,11 +162,11 @@ class Coco(AppMixin):
         while True:
             try:
                 client, addr = sock.accept()
-                thread = threading.Thread(target=self.handle_ssh_request, args=(client, addr))
+                thread = threading.Thread(target=self.process_request, args=(client, addr))
                 thread.daemon = True
                 thread.start()
             except Exception as e:
-                logger.error('Bind server failed: ' + str(e))
+                logger.error('Start server failed: ' + str(e))
                 traceback.print_exc()
                 sys.exit(1)
 

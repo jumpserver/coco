@@ -2,7 +2,7 @@
 
 import re
 import logging
-import datetime
+import time
 import socket
 import select
 
@@ -26,27 +26,28 @@ class ProxyServer(object):
     We also record the command and result to database for audit
 
     """
-    output_data = b''
-    history = {}
     ENTER_CHAR = ['\r', '\n', '\r\n']
+    OUTPUT_END_PATTERN = re.compile(r'\x1b]0;.+@.+:.+\x07.*')
+    VIM_PATTERN = re.compile(r'\x1b\[\?1049', re.X)
 
     def __init__(self, app, asset, system_user):
         self.app = app
         self.asset = asset
         self.system_user = system_user
-        self.app_service = app.app_service
+        self.service = app.service
         self.backend_channel = None
         self.ssh = None
-        # Whether the terminal in input mode or output mode
-        self.in_input_mode = True
         # If is first input, will clear the output data: ssh banner and PS1
         self.is_first_input = True
+        self.in_input_state = False
         # This ssh session command serial no
-        self.cmd_no = 0
-        self.in_vim_mode = False
-        self.vim_pattern = re.compile(r'\x1b\[\?1049', re.X)
+        self.in_vim_state = False
+        self.command_no = 1
         self.input = ''
         self.output = ''
+        self.output_data = []
+        self.input_data = []
+        self.history = {}
 
     def is_finish_input(self, s):
         for char in s:
@@ -55,36 +56,30 @@ class ProxyServer(object):
         return False
 
     def get_output(self):
-        if self.in_input_mode is False:
-            parser = TtyIOParser(width=request.win_width,
-                                 height=request.win_height)
-            self.output = parser.parse_output(self.__class__.output_data)
-            print('>' * 10 + 'Output' + '<' * 10)
-            print(self.output)
-            print('>' * 10 + 'End output' + '<' * 10)
-            if self.input:
-                # task.create_command_log.delay(task, self.no, self.input, self.output,
-                #                               request.proxy_log_id, datetime.datetime.utcnow())
-                self.cmd_no += 1
+        parser = TtyIOParser(width=request.win_width,
+                             height=request.win_height)
+        self.output = parser.parse_output(b''.join(self.output_data))
+        print('>' * 10 + 'Output' + '<' * 10)
+        print(self.output)
+        print('>' * 10 + 'End output' + '<' * 10)
+        # if self.input:
+        #     data = {
+        #         'proxy_log': g.proxy_log_id,
+        #         'command_no': self.command_no,
+        #         'command': self.input,
+        #         'output': self.output,
+        #         'datetime': time.time(),
+        #     }
+        #     self.service.send_command_log(data)
+        #     self.command_no += 1
 
-    def get_input(self, client_data):
-        if self.is_finish_input(client_data):
-            vim_match = self.vim_pattern.findall(self.__class__.output_data)
-            if vim_match:
-                if self.in_vim_mode or len(vim_match) == 2:
-                    self.in_vim_mode = False
-                else:
-                    self.in_vim_mode = True
-
-            if not self.in_vim_mode:
-                parser = TtyIOParser(width=request.win_width,
-                                     height=request.win_height)
-                self.input = parser.parse_input(self.__class__.output_data)
-                print('#' * 10 + 'Command' + '#' * 10)
-                print(self.input)
-                print('#' * 10 + 'End command' + '#' * 10)
-
-            self.in_input_mode = False
+    def get_input(self):
+        parser = TtyIOParser(width=request.win_width,
+                             height=request.win_height)
+        self.input = parser.parse_input(b''.join(self.input_data))
+        print('#' * 10 + 'Command' + '#' * 10)
+        print(self.input)
+        print('#' * 10 + 'End command' + '#' * 10)
 
     # Todo: App check user permission
     def validate_user_permission(self, asset, system_user):
@@ -97,40 +92,48 @@ class ProxyServer(object):
         return True
 
     def get_asset_auth(self, system_user):
-        return self.app_service.get_system_user_auth_info(system_user)
+        return self.service.get_system_user_auth_info(system_user)
 
     def connect(self, term=b'xterm', width=80, height=24, timeout=10):
         asset = self.asset
         system_user = self.system_user
         if not self.validate_user_permission(asset, system_user):
-            logger.warning('User %s have no permission connect %s with %s' % (request.user.username,
-                                                                              asset.ip, system_user.username))
+            logger.warning('User %s have no permission connect %s with %s' %
+                           (request.user.username,
+                            asset.ip, system_user.username))
             return None
         self.ssh = ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         password, private_key = self.get_asset_auth(self.system_user)
+
         data = {"username": request.user.username, "name": request.user.name,
                 "hostname": self.asset.hostname, "ip": self.asset.ip,
-                "system_user": self.system_user.username,  "login_type": "S",
-                "date_start": datetime.datetime.utcnow(), "was_failed": 0}
-        # request.proxy_log_id = proxy_log_id = api.create_proxy_log(data)
+                "system_user": self.system_user.username,  "login_type": "ST",
+                "date_start": time.time(), "was_failed": 0}
+        g.proxy_log_id = proxy_log_id = self.service.send_proxy_log(data)
         try:
-            g.client_channel.send(wr('Connecting %s@%s:%s ... ' % (system_user.username, asset.ip, asset.port)))
-            ssh.connect(hostname=asset.ip, port=asset.port, username=system_user.username,
-                        password=password, pkey=private_key, look_for_keys=False,
-                        allow_agent=True, compress=True, timeout=timeout)
+            g.client_channel.send(
+                wr('Connecting %s@%s:%s ... ' %
+                   (system_user.username, asset.ip, asset.port)))
+            ssh.connect(hostname=asset.ip, port=asset.port,
+                        username=system_user.username,
+                        password=password, pkey=private_key,
+                        look_for_keys=False, allow_agent=True,
+                        compress=True, timeout=timeout)
 
-        except (paramiko.AuthenticationException, paramiko.ssh_exception.SSHException):
-            msg = 'Connect backend server %s failed: %s' % (asset.ip, 'Auth failed')
+        except (paramiko.AuthenticationException,
+                paramiko.ssh_exception.SSHException):
+            msg = 'Connect backend server %s failed: %s' \
+                  % (asset.ip, 'Auth failed')
             logger.warning(msg)
             failed = True
 
         except socket.error:
-            msg = 'Connect backend server %s failed: %s' % (asset.ip, 'Timeout')
+            msg = 'Connect asset %s failed: %s' % (asset.ip, 'Timeout')
             logger.warning(msg)
             failed = True
         else:
-            msg = 'Connect backend server %(username)s@%(host)s:%(port)s successfully' % {
+            msg = 'Connect asset %(username)s@%(host)s:%(port)s successfully' % {
                        'username': system_user.username,
                        'host': asset.ip,
                        'port': asset.port}
@@ -140,19 +143,16 @@ class ProxyServer(object):
         if failed:
             g.client_channel.send(wr(warning(msg+'\r\n')))
             data = {
-                # "proxy_log_id": proxy_log_id,
-                "proxy_log_id": 1,
-                "date_finished": datetime.datetime.utcnow(),
+                "proxy_log_id": proxy_log_id,
+                "date_finished": time.time(),
                 "was_failed": 1
             }
-            # api.finish_proxy_log(data)
+            self.service.finish_proxy_log(data)
             return None
 
-        self.backend_channel = channel = ssh.invoke_shell(term=term, width=width, height=height)
+        self.backend_channel = channel = ssh.invoke_shell(
+            term=term, width=width, height=height)
         channel.settimeout(100)
-        channel.host = asset.ip
-        channel.port = asset.port
-        channel.username = system_user.username
         return channel
 
     def proxy(self):
@@ -171,14 +171,18 @@ class ProxyServer(object):
 
             if g.client_channel in r:
                 # Get output of the command
-                self.get_output()
-
-                client_data = g.client_channel.recv(1024)
-                self.in_input_mode = True
                 self.is_first_input = False
+                if self.in_input_state is False:
+                    self.get_output()
+                    del self.output_data[:]
 
-                # Get command
-                self.get_input(client_data)
+                self.in_input_state = True
+                client_data = g.client_channel.recv(1024)
+
+                if self.is_finish_input(client_data):
+                    self.in_input_state = False
+                    self.get_input()
+                    del self.input_data[:]
 
                 if len(client_data) == 0:
                     logger.info('Logout from ssh server %(host)s: %(username)s' % {
@@ -190,18 +194,24 @@ class ProxyServer(object):
 
             if backend_channel in r:
                 backend_data = backend_channel.recv(1024)
+                if self.in_input_state:
+                    self.input_data.append(backend_data)
+                else:
+                    self.output_data.append(backend_data)
+
                 if len(backend_data) == 0:
-                    g.client_channel.send(wr('Disconnect from %s' % backend_channel.host))
-                    logger.info('Logout from backend server %(host)s: %(username)s' % {
-                        'host': backend_channel.host,
-                        'username': backend_channel.username,
+                    g.client_channel.send(
+                        wr('Disconnect from %s' % request.asset.ip))
+                    logger.info('Logout from asset %(host)s: %(username)s' % {
+                        'host': request.asset.ip,
+                        'username': request.user.username,
                     })
                     break
-                if not self.is_first_input:
-                    self.__class__.output_data += backend_data
+
                 g.client_channel.send(backend_data)
-        # data = {
-        #         "proxy_log_id": request.proxy_log_id,
-        #         "date_finished": datetime.datetime.utcnow(),
-        #         }
-        # api.finish_proxy_log(data)
+
+        data = {
+            "proxy_log_id": g.proxy_log_id,
+            "date_finished": time.time(),
+        }
+        self.service.finish_proxy_log(data)

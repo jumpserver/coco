@@ -1,13 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-
-import os
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-
 
 class Config(object):
-    NAME = 'coco'
+    NAME = 'coco2'
     # BIND_HOST = '0.0.0.0'
     # LISTEN_PORT = 2222
     # JUMPSERVER_ENDPOINT = 'http://localhost:8080'

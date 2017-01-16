@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-import sys
-import threading
-from flask.ctx import RequestContext as RequestContextBase, AppContext as AppContextBase
+from flask.ctx import RequestContext as RequestContextBase
 from .globals import _app_ctx_stack, _request_ctx_stack
 
 
@@ -44,18 +42,12 @@ class _AppCtxGlobals(object):
     def __iter__(self):
         return iter(self.__dict__)
 
-    # def __repr__(self):
-    #     top = _app_ctx_stack.top
-    #     if top is not None:
-    #         return '<coco.g of %r>' % top.app.name
-    #     return object.__repr__(self)
-
 
 class RequestContext(RequestContextBase):
     def __init__(self, app, environ, request=None):
         self.app = app
         if request is None:
-            request = Request(environ)
+            request = app.request_class(environ)
         self.request = request
         self._implicit_app_ctx_stack = []
 
@@ -69,7 +61,7 @@ class RequestContext(RequestContextBase):
         if app_ctx is None and len(self._implicit_app_ctx_stack) > 0:
             app_ctx = self._implicit_app_ctx_stack[-1]
 
-        if app_ctx is None:  # or app_ctx.app != self.app:
+        if app_ctx is None:
             app_ctx = self.app.app_context()
             self._implicit_app_ctx_stack.append(app_ctx)
         app_ctx.push()
@@ -92,19 +84,14 @@ class RequestContext(RequestContextBase):
         self.push()
         return self
 
-    __str__ = __repr__
-
 
 class AppContext(object):
     def __init__(self, app):
         self.app = app
-        self.g = _AppCtxGlobals()
+        self.g = app.app_ctx_globals_class()
 
     def push(self):
         _app_ctx_stack.push(self)
 
     def pop(self):
         _app_ctx_stack.pop()
-
-    def copy(self):
-        return self.__class__(self, self.app)

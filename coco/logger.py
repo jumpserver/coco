@@ -28,10 +28,12 @@ def create_logger(app):
     logger_root = logging.getLogger()
     logger = logging.getLogger('coco')
 
-    main_formatter = logging.Formatter(fmt='%(asctime)s [%(module)s %(levelname)s] %(message)s',
-                                       datefmt='%Y-%m-%d %H:%M:%S')
+    main_formatter = logging.Formatter(
+        fmt='%(asctime)s [%(module)s %(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S')
     console_handler = StreamHandler()
-    file_handler = TimedRotatingFileHandler(filename=log_path, when='D', backupCount=10)
+    file_handler = TimedRotatingFileHandler(filename=log_path, when='D',
+                                            backupCount=10)
 
     for handler in [console_handler, file_handler]:
         handler.setFormatter(main_formatter)

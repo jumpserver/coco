@@ -7,7 +7,7 @@ import os
 import threading
 
 from jms import UserService
-from . import BASE_DIR  # request, g, _request_ctx_stack, _app_ctx_stack
+from . import BASE_DIR
 from .utils import ssh_key_gen
 from .globals import request, g
 from .logger import get_logger
@@ -16,7 +16,7 @@ logger = get_logger(__file__)
 
 
 class SSHInterface(paramiko.ServerInterface):
-    """Use this ssh interface to implement a ssh server
+    """使用paramiko提供的接口实现ssh server.
 
     More see paramiko ssh server demo
     https://github.com/paramiko/paramiko/blob/master/demos/demo_server.py
@@ -25,14 +25,10 @@ class SSHInterface(paramiko.ServerInterface):
 
     def __init__(self, app, rc):
         self.app = app
-        self.shell_event = threading.Event()
-        self.command_event = threading.Event()
         self.rc = rc
         rc.push()
-        g.name = 'guang'
         request.change_win_size_event = threading.Event()
-        g.user_service = UserService(app_name=self.app.config['NAME'],
-                                     endpoint=self.app.config['JUMPSERVER_ENDPOINT'])
+        g.user_service = UserService(self.app.endpoint)
 
     @classmethod
     def host_key(cls):
@@ -58,9 +54,13 @@ class SSHInterface(paramiko.ServerInterface):
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
     def check_auth_password(self, username, password):
-        user, token = g.user_service.login(username=username, password=password,
-                                           remote_addr=request.environ['REMOTE_ADDR'],
-                                           login_type='ST')
+        data = {
+            "username": username,
+            "password": password,
+            "remote_addr": request.environ['REMOTE_ADDR'],
+            "login_type": 'ST',
+        }
+        user, token = g.user_service.login(data)
         if user:
             request.user = user
             g.user_service.auth(token=token)
@@ -70,17 +70,26 @@ class SSHInterface(paramiko.ServerInterface):
             })
             return paramiko.AUTH_SUCCESSFUL
         else:
-            logger.info('Authentication password failed for %(username)s from %(host)s' % {
-                'username': username,
-                'host': request.environ['REMOTE_ADDR'],
-            })
+            logger.info('Authentication password failed for '
+                        '%(username)s from %(host)s' % {
+                            'username': username,
+                            'host': request.environ['REMOTE_ADDR'],
+                         })
         return paramiko.AUTH_FAILED
 
     def check_auth_publickey(self, username, public_key):
+        """登录时首先会使用公钥认证, 会自动扫描家目录的私钥,
+        验证账号密码, paramiko会启动新的线程, 所以需要push request context
+        """
         self.rc.push()
         public_key_s = public_key.get_base64()
-        user, token = g.user_service.login(username=username, public_key=public_key_s,
-                                           remote_addr=request.environ['REMOTE_ADDR'])
+        data = {
+            'username': username,
+            'public_key': public_key_s,
+            'remote_addr': request.environ['REMOTE_ADDR'],
+            'login_type': 'ST',
+        }
+        user, token = g.user_service.login(data)
         if user:
             g.user_service.auth(token=token)
             request.user = user
@@ -90,9 +99,10 @@ class SSHInterface(paramiko.ServerInterface):
             })
             return paramiko.AUTH_SUCCESSFUL
         else:
-            logger.info('Authentication public key failed for %(username)s from %(host)s' % {
-                'username': username,
-                'host': request.environ['REMOTE_ADDR'],
+            logger.info('Authentication public key failed for '
+                        '%(username)s from %(host)s' % {
+                            'username': username,
+                            'host': request.environ['REMOTE_ADDR'],
             })
         return paramiko.AUTH_FAILED
 
@@ -120,10 +130,12 @@ class SSHInterface(paramiko.ServerInterface):
 
     def check_channel_subsystem_request(self, channel, name):
         request.method = 'subsystem'
-        return super(SSHInterface, self).check_channel_subsystem_request(channel, name)
+        return super(SSHInterface, self)\
+            .check_channel_subsystem_request(channel, name)
 
-    def check_channel_window_change_request(self, channel, width, height, pixelwidth, pixelheight):
-        request.change_win_size_event.set()
+    def check_channel_window_change_request(self, channel, width,
+                                            height, pixelwidth, pixelheight):
         request.win_width = width
         request.win_height = height
+        request.change_win_size_event.set()
         return True
