@@ -21,7 +21,8 @@ class InteractiveServer(object):
 
     BACKSPACE_CHAR = {'\x08': '\x08\x1b[K', '\x7f': '\x08\x1b[K'}
     ENTER_CHAR = ['\r', '\n', '\r\n']
-    # UNSUPPORTED_CHAR = {b'\x15': 'Ctrl-u'}
+    UNSUPPORTED_CHAR = {'\x15': 'Ctrl-U', '\x0c': 'Ctrl-L',
+                        '\x05': 'Ctrl-E'}
     CLEAR_CHAR = '\x1b[H\x1b[2J'
     BELL_CHAR = b'\x07'
 
@@ -59,8 +60,6 @@ class InteractiveServer(object):
             r, w, x = select.select([g.client_channel], [], [])
             if g.client_channel in r:
                 data = g.client_channel.recv(1024)
-                print(repr(data))
-
                 if data in self.BACKSPACE_CHAR:
                     # If input words less than 0, should send 'BELL'
                     if len(input_data) > 0:
@@ -71,14 +70,14 @@ class InteractiveServer(object):
                     g.client_channel.send(data)
                     continue
 
-                if data.startswith(b'\x1b') or (data.startswith(r'\x') and len(data) == 1):
+                if data.startswith(b'\x1b') or data in self.UNSUPPORTED_CHAR:
                     g.client_channel.send('')
                     continue
 
                 # If user type ENTER we should get user input
                 if data in self.ENTER_CHAR:
                     g.client_channel.send(wr('', after=2))
-                    option = parser.parse_input(input_data)
+                    option = parser.parse_input(b''.join(input_data))
                     return option.strip()
                 else:
                     g.client_channel.send(data)

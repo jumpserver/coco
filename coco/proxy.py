@@ -29,6 +29,8 @@ class ProxyServer(object):
     ENTER_CHAR = ['\r', '\n', '\r\n']
     OUTPUT_END_PATTERN = re.compile(r'\x1b]0;.+@.+:.+\x07.*')
     VIM_PATTERN = re.compile(r'\x1b\[\?1049', re.X)
+    IGNORE_OUTPUT_COMMAND = [re.compile(r'^cat\s+'),
+                             re.compile(r'^tailf?\s+')]
 
     def __init__(self, app, asset, system_user):
         self.app = app
@@ -62,16 +64,16 @@ class ProxyServer(object):
         print('>' * 10 + 'Output' + '<' * 10)
         print(self.output)
         print('>' * 10 + 'End output' + '<' * 10)
-        # if self.input:
-        #     data = {
-        #         'proxy_log': g.proxy_log_id,
-        #         'command_no': self.command_no,
-        #         'command': self.input,
-        #         'output': self.output,
-        #         'datetime': time.time(),
-        #     }
-        #     self.service.send_command_log(data)
-        #     self.command_no += 1
+        if self.input:
+            data = {
+                'proxy_log': g.proxy_log_id,
+                'command_no': self.command_no,
+                'command': self.input,
+                'output': self.output,
+                'datetime': time.time(),
+            }
+            self.service.send_command_log(data)
+            self.command_no += 1
 
     def get_input(self):
         parser = TtyIOParser(width=request.win_width,
@@ -82,14 +84,9 @@ class ProxyServer(object):
         print('#' * 10 + 'End command' + '#' * 10)
 
     # Todo: App check user permission
-    def validate_user_permission(self, asset, system_user):
-        #assets = g.user_service.get_user_assets_granted(request.user)
-        #for a in assets:
-        #    if asset.id == a.id:
-        #        for s in asset.system_users:
-        #            if system_user.id == s.id:
-        #                return True
-        return True
+    def validate_user_asset_permission(self, user_id, asset_id, system_user_id):
+        return self.service.validate_user_asset_permission(
+            user_id, asset_id, system_user_id)
 
     def get_asset_auth(self, system_user):
         return self.service.get_system_user_auth_info(system_user)
@@ -97,7 +94,7 @@ class ProxyServer(object):
     def connect(self, term=b'xterm', width=80, height=24, timeout=10):
         asset = self.asset
         system_user = self.system_user
-        if not self.validate_user_permission(asset, system_user):
+        if not self.validate_user_asset_permission(asset, system_user):
             logger.warning('User %s have no permission connect %s with %s' %
                            (request.user.username,
                             asset.ip, system_user.username))
@@ -155,6 +152,12 @@ class ProxyServer(object):
         channel.settimeout(100)
         return channel
 
+    def is_match_ignore_command(self, data):
+        for pattern in self.IGNORE_OUTPUT_COMMAND:
+            if pattern.match(data):
+                return True
+        return False
+
     def proxy(self):
         self.backend_channel = backend_channel = self.connect()
 
@@ -194,8 +197,11 @@ class ProxyServer(object):
 
             if backend_channel in r:
                 backend_data = backend_channel.recv(1024)
+                # print(repr(backend_data))
                 if self.in_input_state:
                     self.input_data.append(backend_data)
+                elif self.is_match_ignore_command(self.input):
+                    pass
                 else:
                     self.output_data.append(backend_data)
 
