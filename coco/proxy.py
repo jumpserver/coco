@@ -11,6 +11,7 @@ import paramiko
 from . import wr, warning
 from .globals import request, g
 from .utils import TtyIOParser
+from tasks import send_command_log
 
 
 logger = logging.getLogger(__file__)
@@ -72,7 +73,7 @@ class ProxyServer(object):
                 'output': self.output,
                 'datetime': time.time(),
             }
-            self.service.send_command_log(data)
+            send_command_log.delay(data)
             self.command_no += 1
 
     def get_input(self):

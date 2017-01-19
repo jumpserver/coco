@@ -2,7 +2,7 @@
 #
 
 """
-    core.app
+    coco.app
     ~~~~~~~~~
 
     This module implements a ssh server and proxy with backend server
@@ -30,6 +30,7 @@ from .interactive import InteractiveServer
 from .conf import ConfigAttribute, config
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning
 from .logger import get_logger
+from .service import service
 
 logger = get_logger(__file__)
 
@@ -46,7 +47,7 @@ class Coco(AppMixin):
         self._name = name
         self.config = config
         self.sock = None
-        self.service = None
+        self.service = service
 
     @property
     def name(self):
@@ -64,21 +65,22 @@ class Coco(AppMixin):
 
     def bootstrap(self):
         """运行之前准备一些动作, 创建日志, 实例化sdk, 认证service"""
-        self.service = AppService(app_name=self.name,
-                                  endpoint=self.endpoint,
-                                  config=self.config,
-                                  )
-        self.app_auth()
-        print('Using access key %s:***' % self.service.access_key.id)
-        while True:
-            if self.service.is_authenticated():
-                logger.info('App auth passed')
-                break
-            else:
-                logger.warn('App auth failed, Access key error '
-                            'or need admin active it')
-            time.sleep(5)
-        self.heatbeat()
+        # self.service = AppService(app_name=self.name,
+        #                           endpoint=self.endpoint,
+        #                           config=self.config,
+        #                           )
+        # self.app_auth()
+        # print('Using access key %s:***' % self.service.access_key.id)
+        # while True:
+        #     if self.service.is_authenticated():
+        #         logger.info('App auth passed')
+        #         break
+        #     else:
+        #         logger.warn('App auth failed, Access key error '
+        #                     'or need admin active it')
+        #     time.sleep(5)
+        # self.heatbeat()
+        pass
 
     def process_request(self, client, addr):
         rc = self.request_context({'REMOTE_ADDR': addr[0]})

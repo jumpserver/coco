@@ -6,7 +6,8 @@ import os
 from six import string_types
 from werkzeug.utils import import_string
 
-from . import PROJECT_DIR
+# from . import PROJECT_DIR
+PROJECT_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
 class ConfigAttribute(object):
@@ -33,7 +34,7 @@ class Config(dict):
     See: https://github.com/pallets/flask/blob/master/flask/settings.py
 
         defaults_config = {
-            "NAME": "core",
+            "NAME": "coco",
             "port": 2222,
         }
 
@@ -63,7 +64,7 @@ class Config(dict):
         'HEATBEAT_INTERVAL': 5,
         'BROKER_URL': 'redis://localhost:6379',
         'CELERY_RESULT_BACKEND': 'redis://localhost:6379',
-        'CELERY_ACCEPT_CONTENT': ['json']
+        # 'CELERY_ACCEPT_CONTENT': ['json']
     }
 
     def __init__(self, defaults=default_config):

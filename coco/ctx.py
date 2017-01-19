@@ -95,3 +95,10 @@ class AppContext(object):
 
     def pop(self):
         _app_ctx_stack.pop()
+
+    def __enter__(self):
+        self.push()
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self.pop()

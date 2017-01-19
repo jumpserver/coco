@@ -5,7 +5,7 @@
 from __future__ import absolute_import
 import os
 
-from core import Coco
+from coco.app import Coco
 
 
 os.environ.setdefault('COCO_CONFIG_MODULE', 'coco.config')
