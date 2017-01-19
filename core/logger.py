@@ -7,7 +7,8 @@ import logging
 from logging import StreamHandler
 from logging.handlers import TimedRotatingFileHandler
 
-from . import BASE_DIR
+from .conf import config
+from . import PROJECT_DIR
 
 LOG_LEVELS = {
     'DEBUG': logging.DEBUG,
@@ -20,20 +21,20 @@ LOG_LEVELS = {
 }
 
 
-def create_logger(app):
-    level = app.config.get('LOG_LEVEL', None)
+def create_logger():
+    level = config.get('LOG_LEVEL', None)
     level = LOG_LEVELS.get(level, logging.INFO)
-    log_dir = app.config.get('LOG_DIR', os.path.join(BASE_DIR, 'logs'))
+    log_dir = config.get('LOG_DIR', os.path.join(PROJECT_DIR, 'logs'))
     log_path = os.path.join(log_dir, 'coco.log')
     logger_root = logging.getLogger()
-    logger = logging.getLogger('coco')
+    logger = logging.getLogger(config.get('NAME', 'coco'))
 
     main_formatter = logging.Formatter(
         fmt='%(asctime)s [%(module)s %(levelname)s] %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
     console_handler = StreamHandler()
-    file_handler = TimedRotatingFileHandler(filename=log_path, when='D',
-                                            backupCount=10)
+    file_handler = TimedRotatingFileHandler(
+        filename=log_path, when='D', backupCount=10)
 
     for handler in [console_handler, file_handler]:
         handler.setFormatter(main_formatter)
@@ -45,3 +46,5 @@ def create_logger(app):
 
 def get_logger(name):
     return logging.getLogger('coco.%s' % name)
+
+create_logger()

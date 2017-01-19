@@ -3,11 +3,18 @@
 #
 
 from __future__ import absolute_import
+import os
 
-from coco import Coco
+from core import Coco
 
-app = Coco()
 
+os.environ.setdefault('COCO_CONFIG_MODULE', 'coco.config')
+coco = Coco()
 
 if __name__ == '__main__':
-    app.run_forever()
+    try:
+        os.mkdir('logs')
+        os.mkdir('keys')
+    except:
+        pass
+    coco.run_forever()

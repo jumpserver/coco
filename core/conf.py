@@ -2,8 +2,11 @@
 # -*- coding: utf-8 -*-
 #
 
+import os
 from six import string_types
 from werkzeug.utils import import_string
+
+from . import PROJECT_DIR
 
 
 class ConfigAttribute(object):
@@ -30,7 +33,7 @@ class Config(dict):
     See: https://github.com/pallets/flask/blob/master/flask/settings.py
 
         defaults_config = {
-            "NAME": "coco",
+            "NAME": "core",
             "port": 2222,
         }
 
@@ -42,7 +45,28 @@ class Config(dict):
 
     """
 
-    def __init__(self, defaults=None):
+    default_config = {
+        'NAME': 'coco',
+        'BIND_HOST': '0.0.0.0',
+        'LISTEN_PORT': 2222,
+        'JUMPSERVER_ENDPOINT': 'http://localhost:8080',
+        'DEBUG': True,
+        'SECRET_KEY': '2vym+ky!997d5kkcc64mnz06y1mmui3lut#(^wd=%s_qj$1%x',
+        'ACCESS_KEY': None,
+        'ACCESS_KEY_ENV': 'COCO_ACCESS_KEY',
+        'ACCESS_KEY_STORE': os.path.join(PROJECT_DIR, 'keys', '.access_key'),
+        'LOG_LEVEL': 'DEBUG',
+        'LOG_DIR': os.path.join(PROJECT_DIR, 'logs'),
+        'ASSET_LIST_SORT_BY': 'ip',
+        'SSH_PASSWORD_AUTH': True,
+        'SSH_PUBLIC_KEY_AUTH': True,
+        'HEATBEAT_INTERVAL': 5,
+        'BROKER_URL': 'redis://localhost:6379',
+        'CELERY_RESULT_BACKEND': 'redis://localhost:6379',
+        'CELERY_ACCEPT_CONTENT': ['json']
+    }
+
+    def __init__(self, defaults=default_config):
         super(Config, self).__init__(defaults or {})
 
     def from_object(self, obj):
@@ -65,3 +89,8 @@ class Config(dict):
             return self.__getitem__(item)
         except KeyError:
             return self.__getitem__(item.upper())
+
+
+config = Config()
+config.from_object(os.environ.get('COCO_CONFIG_MODULE', object()))
+

@@ -7,7 +7,7 @@ import os
 import threading
 
 from jms import UserService
-from . import BASE_DIR
+from . import PROJECT_DIR
 from .utils import ssh_key_gen
 from .globals import request, g
 from .logger import get_logger
@@ -21,7 +21,7 @@ class SSHInterface(paramiko.ServerInterface):
     More see paramiko ssh server demo
     https://github.com/paramiko/paramiko/blob/master/demos/demo_server.py
     """
-    host_key_path = os.path.join(BASE_DIR, 'keys', 'host_rsa_key')
+    host_key_path = os.path.join(PROJECT_DIR, 'keys', 'host_rsa_key')
 
     def __init__(self, app, rc):
         self.app = app
@@ -29,10 +29,6 @@ class SSHInterface(paramiko.ServerInterface):
         rc.push()
         request.change_win_size_event = threading.Event()
         g.user_service = UserService(self.app.endpoint)
-
-    @classmethod
-    def host_key(cls):
-        return cls.get_host_key()
 
     @classmethod
     def get_host_key(cls):

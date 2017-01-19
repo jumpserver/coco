@@ -2,7 +2,7 @@
 #
 
 """
-    coco.app
+    core.app
     ~~~~~~~~~
 
     This module implements a ssh server and proxy with backend server
@@ -12,54 +12,31 @@
 """
 
 from __future__ import unicode_literals
-import os
-import time
 import sys
+import time
 import threading
 import traceback
 import socket
-from celery import Celery
 
 import paramiko
 from jms import AppService
 from jms.mixin import AppMixin
 
-from . import BASE_DIR, __version__, wr, warning
+from . import __version__
 from .ctx import RequestContext, AppContext, Request, _AppCtxGlobals
 from .globals import request, g
 from .interface import SSHInterface
 from .interactive import InteractiveServer
-from .config import ConfigAttribute, Config
-from .logger import create_logger, get_logger
+from .conf import ConfigAttribute, config
+from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning
+from .logger import get_logger
 
 logger = get_logger(__file__)
 
 
 class Coco(AppMixin):
-    config_class = Config
     request_class = Request
     app_ctx_globals_class = _AppCtxGlobals
-    default_config = {
-        'NAME': 'coco',
-        'BIND_HOST': '0.0.0.0',
-        'LISTEN_PORT': 2222,
-        'JUMPSERVER_ENDPOINT': 'http://localhost:8080',
-        'DEBUG': True,
-        'SECRET_KEY': '2vym+ky!997d5kkcc64mnz06y1mmui3lut#(^wd=%s_qj$1%x',
-        'ACCESS_KEY': None,
-        'ACCESS_KEY_ENV': 'COCO_ACCESS_KEY',
-        'ACCESS_KEY_STORE': os.path.join(BASE_DIR, 'keys', '.access_key'),
-        'LOG_LEVEL': 'DEBUG',
-        'LOG_DIR': os.path.join(BASE_DIR, 'logs'),
-        'ASSET_LIST_SORT_BY': 'ip',
-        'SSH_PASSWORD_AUTH': True,
-        'SSH_PUBLIC_KEY_AUTH': True,
-        'HEATBEAT_INTERVAL': 5,
-        'BROKER_URL': 'redis://localhost:6379',
-        'CELERY_RESULT_BACKEND': 'redis://localhost:6379',
-        'CELERY_ACCEPT_CONTENT': ['json']
-    }
-
     endpoint = ConfigAttribute('JUMPSERVER_ENDPOINT')
     debug = ConfigAttribute('DEBUG')
     host = ConfigAttribute('BIND_HOST')
@@ -67,7 +44,7 @@ class Coco(AppMixin):
 
     def __init__(self, name=None):
         self._name = name
-        self.config = self.config_class(defaults=self.default_config)
+        self.config = config
         self.sock = None
         self.service = None
 
@@ -87,11 +64,14 @@ class Coco(AppMixin):
 
     def bootstrap(self):
         """运行之前准备一些动作, 创建日志, 实例化sdk, 认证service"""
-        create_logger(self)
-        self.service = AppService(app_name=self.name, endpoint=self.endpoint)
+        self.service = AppService(app_name=self.name,
+                                  endpoint=self.endpoint,
+                                  config=self.config,
+                                  )
         self.app_auth()
+        print('Using access key %s:***' % self.service.access_key.id)
         while True:
-            if self.service.check_auth():
+            if self.service.is_authenticated():
                 logger.info('App auth passed')
                 break
             else:
@@ -162,7 +142,8 @@ class Coco(AppMixin):
         while True:
             try:
                 client, addr = sock.accept()
-                thread = threading.Thread(target=self.process_request, args=(client, addr))
+                thread = threading.Thread(target=self.process_request,
+                                          args=(client, addr))
                 thread.daemon = True
                 thread.start()
             except Exception as e:

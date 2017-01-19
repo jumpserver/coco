@@ -94,7 +94,8 @@ class ProxyServer(object):
     def connect(self, term=b'xterm', width=80, height=24, timeout=10):
         asset = self.asset
         system_user = self.system_user
-        if not self.validate_user_asset_permission(asset, system_user):
+        if not self.validate_user_asset_permission(
+                request.user.id, asset.id, system_user.id):
             logger.warning('User %s have no permission connect %s with %s' %
                            (request.user.username,
                             asset.ip, system_user.username))
