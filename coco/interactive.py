@@ -6,10 +6,10 @@ import re
 import socket
 import logging
 
-from . import wr, primary, info, warning, title, cml
 from .proxy import ProxyServer
 from .globals import request, g
-from .utils import TtyIOParser
+from .utils import TtyIOParser, system_user_max_length
+from . import wr, primary, warning, title, max_length
 
 logger = logging.getLogger(__file__)
 
@@ -132,11 +132,10 @@ class InteractiveServer(object):
             else:
                 self.search_result = [
                     asset for asset in assets if option == asset.ip
-                ] or [
-                    asset for asset in assets
-                        if option in asset.ip or
-                           option in asset.hostname.lower() or
-                           option in asset.comment.lower()
+                ] or [asset for asset in assets
+                          if option in asset.ip or
+                             option in asset.hostname.lower() or
+                             option in asset.comment.lower()
                 ]
         else:
             self.search_result = self.assets
@@ -157,17 +156,18 @@ class InteractiveServer(object):
     def display_asset_groups(self):
         """打印授权的资产组"""
         self.asset_groups = self.get_my_asset_groups()
-        name_max_length = cml([asset_group.name for asset_group
-                               in self.asset_groups], max_length=20)
-        comment_max_length = cml([asset_group.comment for asset_group
-                                  in self.asset_groups], max_length=30)
+        name_max_length = max_length([asset_group.name for asset_group
+                                      in self.asset_groups], max_=20)
+        comment_max_length = max_length([asset_group.comment for asset_group
+                                         in self.asset_groups], max_=30)
         line = '[%-3s] %-' + str(name_max_length) + 's %-6s  %-' \
                + str(comment_max_length) + 's'
         g.client_channel.send(wr(title(line % ('ID', 'Name', 'Assets', 'Comment'))))
         for index, asset_group in enumerate(self.asset_groups):
-            g.client_channel.send(wr(line % (index, asset_group.name,
-                                           asset_group.assets_amount,
-                                           asset_group.comment[:comment_max_length])))
+            g.client_channel.send(wr(line % (
+                index, asset_group.name,
+                asset_group.assets_amount,
+                asset_group.comment[:comment_max_length])))
         g.client_channel.send(wr(''))
 
     def display_asset_group_asset(self, option):
@@ -181,7 +181,8 @@ class InteractiveServer(object):
                     get_assets_in_group(asset_group.id)
                 self.display_search_result()
                 self.dispatch(twice=True)
-        g.client_channel.send(wr(warning('No asset group match, please input again')))
+        g.client_channel.send(wr(warning(
+            'No asset group match, please input again')))
 
     def display_search_result(self):
         """打印搜索的结果"""
@@ -190,15 +191,21 @@ class InteractiveServer(object):
         if not self.search_result:
             self.search_result = self.assets
 
-        hostname_max_length = cml([asset.hostname for asset in self.search_result])
-        line = '[%-4s] %-16s %-5s %-' + str(hostname_max_length) + 's %-10s' + '%-' + str((request.win_width-30-16-5-hostname_max_length)) + 's'
-        # line = '[id:4] {hostname:4} {ip:16} {port:5} {} '
-        g.client_channel.send(wr(title(line % ('ID', 'IP', 'Port', 'Hostname', 'Username', 'Comment'))))
+        hostname_length = max_length([asset.hostname for asset in self.search_result])
+        system_user_length = system_user_max_length(self.assets)
+        line = '[%-4s] %-16s %-5s %-' + str(hostname_length) + 's %-' + str(system_user_length+2) + 's '
+        comment_length = request.win_width-len(line % ((' ',) * 5))
+        line += ('%-' + str(comment_length) + 's')
+        g.client_channel.send(wr(title(line % (
+            'ID', 'IP', 'Port', 'Hostname', 'Username', 'Comment'))))
 
         for index, asset in enumerate(self.search_result):
-            system_users = '[' + ', '.join([system_user.username for system_user in asset.system_users]) + ']'
-            g.client_channel.send(wr(line % (index, asset.ip, asset.port, asset.hostname,
-                                             system_users, asset.comment)))
+            system_users = '[' + ', '.join(
+                [system_user.username for system_user in asset.system_users]) \
+                + ']'
+            g.client_channel.send(wr(
+                line % (index, asset.ip, asset.port, asset.hostname,
+                        system_users, asset.comment)))
         g.client_channel.send(wr(''))
 
     def search_and_display(self, option):

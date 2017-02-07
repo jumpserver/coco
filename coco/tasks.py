@@ -25,3 +25,8 @@ while True:
 @app.task
 def send_command_log(data):
     service.send_command_log(data)
+
+
+@app.task
+def send_record_log(data):
+    service.send_record_log(data)

@@ -11,7 +11,7 @@ import paramiko
 from . import wr, warning
 from .globals import request, g
 from .utils import TtyIOParser
-from tasks import send_command_log
+from .tasks import send_command_log, send_record_log
 
 
 logger = logging.getLogger(__file__)
@@ -67,11 +67,14 @@ class ProxyServer(object):
         print('>' * 10 + 'End output' + '<' * 10)
         if self.input:
             data = {
-                'proxy_log': g.proxy_log_id,
+                'proxy_log_id': g.proxy_log_id,
+                'user': request.user.username,
+                'asset': request.asset.ip,
+                'system_user': request.system_user.username,
                 'command_no': self.command_no,
                 'command': self.input,
                 'output': self.output,
-                'datetime': time.time(),
+                'timestamp': time.time(),
             }
             send_command_log.delay(data)
             self.command_no += 1
@@ -105,10 +108,9 @@ class ProxyServer(object):
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         password, private_key = self.get_asset_auth(self.system_user)
 
-        data = {"username": request.user.username, "name": request.user.name,
-                "hostname": self.asset.hostname, "ip": self.asset.ip,
+        data = {"user": request.user.username, "asset": self.asset.ip,
                 "system_user": self.system_user.username,  "login_type": "ST",
-                "date_start": time.time(), "was_failed": 0}
+                "date_start": time.time(), "is_failed": 0}
         g.proxy_log_id = proxy_log_id = self.service.send_proxy_log(data)
         try:
             g.client_channel.send(
@@ -199,7 +201,6 @@ class ProxyServer(object):
 
             if backend_channel in r:
                 backend_data = backend_channel.recv(1024)
-                # print(repr(backend_data))
                 if self.in_input_state:
                     self.input_data.append(backend_data)
                 elif self.is_match_ignore_command(self.input):
@@ -217,6 +218,12 @@ class ProxyServer(object):
                     break
 
                 g.client_channel.send(backend_data)
+                record_data = {
+                    'proxy_log_id': g.proxy_log_id,
+                    'output': backend_data,
+                    'timestamp': time.time(),
+                }
+                send_record_log.delay(record_data)
 
         data = {
             "proxy_log_id": g.proxy_log_id,

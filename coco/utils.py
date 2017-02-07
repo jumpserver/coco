@@ -210,14 +210,33 @@ def gen_uuid():
     return uuid.uuid4().get_hex()
 
 
-def compute_max_length(object_list, max_length=30):
+def max_length(object_list, max_=30):
     try:
-        length = max([len(obj) for obj in object_list])
+        length = max([len(obj.encode('utf-8')) for obj in object_list])
     except ValueError:
-        length = max_length
+        length = max_
 
-    if length > max_length:
-        return max_length
+    if length > max_:
+        return max_
+    else:
+        return length
+
+
+def system_user_max_length(asset_list, max_=30):
+    system_users_username = []
+    for asset in asset_list:
+        asset_system_user = []
+        for system_user in asset.system_users_granted:
+            asset_system_user.append(system_user.username)
+        system_users_username.append(', '.join(asset_system_user))
+
+    try:
+        length = max(len(s) for s in system_users_username)
+    except ValueError:
+        length = max_
+
+    if length > max_:
+        return max_
     else:
         return length
 

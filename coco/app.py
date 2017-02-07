@@ -19,7 +19,6 @@ import traceback
 import socket
 
 import paramiko
-from jms import AppService
 from jms.mixin import AppMixin
 
 from . import __version__
