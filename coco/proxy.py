@@ -11,7 +11,7 @@ import paramiko
 from . import wr, warning
 from .globals import request, g
 from .utils import TtyIOParser
-from .tasks import send_command_log, send_record_log
+from .tasks import command_queue, record_queue
 
 
 logger = logging.getLogger(__file__)
@@ -62,9 +62,6 @@ class ProxyServer(object):
         parser = TtyIOParser(width=request.win_width,
                              height=request.win_height)
         self.output = parser.parse_output(b''.join(self.output_data))
-        print('>' * 10 + 'Output' + '<' * 10)
-        print(self.output)
-        print('>' * 10 + 'End output' + '<' * 10)
         if self.input:
             data = {
                 'proxy_log_id': g.proxy_log_id,
@@ -73,19 +70,16 @@ class ProxyServer(object):
                 'system_user': request.system_user.username,
                 'command_no': self.command_no,
                 'command': self.input,
-                'output': self.output,
+                'output': self.output[:100],
                 'timestamp': time.time(),
             }
-            send_command_log.delay(data)
+            command_queue.put(data)
             self.command_no += 1
 
     def get_input(self):
         parser = TtyIOParser(width=request.win_width,
                              height=request.win_height)
         self.input = parser.parse_input(b''.join(self.input_data))
-        print('#' * 10 + 'Command' + '#' * 10)
-        print(self.input)
-        print('#' * 10 + 'End command' + '#' * 10)
 
     # Todo: App check user permission
     def validate_user_asset_permission(self, user_id, asset_id, system_user_id):
@@ -203,8 +197,6 @@ class ProxyServer(object):
                 backend_data = backend_channel.recv(1024)
                 if self.in_input_state:
                     self.input_data.append(backend_data)
-                elif self.is_match_ignore_command(self.input):
-                    pass
                 else:
                     self.output_data.append(backend_data)
 
@@ -218,12 +210,16 @@ class ProxyServer(object):
                     break
 
                 g.client_channel.send(backend_data)
+                if self.is_match_ignore_command(self.input):
+                    output = 'ignore output ...'
+                else:
+                    output = backend_data
                 record_data = {
                     'proxy_log_id': g.proxy_log_id,
-                    'output': backend_data,
+                    'output': output,
                     'timestamp': time.time(),
                 }
-                send_record_log.delay(record_data)
+                record_queue.put(record_data)
 
         data = {
             "proxy_log_id": g.proxy_log_id,
