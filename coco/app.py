@@ -41,6 +41,8 @@ class Coco(AppMixin):
     debug = ConfigAttribute('DEBUG')
     host = ConfigAttribute('BIND_HOST')
     port = ConfigAttribute('LISTEN_PORT')
+    # {proxy_log_id: [client_channel, backend_channel], }
+    proxy_list = {}
 
     def __init__(self, name=None):
         self._name = name
@@ -62,24 +64,30 @@ class Coco(AppMixin):
     def request_context(self, environ):
         return RequestContext(self, environ)
 
+    def handle_task(self, tasks):
+        for task in tasks:
+            if task['name'] == 'kill_proxy':
+                proxy_log_id = task['proxy_log_id']
+                try:
+                    backend_channel = self.proxy_list.get(proxy_log_id)[1]
+                    backend_channel.close()
+                except IndexError:
+                    pass
+
+    def heatbeat(self):
+        def _keep():
+            while True:
+                result = service.terminal_heatbeat()
+                if result is None:
+                    logger.warning('Terminal heatbeat failed or '
+                                   'Terminal need accepted by administrator')
+        thread = threading.Thread(target=_keep)
+        thread.daemon = True
+        thread.start()
+
     def bootstrap(self):
         """运行之前准备一些动作, 创建日志, 实例化sdk, 认证service"""
-        # self.service = AppService(app_name=self.name,
-        #                           endpoint=self.endpoint,
-        #                           config=self.config,
-        #                           )
-        # self.app_auth()
-        # print('Using access key %s:***' % self.service.access_key.id)
-        # while True:
-        #     if self.service.is_authenticated():
-        #         logger.info('App auth passed')
-        #         break
-        #     else:
-        #         logger.warn('App auth failed, Access key error '
-        #                     'or need admin active it')
-        #     time.sleep(5)
-        # self.heatbeat()
-        pass
+        self.heatbeat()
 
     def process_request(self, client, addr):
         rc = self.request_context({'REMOTE_ADDR': addr[0]})

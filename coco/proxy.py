@@ -158,6 +158,7 @@ class ProxyServer(object):
 
     def proxy(self):
         self.backend_channel = backend_channel = self.connect()
+        self.app.proxy_list[g.proxy_log_id] = [g.client_channel, backend_channel]
 
         if backend_channel is None:
             return

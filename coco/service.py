@@ -42,19 +42,4 @@ def auth_it():
                         'or need admin active it')
             time.sleep(5)
 
-
-def keep_heatbeat():
-    def _keep():
-        while True:
-            result = service.terminal_heatbeat()
-            if not result:
-                logger.warning('Terminal heatbeat failed or '
-                               'Terminal need accepted by administrator')
-            time.sleep(service.config['HEATBEAT_INTERVAL'])
-
-    thread = threading.Thread(target=_keep, args=())
-    thread.daemon = True
-    thread.start()
-
 auth_it()
-keep_heatbeat()
