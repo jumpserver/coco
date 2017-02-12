@@ -67,12 +67,15 @@ class Coco(AppMixin):
     def handle_task(self, tasks):
         for task in tasks:
             if task['name'] == 'kill_proxy':
-                proxy_log_id = task['proxy_log_id']
                 try:
-                    backend_channel = self.proxy_list.get(proxy_log_id)[1]
-                    backend_channel.close()
-                except IndexError:
+                    proxy_log_id = int(task['proxy_log_id'])
+                except ValueError:
                     pass
+                if proxy_log_id in self.proxy_list:
+                    client_channel, backend_channel = self.proxy_list.get(proxy_log_id)
+                    client_channel.send('Terminated by admin  ')
+                    backend_channel.close()
+                    client_channel.close()
 
     def heatbeat(self):
         def _keep():
@@ -81,12 +84,16 @@ class Coco(AppMixin):
                 if result is None:
                     logger.warning('Terminal heatbeat failed or '
                                    'Terminal need accepted by administrator')
+                else:
+                    tasks = result.get('tasks')
+                    if tasks:
+                        self.handle_task(tasks)
+                time.sleep(config.HEATBEAT_INTERVAL)
         thread = threading.Thread(target=_keep)
         thread.daemon = True
         thread.start()
 
     def bootstrap(self):
-        """运行之前准备一些动作, 创建日志, 实例化sdk, 认证service"""
         self.heatbeat()
 
     def process_request(self, client, addr):

@@ -164,7 +164,10 @@ class ProxyServer(object):
             return
 
         while True:
-            r, w, x = select.select([g.client_channel, backend_channel], [], [])
+            try:
+                r, w, x = select.select([g.client_channel, backend_channel], [], [])
+            except:
+                pass
 
             if request.change_win_size_event.is_set():
                 request.change_win_size_event.clear()
