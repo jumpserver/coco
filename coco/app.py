@@ -124,6 +124,11 @@ class Coco(AppMixin):
 
         if request.method == 'shell':
             logger.info('Client asked for a shell.')
+            while True:
+                data = _client_channel.recv(1024)
+                if data:
+                    print(data)
+                time.sleep(1)
             InteractiveServer(self).run()
         elif request.method == 'command':
             _client_channel.send(wr(warning('We are not support command now')))
