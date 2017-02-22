@@ -30,11 +30,12 @@ from .conf import ConfigAttribute, config
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning
 from .logger import get_logger
 from .service import service
+from .conf import config
 
 logger = get_logger(__file__)
 
 
-class Coco(AppMixin):
+class Coco(object):
     request_class = Request
     app_ctx_globals_class = _AppCtxGlobals
     endpoint = ConfigAttribute('JUMPSERVER_ENDPOINT')

@@ -147,7 +147,7 @@ class InteractiveServer(object):
     @staticmethod
     def get_my_asset_groups():
         """获取用户授权的资产组"""
-        return g.user_service.get_my_asset_groups()
+        return g.useservice.get_my_asset_groups()
 
     @staticmethod
     def get_my_assets():

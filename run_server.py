@@ -9,7 +9,6 @@ from coco.app import Coco
 from coco.tasks import command_task, record_task
 
 
-os.environ.setdefault('COCO_CONFIG_MODULE', 'coco.config')
 coco = Coco()
 
 if __name__ == '__main__':

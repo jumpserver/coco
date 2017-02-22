@@ -5,9 +5,16 @@
 import os
 from six import string_types
 from werkzeug.utils import import_string
+import sys
 
 # from . import PROJECT_DIR
 PROJECT_DIR = os.path.dirname(os.path.dirname(__file__))
+sys.path.append(PROJECT_DIR)
+
+try:
+    import config as custom_config
+except ImportError:
+    custom_config = object()
 
 
 class ConfigAttribute(object):
@@ -93,5 +100,5 @@ class Config(dict):
 
 
 config = Config()
-config.from_object(os.environ.get('COCO_CONFIG_MODULE', object()))
+config.from_object(custom_config)
 
