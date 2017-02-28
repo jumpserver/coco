@@ -52,47 +52,6 @@ class Signer(object):
         return s.loads(value)
 
 
-class TtyIOParser(object):
-    def __init__(self, width=80, height=24):
-        self.screen = pyte.Screen(width, height)
-        self.stream = pyte.ByteStream()
-        self.stream.attach(self.screen)
-        self.ps1_pattern = re.compile(r'^\[?.*@.*\]?[\$#]\s|mysql>\s')
-
-    def clean_ps1_etc(self, command):
-        return self.ps1_pattern.sub('', command)
-
-    def parse_output(self, data, sep='\n'):
-        output = []
-        if not isinstance(data, bytes):
-            data = data.encode('utf-8', 'ignore')
-
-        self.stream.feed(data)
-        for line in self.screen.display:
-            if line.strip():
-                output.append(line)
-        self.screen.reset()
-        return sep.join(output[0:-1])
-
-    def parse_input(self, data):
-        command = []
-        if not isinstance(data, bytes):
-            data = data.encode('utf-8', 'ignore')
-
-        self.stream.feed(data)
-        for line in self.screen.display:
-            line = line.strip()
-            if line:
-                command.append(line)
-        if command:
-            command = command[-1]
-        else:
-            command = ''
-        self.screen.reset()
-        command = self.clean_ps1_etc(command)
-        return command
-
-
 def ssh_key_string_to_obj(text):
     key_f = StringIO.StringIO(text)
     key = None
@@ -150,60 +109,6 @@ def ssh_key_gen(length=2048, type='rsa', password=None, username='jumpserver', h
     except IOError:
         raise IOError('These is error when generate ssh key.')
 
-
-def wrap_with_line_feed(s, before=0, after=1):
-    return '\r\n' * before + s + '\r\n' * after
-
-
-def wrap_with_color(text, color='white', background=None, bolder=False, underline=False):
-    bolder_ = '1'
-    underline_ = '4'
-    color_map = {
-        'black': '30',
-        'red': '31',
-        'green': '32',
-        'brown': '33',
-        'blue': '34',
-        'purple': '35',
-        'cyan': '36',
-        'white': '37',
-    }
-    background_map = {
-        'black': '40',
-        'red': '41',
-        'green': '42',
-        'brown': '43',
-        'blue': '44',
-        'purple': '45',
-        'cyan': '46',
-        'white': '47',
-    }
-
-    wrap_with = []
-    if bolder:
-        wrap_with.append(bolder_)
-    if underline:
-        wrap_with.append(underline_)
-    if background:
-        wrap_with.append(background_map.get(background, ''))
-    wrap_with.append(color_map.get(color, ''))
-    return '\033[' + ';'.join(wrap_with) + 'm' + text + '\033[0m'
-
-
-def wrap_with_warning(text, bolder=False):
-    return wrap_with_color(text, color='red', bolder=bolder)
-
-
-def wrap_with_info(text, bolder=False):
-    return wrap_with_color(text, color='brown', bolder=bolder)
-
-
-def wrap_with_primary(text, bolder=False):
-    return wrap_with_color(text, color='green', bolder=bolder)
-
-
-def wrap_with_title(text):
-    return wrap_with_color(text, color='black', background='green')
 
 
 def gen_uuid():

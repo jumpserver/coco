@@ -19,7 +19,6 @@ import traceback
 import socket
 
 import paramiko
-from jms.mixin import AppMixin
 
 from . import __version__
 from .ctx import RequestContext, AppContext, Request, _AppCtxGlobals
@@ -27,7 +26,7 @@ from .globals import request, g
 from .interface import SSHInterface
 from .interactive import InteractiveServer
 from .conf import ConfigAttribute, config
-from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning
+from jms.utils import wrap_with_line_feed as wr, wrap_with_warning as warning
 from .logger import get_logger
 from .service import service
 from .conf import config
@@ -125,11 +124,6 @@ class Coco(object):
 
         if request.method == 'shell':
             logger.info('Client asked for a shell.')
-            while True:
-                data = _client_channel.recv(1024)
-                if data:
-                    print(data)
-                time.sleep(1)
             InteractiveServer(self).run()
         elif request.method == 'command':
             _client_channel.send(wr(warning('We are not support command now')))

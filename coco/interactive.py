@@ -8,8 +8,10 @@ import logging
 
 from .proxy import ProxyServer
 from .globals import request, g
-from .utils import TtyIOParser, system_user_max_length
-from . import wr, primary, warning, title, max_length
+from jms.utils import TtyIOParser
+from .utils import system_user_max_length, max_length
+from jms.utils import wrap_with_line_feed as wr, wrap_with_primary as primary,\
+    wrap_with_warning as warning, wrap_with_title as title
 
 logger = logging.getLogger(__file__)
 
@@ -147,7 +149,7 @@ class InteractiveServer(object):
     @staticmethod
     def get_my_asset_groups():
         """获取用户授权的资产组"""
-        return g.useservice.get_my_asset_groups()
+        return g.use_service.get_my_asset_groups()
 
     @staticmethod
     def get_my_assets():

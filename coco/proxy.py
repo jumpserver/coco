@@ -8,9 +8,9 @@ import select
 
 import paramiko
 
-from . import wr, warning
+from jms.utils import wrap_with_line_feed as wr, wrap_with_warning as warning
+from jms.utils import TtyIOParser
 from .globals import request, g
-from .utils import TtyIOParser
 from .tasks import command_queue, record_queue
 
 
@@ -214,16 +214,17 @@ class ProxyServer(object):
                     break
 
                 g.client_channel.send(backend_data)
-                if self.is_match_ignore_command(self.input):
-                    output = 'ignore output ...'
-                else:
-                    output = backend_data
-                record_data = {
-                    'proxy_log_id': g.proxy_log_id,
-                    'output': output,
-                    'timestamp': time.time(),
-                }
-                record_queue.put(record_data)
+                # Todo: record log send
+                # if self.is_match_ignore_command(self.input):
+                #     output = 'ignore output ...'
+                # else:
+                #     output = backend_data
+                # record_data = {
+                #     'proxy_log_id': g.proxy_log_id,
+                #     'output': output,
+                #     'timestamp': time.time(),
+                # }
+                # record_queue.put(record_data)
 
         data = {
             "proxy_log_id": g.proxy_log_id,

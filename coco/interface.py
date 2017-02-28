@@ -49,17 +49,24 @@ class SSHInterface(paramiko.ServerInterface):
             return paramiko.OPEN_SUCCEEDED
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
-    def check_auth_password(self, username, password):
+    def check_auth(self, username, password=None, public_key=None):
+        self.rc.push()
         data = {
             "username": username,
             "password": password,
-            "remote_addr": request.environ['REMOTE_ADDR'],
-            "login_type": 'ST',
+            "public_key": public_key,
+            "login_type": 'ST'
         }
         user, token = g.user_service.login(data)
         if user:
             request.user = user
             g.user_service.auth(token=token)
+            return True
+        else:
+            return False
+
+    def check_auth_password(self, username, password):
+        if self.check_auth(username, password=password):
             logger.info('Accepted password for %(username)s from %(host)s' % {
                 'username': username,
                 'host': request.environ['REMOTE_ADDR'],
@@ -77,18 +84,8 @@ class SSHInterface(paramiko.ServerInterface):
         """登录时首先会使用公钥认证, 会自动扫描家目录的私钥,
         验证账号密码, paramiko会启动新的线程, 所以需要push request context
         """
-        self.rc.push()
         public_key_s = public_key.get_base64()
-        data = {
-            'username': username,
-            'public_key': public_key_s,
-            'remote_addr': request.environ['REMOTE_ADDR'],
-            'login_type': 'ST',
-        }
-        user, token = g.user_service.login(data)
-        if user:
-            g.user_service.auth(token=token)
-            request.user = user
+        if self.check_auth(username, public_key=public_key_s):
             logger.info('Accepted public key for %(username)s from %(host)s' % {
                 'username': username,
                 'host': request.environ['REMOTE_ADDR'],
