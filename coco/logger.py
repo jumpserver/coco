@@ -27,7 +27,7 @@ def create_logger():
     log_dir = config.get('LOG_DIR', os.path.join(PROJECT_DIR, 'logs'))
     log_path = os.path.join(log_dir, 'coco.log')
     logger_root = logging.getLogger()
-    logger = logging.getLogger(config.get('NAME', 'coco'))
+    logger = logging.getLogger('coco')
 
     main_formatter = logging.Formatter(
         fmt='%(asctime)s [%(module)s %(levelname)s] %(message)s',

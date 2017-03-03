@@ -4,7 +4,7 @@ import os
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # 项目名称, 会用来向Jumpserver注册
-NAME = 'coco4'
+NAME = 'coco'
 
 # Jumpserver项目的url, api请求注册会使用
 # JUMPSERVER_ENDPOINT = 'http://localhost:8080'

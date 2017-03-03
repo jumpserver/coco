@@ -5,6 +5,7 @@ import select
 import re
 import socket
 import logging
+import threading
 
 from .proxy import ProxyServer
 from .globals import request, g
@@ -32,7 +33,9 @@ class InteractiveServer(object):
         self.app = app
         self.service = app.service
         self.backend_server = None
+        self.client_channel = g.client_channel
         self.backend_channel = None
+        self.user = request.user
         self.assets = self.get_my_assets()
         self.asset_groups = self.get_my_asset_groups()
         self.search_result = []
@@ -149,7 +152,7 @@ class InteractiveServer(object):
     @staticmethod
     def get_my_asset_groups():
         """获取用户授权的资产组"""
-        return g.use_service.get_my_asset_groups()
+        return g.user_service.get_my_asset_groups()
 
     @staticmethod
     def get_my_assets():
@@ -260,7 +263,9 @@ class InteractiveServer(object):
 
     def return_to_proxy(self, asset, system_user):
         """开始登录资产, 使用ProxyServer连接到后端资产"""
-        proxy_server = ProxyServer(self.app, asset, system_user)
+        stop_event = threading.Event()
+        proxy_server = ProxyServer(self.app, self.user, asset, system_user,
+                                   self.client_channel, stop_event=stop_event)
         proxy_server.proxy()
 
     def run(self):
