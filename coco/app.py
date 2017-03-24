@@ -73,7 +73,13 @@ class Coco(object):
                     pass
                 if proxy_log_id in self.proxy_list:
                     client_channel, backend_channel = self.proxy_list.get(proxy_log_id)
+                    logger.info('Terminate session {}'.format(proxy_log_id))
                     client_channel.send('Terminated by admin  ')
+                    data = {
+                        "proxy_log_id": proxy_log_id,
+                        "date_finished": time.time(),
+                    }
+                    self.service.finish_proxy_log(data)
                     backend_channel.close()
                     client_channel.close()
 

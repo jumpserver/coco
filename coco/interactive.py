@@ -199,7 +199,7 @@ class InteractiveServer(object):
         hostname_length = max_length([asset.hostname for asset in self.search_result])
         system_user_length = system_user_max_length(self.assets)
         line = '[%-4s] %-16s %-5s %-' + str(hostname_length) + 's %-' + str(system_user_length+2) + 's '
-        comment_length = request.win_width-len(line % ((' ',) * 5))
+        comment_length = request.win_width-len(line % ((' ',) * 5)) - 5
         line += ('%-' + str(comment_length) + 's')
         g.client_channel.send(wr(title(line % (
             'ID', 'IP', 'Port', 'Hostname', 'Username', 'Comment'))))

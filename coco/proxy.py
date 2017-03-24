@@ -11,7 +11,6 @@ import paramiko
 
 from jms.utils import wrap_with_line_feed as wr, wrap_with_warning as warning
 from jms.utils import TtyIOParser
-from .globals import request, g
 from .tasks import command_queue, record_queue
 
 
@@ -91,8 +90,6 @@ class ProxyServer(object):
         self.input = parser.parse_input(b''.join(self.input_data))
 
     def validate_user_asset_permission(self):
-        # Todo: Only test
-        return True
         return self.service.validate_user_asset_permission(
             self.user.id, self.asset.id, self.system_user.id)
 
@@ -119,7 +116,7 @@ class ProxyServer(object):
         password, private_key = self.get_asset_auth(system_user)
 
         data = {"user": user.username, "asset": asset.ip,
-                "system_user": system_user.username,  "login_type": "WT",
+                "system_user": system_user.username,  "login_type": "ST",
                 "date_start": time.time(), "is_failed": 0}
         self.proxy_log_id = proxy_log_id = self.service.send_proxy_log(data)
         self.app.proxy_list[proxy_log_id] = self.client_channel, self.backend_channel
@@ -176,14 +173,18 @@ class ProxyServer(object):
     def proxy(self):
         self.backend_channel = backend_channel = self.connect()
         client_channel = self.client_channel
-        self.app.proxy_list[self.proxy_log_id] = \
-            [self.client_channel, backend_channel]
 
         if backend_channel is None:
             return
 
+        self.app.proxy_list[self.proxy_log_id] = \
+            [self.client_channel, backend_channel]
+
         while not self.stop_event.set():
-            r, w, x = select.select([client_channel, backend_channel], [], [])
+            try:
+                r, w, x = select.select([client_channel, backend_channel], [], [])
+            except select.error:
+                break
 
             #if self.change_win_size_event.is_set():
             #    self.change_win_size_event.clear()

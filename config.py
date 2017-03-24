@@ -49,5 +49,3 @@ NAME = 'coco'
 # 和Jumpserver 保持心跳时间间隔
 # HEATBEAT_INTERVAL = 5
 
-# BROKER_URL = 'redis://localhost:6379',
-# CELERY_RESULT_BACKEND = 'redis://localhost:6379',

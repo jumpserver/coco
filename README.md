@@ -1,16 +1,16 @@
-# Jumpserver terminal
+# Coco
 
-Jumpserver terminal is a sub app of Jumpserver.
+Coco is a sub app of Jumpserver.
 
-It's implement a ssh server and a web terminal server, 
+It's implement a ssh server 
 
-User can connect them except jumpserver openssh server and connect.py 
-pre version.
+User can connect them except openssh server and connect.py pre version.
 
 
 ## Install
 
-    $ git clone http://xxxx
+    $ git clone https://github.com/jumpserver/coco.git
+    $ pip install -r requirements.txt -i https://pypi.doubanio.com/simple
     
 ## Setting
 
@@ -20,13 +20,10 @@ You need update config.py settings as you need, Be aware of:
 
 They are:
 
-    NAME:
-    JUMPSERVER_URL:
-    SECRET_KEY:
+    NAME:  # This name will be use register as app user default coco
+    JUMPSERVER_URL:  # Jumpserver endport, will connect it for auth or other default https://localhost:8080
     
-Also some config you need kown:
-    SSH_HOST:
-    SSH_PORT:
+More see config.py
 
 
 ## Start

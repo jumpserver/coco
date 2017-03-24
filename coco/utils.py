@@ -115,7 +115,7 @@ def gen_uuid():
     return uuid.uuid4().get_hex()
 
 
-def max_length(object_list, max_=30):
+def max_length(object_list, max_=30, min_=8):
     try:
         length = max([len(obj.encode('utf-8')) for obj in object_list])
     except ValueError:
@@ -123,8 +123,10 @@ def max_length(object_list, max_=30):
 
     if length > max_:
         return max_
-    else:
-        return length
+
+    if length < min_:
+        return min_
+    return length
 
 
 def system_user_max_length(asset_list, max_=30):
