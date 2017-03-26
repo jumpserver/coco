@@ -6,3 +6,4 @@ itsdangerous==0.24
 pyte==0.5.2
 celery==3.1.23
 dotmap==1.2.14
+jumpserver-python-sdk
