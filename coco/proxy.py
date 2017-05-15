@@ -27,9 +27,9 @@ class ProxyServer(object):
     We also record the command and result to database for audit
 
     """
-    ENTER_CHAR = ['\r', '\n', '\r\n']
+    ENTER_CHAR = ('\r', '\n', '\r\n')
     OUTPUT_END_PATTERN = re.compile(r'\x1b]0;.+@.+:.+\x07.*')
-    VIM_PATTERN = re.compile(r'\x1b\[\?1049', re.X)
+    VIM_PATTERN = re.compile(b'\x1b\[\?1049', re.X)
     IGNORE_OUTPUT_COMMAND = [re.compile(r'^cat\s+'),
                              re.compile(r'^tailf?\s+')]
 
@@ -60,7 +60,7 @@ class ProxyServer(object):
 
     def is_finish_input(self, s):
         for char in s:
-            if char in self.ENTER_CHAR:
+            if chr(char) in self.ENTER_CHAR:
                 return True
         return False
 
@@ -96,7 +96,7 @@ class ProxyServer(object):
     def get_asset_auth(self, system_user):
         return self.service.get_system_user_auth_info(system_user)
 
-    def connect(self, term=b'xterm', width=80, height=24, timeout=10):
+    def connect(self, term='xterm', width=80, height=24, timeout=10):
         user = self.user
         asset = self.asset
         system_user = self.system_user
@@ -186,11 +186,11 @@ class ProxyServer(object):
             except select.error:
                 break
 
-            #if self.change_win_size_event.is_set():
-            #    self.change_win_size_event.clear()
-            #    width = self.client_channel.win_width
-            #    height = self.client_channel.win_height
-            #    backend_channel.resize_pty(width=width, height=height)
+            if self.change_win_size_event.is_set():
+               self.change_win_size_event.clear()
+               width = self.client_channel.win_width
+               height = self.client_channel.win_height
+               backend_channel.resize_pty(width=width, height=height)
 
             if client_channel in r:
                 # Get output of the command

@@ -5,19 +5,10 @@
 from __future__ import unicode_literals
 from six import string_types
 import os
-import logging
-import re
-import sys
 import uuid
-import json
-import base64
-import datetime
-import copy
-from logging.config import dictConfig
-try:
-    import cStringIO as StringIO
-except ImportError:
-    import StringIO
+from io import StringIO
+import time
+from functools import wraps
 
 try:
     from collections import OrderedDict
@@ -27,8 +18,6 @@ except ImportError:
 from itsdangerous import TimedJSONWebSignatureSerializer, SignatureExpired, \
     BadSignature, JSONWebSignatureSerializer
 import paramiko
-from paramiko.rsakey import RSAKey
-import pyte
 
 
 class Signer(object):
@@ -53,7 +42,7 @@ class Signer(object):
 
 
 def ssh_key_string_to_obj(text):
-    key_f = StringIO.StringIO(text)
+    key_f = StringIO(text)
     key = None
     try:
         key = paramiko.RSAKey.from_private_key(key_f)
@@ -93,7 +82,7 @@ def ssh_key_gen(length=2048, type='rsa', password=None, username='jumpserver', h
     if hostname is None:
         hostname = os.uname()[1]
 
-    f = StringIO.StringIO()
+    f = StringIO()
 
     try:
         if type == 'rsa':
@@ -108,7 +97,6 @@ def ssh_key_gen(length=2048, type='rsa', password=None, username='jumpserver', h
         return private_key, public_key
     except IOError:
         raise IOError('These is error when generate ssh key.')
-
 
 
 def gen_uuid():
@@ -146,5 +134,6 @@ def system_user_max_length(asset_list, max_=30):
         return max_
     else:
         return length
+
 
 signer = Signer()

@@ -1,9 +1,9 @@
 flask>=0.12
-paramiko>=2.1.1
-python-gssapi==0.6.4
-requests==2.11.1
-itsdangerous==0.24
-pyte==0.5.2
-celery==3.1.23
-dotmap==1.2.14
+paramiko>=2.1.2
+python-gssapi>=0.6.4
+requests>=2.11.1
+itsdangerous>=0.24
+pyte>=0.5.2
+celery>=4.0.2
+dotmap>=1.2.14
 jumpserver-python-sdk

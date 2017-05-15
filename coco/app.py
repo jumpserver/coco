@@ -17,6 +17,7 @@ import time
 import threading
 import traceback
 import socket
+import logging
 
 import paramiko
 
@@ -27,11 +28,10 @@ from .interface import SSHInterface
 from .interactive import InteractiveServer
 from .conf import ConfigAttribute, config
 from jms.utils import wrap_with_line_feed as wr, wrap_with_warning as warning
-from .logger import get_logger
 from .service import service
 from .conf import config
 
-logger = get_logger(__file__)
+logger = logging.getLogger(__file__)
 
 
 class Coco(object):
@@ -164,6 +164,7 @@ class Coco(object):
         while True:
             try:
                 client, addr = sock.accept()
+                logger.debug("Get request from %s:%s" % (addr[0], addr[1]))
                 thread = threading.Thread(target=self.process_request,
                                           args=(client, addr))
                 thread.daemon = True

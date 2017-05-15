@@ -1,11 +1,13 @@
 # ~*~ coding: utf-8 ~*~
 
+from __future__ import unicode_literals
+
 import sys
 import select
 import re
 import socket
-import logging
 import threading
+import logging
 
 from .proxy import ProxyServer
 from .globals import request, g
@@ -13,6 +15,7 @@ from jms.utils import TtyIOParser
 from .utils import system_user_max_length, max_length
 from jms.utils import wrap_with_line_feed as wr, wrap_with_primary as primary,\
     wrap_with_warning as warning, wrap_with_title as title
+
 
 logger = logging.getLogger(__file__)
 
@@ -22,11 +25,11 @@ class InteractiveServer(object):
     and do [proxy to backend server, execute command, upload file, or other interactively]
     """
 
-    BACKSPACE_CHAR = {'\x08': '\x08\x1b[K', '\x7f': '\x08\x1b[K'}
-    ENTER_CHAR = ['\r', '\n', '\r\n']
-    UNSUPPORTED_CHAR = {'\x15': 'Ctrl-U', '\x0c': 'Ctrl-L',
-                        '\x05': 'Ctrl-E'}
-    CLEAR_CHAR = '\x1b[H\x1b[2J'
+    BACKSPACE_CHAR = {b'\x08': b'\x08\x1b[K', b'\x7f': b'\x08\x1b[K'}
+    ENTER_CHAR = [b'\r', b'\n', b'\r\n']
+    UNSUPPORTED_CHAR = {b'\x15': 'Ctrl-U', b'\x0c': 'Ctrl-L',
+                        b'\x05': 'Ctrl-E'}
+    CLEAR_CHAR = b'\x1b[H\x1b[2J'
     BELL_CHAR = b'\x07'
 
     def __init__(self, app):
@@ -48,9 +51,9 @@ class InteractiveServer(object):
         3) 输入 \033[32mP/p\033[0m 显示您有权限的主机.\r
         4) 输入 \033[32mG/g\033[0m 显示您有权限的主机组.\r
         5) 输入 \033[32mG/g\033[0m\033[0m + \033[32m组ID\033[0m 显示该组下主机. 如: g1\r
-        6) 输入 \033[32mE/e\033[0m 批量执行命令.\r
-        7) 输入 \033[32mU/u\033[0m 批量上传文件.\r
-        8) 输入 \033[32mD/d\033[0m 批量下载文件.\r
+        6) 输入 \033[32mE/e\033[0m 批量执行命令.(未完成)\r
+        7) 输入 \033[32mU/u\033[0m 批量上传文件.(未完成)\r
+        8) 输入 \033[32mD/d\033[0m 批量下载文件.(未完成)\r
         9) 输入 \033[32mH/h\033[0m 帮助.\r
         0) 输入 \033[32mQ/q\033[0m 退出.\r\n""" % request.user.username
 
@@ -152,11 +155,17 @@ class InteractiveServer(object):
     @staticmethod
     def get_my_asset_groups():
         """获取用户授权的资产组"""
-        return g.user_service.get_my_asset_groups()
+        logger.debug("Start get my asset groups")
+        groups = g.user_service.get_my_asset_groups()
+        logger.debug("End get my asset groups")
+        return groups
 
     @staticmethod
     def get_my_assets():
-        return g.user_service.get_my_assets()
+        logger.debug("Start get my assets")
+        assets = g.user_service.get_my_assets()
+        logger.debug("End get my assets")
+        return assets
 
     def display_asset_groups(self):
         """打印授权的资产组"""

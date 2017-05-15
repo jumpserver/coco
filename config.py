@@ -7,7 +7,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 NAME = 'coco'
 
 # Jumpserver项目的url, api请求注册会使用
-# JUMPSERVER_ENDPOINT = 'http://localhost:8080'
+JUMPSERVER_ENDPOINT = 'http://127.0.0.1:8080'
 
 # 启动时绑定的ip, 默认 0.0.0.0
 # BIND_HOST = '0.0.0.0'

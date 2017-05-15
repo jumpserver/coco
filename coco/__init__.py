@@ -13,3 +13,4 @@ from .exceptions import SSHError
 from .proxy import ProxyServer
 from .interactive import InteractiveServer
 from .app import Coco
+from . import logger

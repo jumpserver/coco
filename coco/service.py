@@ -1,14 +1,14 @@
 # ~*~ coding: utf-8 ~*~
+
 import time
-import threading
+import logging
 
 from jms import AppService
 from jms.exceptions import LoadAccessKeyError
 from .conf import config
-from .logger import get_logger
 
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__file__)
 service = AppService(
     app_name=config.get('NAME'),
     endpoint=config.get('JUMPSERVER_ENDPOINT'),

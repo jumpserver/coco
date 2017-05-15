@@ -5,14 +5,15 @@
 import paramiko
 import os
 import threading
+import logging
 
 from jms import UserService
 from . import PROJECT_DIR
 from .utils import ssh_key_gen
 from .globals import request, g
-from .logger import get_logger
 
-logger = get_logger(__file__)
+
+logger = logging.getLogger(__file__)
 
 
 class SSHInterface(paramiko.ServerInterface):
@@ -22,6 +23,7 @@ class SSHInterface(paramiko.ServerInterface):
     https://github.com/paramiko/paramiko/blob/master/demos/demo_server.py
     """
     host_key_path = os.path.join(PROJECT_DIR, 'keys', 'host_rsa_key')
+    start_check_auth = False
 
     def __init__(self, app, rc):
         self.app = app
@@ -57,13 +59,15 @@ class SSHInterface(paramiko.ServerInterface):
             "public_key": public_key,
             "login_type": 'ST'
         }
+        logger.debug("Start check auth")
         user, token = g.user_service.login(data)
+        result = False
         if user:
             request.user = user
             g.user_service.auth(token=token)
-            return True
-        else:
-            return False
+            result = True
+        logger.debug("Finish check auth")
+        return result
 
     def check_auth_password(self, username, password):
         if self.check_auth(username, password=password):
