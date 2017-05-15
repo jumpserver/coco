@@ -82,8 +82,15 @@ class InteractiveServer(object):
                     g.client_channel.send('')
                     continue
 
+                # handle shell expect
+                multi_char_with_enter = False
+                if len(data) > 1 and data[-1] in self.ENTER_CHAR:
+                    g.client_channel.send(data)
+                    input_data.append(data[:-1])
+                    multi_char_with_enter = True
+
                 # If user type ENTER we should get user input
-                if data in self.ENTER_CHAR:
+                if data in self.ENTER_CHAR or multi_char_with_enter:
                     g.client_channel.send(wr('', after=2))
                     option = parser.parse_input(b''.join(input_data))
                     return option.strip()
