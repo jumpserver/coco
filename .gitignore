@@ -5,3 +5,4 @@
 *.log
 logs/*
 coco.iml
+.DS_Store
