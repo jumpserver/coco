@@ -60,7 +60,7 @@ class ProxyServer(object):
 
     def is_finish_input(self, s):
         for char in s:
-            if chr(char) in self.ENTER_CHAR:
+            if char in self.ENTER_CHAR:
                 return True
         return False
 
