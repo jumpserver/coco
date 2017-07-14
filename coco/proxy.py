@@ -117,7 +117,7 @@ class ProxyServer(object):
 
         data = {"user": user.username, "asset": asset.ip,
                 "system_user": system_user.username,  "login_type": "ST",
-                "date_start": time.time(), "is_failed": 0}
+                "date_start": time.time(), "was_failed": 0}
         self.proxy_log_id = proxy_log_id = self.service.send_proxy_log(data)
         self.app.proxy_list[proxy_log_id] = self.client_channel, self.backend_channel
         try:
