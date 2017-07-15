@@ -7,13 +7,13 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 NAME = 'coco'
 
 # Jumpserver项目的url, api请求注册会使用
-JUMPSERVER_ENDPOINT = os.environ.get("JUMPSERVER_ENDPOINT") or 'http://jumpserver:8080'
+JUMPSERVER_ENDPOINT = 'http://127.0.0.1:8080'
 
 # 启动时绑定的ip, 默认 0.0.0.0
 # BIND_HOST = '0.0.0.0'
 
 # 监听的端口号, 默认2222
-LISTEN_PORT = int(os.environ.get("LISTEN_PORT", 2222))
+LISTEN_PORT = 2222
 
 # 是否开启DEBUG
 # DEBUG = True
