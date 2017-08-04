@@ -121,6 +121,7 @@ class Coco(object):
             transport.start_server(server=ssh_interface)
         except paramiko.SSHException:
             logger.warning('SSH negotiation failed.')
+            sys.exit(1)
 
         _client_channel = transport.accept(20)
         g.client_channel = _client_channel
