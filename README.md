@@ -28,7 +28,7 @@ More see config.py
 
 ## Start
 
-    # python ssh_server.py
+    # python run_server.py
     
 When your start ssh server, It will register with jumpserver api,
 
