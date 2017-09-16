@@ -23,7 +23,7 @@ import paramiko
 
 from . import __version__
 from .ctx import RequestContext, AppContext, Request, _AppCtxGlobals
-from .globals import request, g
+from .globals import request
 from .interface import SSHInterface
 from .interactive import InteractiveServer
 from .conf import ConfigAttribute, config
@@ -123,29 +123,22 @@ class Coco(object):
             logger.warning('SSH negotiation failed.')
             sys.exit(1)
 
-        _client_channel = transport.accept(20)
-        g.client_channel = _client_channel
-        if _client_channel is None:
+        client_channel = transport.accept(20)
+        if client_channel is None:
             logger.warning('No ssh channel get.')
             sys.exit(1)
 
         if request.method == 'shell':
             logger.info('Client asked for a shell.')
-            InteractiveServer(self).run()
+            InteractiveServer(self, ssh_interface.user_service, client_channel).run()
         elif request.method == 'command':
-            _client_channel.send(wr(warning('We are not support command now')))
-            _client_channel.close()
+            client_channel.send(wr(warning('We are not support command now')))
+            client_channel.close()
             sys.exit(2)
         else:
-            _client_channel.send(wr(warning('Not support the request method')))
-            _client_channel.close()
+            client_channel.send(wr(warning('Not support the request method')))
+            client_channel.close()
             sys.exit(2)
-
-        while True:
-            if request.user is not None:
-                break
-            else:
-                time.sleep(0.2)
 
     def run_forever(self, **kwargs):
         self.bootstrap()
