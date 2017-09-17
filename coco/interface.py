@@ -10,7 +10,7 @@ import logging
 from jms import UserService
 from . import PROJECT_DIR
 from .utils import ssh_key_gen
-from .globals import request, g
+from .globals import request
 
 
 logger = logging.getLogger(__file__)
@@ -30,7 +30,7 @@ class SSHInterface(paramiko.ServerInterface):
         self.rc = rc
         rc.push()
         request.change_win_size_event = threading.Event()
-        g.user_service = UserService(self.app.endpoint)
+        self.user_service = UserService(self.app.endpoint)
 
     @classmethod
     def get_host_key(cls):
@@ -60,11 +60,11 @@ class SSHInterface(paramiko.ServerInterface):
             "login_type": 'ST'
         }
         logger.debug("Start check auth")
-        user, token = g.user_service.login(data)
+        user, token = self.user_service.login(data)
         result = False
         if user:
             request.user = user
-            g.user_service.auth(token=token)
+            self.user_service.auth(token=token)
             result = True
         logger.debug("Finish check auth")
         return result
