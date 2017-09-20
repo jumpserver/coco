@@ -207,7 +207,7 @@ class ProxyServer(object):
                 if self.is_finish_input(client_data):
                     self.in_input_state = False
                     self.get_input()
-                    self.output_data = []
+                    self.input_data = []
 
                 if len(client_data) == 0:
                     break
