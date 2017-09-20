@@ -68,7 +68,8 @@ class ProxyServer(object):
         width = self.client_channel.win_width
         height = self.client_channel.win_height
         parser = TtyIOParser(width=width, height=height)
-        self.output = parser.parse_output(b''.join(self.output_data))
+        #self.output = parser.parse_output(b''.join(self.output_data))
+        self.output = ''
         if self.input:
             data = {
                 'proxy_log_id': self.proxy_log_id,
@@ -77,7 +78,8 @@ class ProxyServer(object):
                 'system_user': self.system_user.username,
                 'command_no': self.command_no,
                 'command': self.input,
-                'output': self.output[:100],
+                #'output': self.output[:100],
+                'output': self.output,
                 'timestamp': time.time(),
             }
             command_queue.put(data)
@@ -96,7 +98,7 @@ class ProxyServer(object):
     def get_asset_auth(self, system_user):
         return self.service.get_system_user_auth_info(system_user)
 
-    def connect(self, term='xterm', width=80, height=24, timeout=10):
+    def connect(self, term='xterm', width=320, height=24, timeout=300):
         user = self.user
         asset = self.asset
         system_user = self.system_user
@@ -161,7 +163,7 @@ class ProxyServer(object):
 
         self.backend_channel = channel = ssh.invoke_shell(
             term=term, width=width, height=height)
-        channel.settimeout(100)
+        channel.settimeout(300)
         return channel
 
     def is_match_ignore_command(self, data):
@@ -197,7 +199,7 @@ class ProxyServer(object):
                 self.is_first_input = False
                 if self.in_input_state is False:
                     self.get_output()
-                    del self.output_data[:]
+                    self.output_data = []
 
                 self.in_input_state = True
                 client_data = client_channel.recv(1024)
@@ -205,7 +207,7 @@ class ProxyServer(object):
                 if self.is_finish_input(client_data):
                     self.in_input_state = False
                     self.get_input()
-                    del self.input_data[:]
+                    self.output_data = []
 
                 if len(client_data) == 0:
                     break

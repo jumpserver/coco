@@ -8,6 +8,6 @@ command_queue = MemoryQueue()
 record_queue = MemoryQueue()
 
 command_task = Task(command_queue, service.send_command_log,
-                    threads_num=4, batch_count=10)
+                    threads_num=8, batch_count=10)
 record_task = Task(record_queue, service.send_record_log,
                    threads_num=4, batch_count=10)
