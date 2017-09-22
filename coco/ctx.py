@@ -60,9 +60,12 @@ class RequestContext(RequestContextBase):
         app_ctx = _app_ctx_stack.top
         if app_ctx is None and len(self._implicit_app_ctx_stack) > 0:
             app_ctx = self._implicit_app_ctx_stack[-1]
-
-        if app_ctx is None:
+        elif app_ctx is None:
             app_ctx = self.app.app_context()
+            self._implicit_app_ctx_stack.append(app_ctx)
+        elif len(self._implicit_app_ctx_stack) > 0:
+            app_ctx = self._implicit_app_ctx_stack[-1]
+        else:
             self._implicit_app_ctx_stack.append(app_ctx)
         app_ctx.push()
         _request_ctx_stack.push(self)
