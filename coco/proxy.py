@@ -69,6 +69,8 @@ class ProxyServer(object):
         height = self.client_channel.win_height
         parser = TtyIOParser(width=width, height=height)
         self.output = parser.parse_output(b''.join(self.output_data))
+        if len(self.output) > 4096:
+            self.output = self.output[:4096]
         if self.input:
             data = {
                 'proxy_log_id': self.proxy_log_id,
@@ -77,7 +79,7 @@ class ProxyServer(object):
                 'system_user': self.system_user.username,
                 'command_no': self.command_no,
                 'command': self.input,
-                'output': self.output[:100],
+                'output': self.output,
                 'timestamp': time.time(),
             }
             command_queue.put(data)
