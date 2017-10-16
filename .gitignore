@@ -1,0 +1,6 @@
+.idea
+*.pyc
+*.pyo
+.access_key
+*.log
+logs/*
