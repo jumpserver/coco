@@ -4,3 +4,4 @@
 .access_key
 *.log
 logs/*
+conf.py
