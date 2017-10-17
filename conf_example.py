@@ -17,6 +17,9 @@ APP_NAME = "coco"
 # 监听的WS端口号，默认5000
 # WS_PORT = 5000
 
+# 最大连接线程数
+# MAX_CONNECTIONS = 500
+
 # 是否开启DEBUG
 # DEBUG = True
 

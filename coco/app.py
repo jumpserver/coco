@@ -1,6 +1,7 @@
 import os
 import time
 import threading
+from queue import Queue
 
 from .config import Config
 from .sshd import SSHServer
@@ -30,16 +31,24 @@ class Coco:
         'SSH_PASSWORD_AUTH': True,
         'SSH_PUBLIC_KEY_AUTH': True,
         'HEARTBEAT_INTERVAL': 5,
+        'MAX_CONNECTIONS': 500,
     }
 
-    def __init__(self, name=None):
+    def __init__(self, name=None, root_path=None):
         self.config = self.config_class(BASE_DIR, defaults=self.default_config)
         self.sessions = []
+        self.connections = []
+        self.sshd = SSHServer(self)
+        self.ws = None
 
         if name:
             self.name = name
         else:
             self.name = self.config['NAME']
+
+        if root_path is None:
+
+
         self.make_logger()
 
     def make_logger(self):
@@ -61,20 +70,31 @@ class Coco:
             'host': self.config['BIND_HOST'], 'port': self.config['WS_PORT']})
         print('Quit the server with CONTROL-C.')
 
+        exit_queue = Queue()
         try:
-            self.run_sshd()
-            self.run_ws()
+            if self.config["SSHD_PORT"] != 0:
+                self.run_sshd()
+
+            if self.config['WS_PORT'] != 0:
+                self.run_ws()
+
+            if exit_queue.get():
+                self.shutdown()
+
         except KeyboardInterrupt:
             self.shutdown()
 
     def run_sshd(self):
-        thread = threading.Thread(target=SSHServer(self).run, args=())
+        thread = threading.Thread(target=self.sshd.run, args=())
+        thread.daemon = True
+        thread.start()
 
     def run_ws(self):
         pass
 
     def shutdown(self):
-        pass
+        print("Grace shutdown the server")
+        self.sshd.shutdown()
 
     def monitor_session(self):
         pass
