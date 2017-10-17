@@ -3,10 +3,12 @@
 import select
 import uuid
 import socket
+import logging
+import datetime
 
 BUF_SIZE = 1024
+logger = logging.getLogger(__file__)
 
-logger =
 
 class Session:
 
@@ -17,6 +19,8 @@ class Session:
         self.watchers = []  # Only watch session
         self.sharers = []  # Join to the session, read and write
         self.running = True
+        self.date_created = datetime.datetime.now()
+        self.date_finished = None
 
     def add_watcher(self, watcher):
         """
@@ -25,6 +29,7 @@ class Session:
         :param watcher: A client socket
         :return:
         """
+        logger.info("Session % add watcher %s" % (self, watcher))
         self.watchers.append(watcher)
 
     def add_sharer(self, sharer):
@@ -33,6 +38,7 @@ class Session:
         :param sharer:  A client socket
         :return:
         """
+        logger.info("Session % add share %s" % (self, sharer))
         self.sharers.append(sharer)
 
     def bridge(self):
@@ -76,13 +82,21 @@ class Session:
         self.server.resize_pty(width=width, height=height)
 
     def record(self):
+        """
+        Record the session to a file. Using it replay in the future
+        :return:
+        """
         parent, child = socket.socketpair()
         self.add_watcher(parent)
 
+    def replay(self):
+        pass
 
     def close(self):
         pass
 
+    def __str__(self):
+        return self.id
 
 
 

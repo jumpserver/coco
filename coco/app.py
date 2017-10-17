@@ -4,7 +4,7 @@ import threading
 
 from .config import Config
 from .sshd import SSHServer
-from .logger import create_logger
+from .logging import create_logger
 
 
 __version__ = '0.4.0'
@@ -55,8 +55,8 @@ class Coco:
     def run_forever(self):
         print(time.ctime())
         print('Coco version %s, more see https://www.jumpserver.org' % __version__)
-        print('Starting ssh server at %(host)s:%(port)s' % {
-            'host': self.config['BIND_HOST'], 'port': self.config['SSHD_PORT']})
+
+        # Todo: move to websocket server
         print('Starting websocket server at %(host)s:%(port)s' % {
             'host': self.config['BIND_HOST'], 'port': self.config['WS_PORT']})
         print('Quit the server with CONTROL-C.')
@@ -68,7 +68,7 @@ class Coco:
             self.shutdown()
 
     def run_sshd(self):
-        thread = threading.Thread(target=SSHServer.run, args=(self,))
+        thread = threading.Thread(target=SSHServer(self).run, args=())
 
     def run_ws(self):
         pass
