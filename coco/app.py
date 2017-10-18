@@ -38,30 +38,30 @@ class Coco:
         self.config = self.config_class(BASE_DIR, defaults=self.default_config)
         self.sessions = []
         self.connections = []
-        self.sshd = SSHServer(self)
         self.ws = None
+        self.root_path = root_path
+        self.name = name
 
-        if name:
-            self.name = name
-        else:
+        if name is None:
             self.name = self.config['NAME']
-
         if root_path is None:
-
+            self.root_path = BASE_DIR
 
         self.make_logger()
+        self.sshd = None
 
     def make_logger(self):
         create_logger(self)
 
-    @staticmethod
-    def bootstrap():
+    def prepare(self):
+        self.sshd = SSHServer(self)
         pass
 
     def heartbeat(self):
         pass
 
     def run_forever(self):
+        self.prepare()
         print(time.ctime())
         print('Coco version %s, more see https://www.jumpserver.org' % __version__)
 

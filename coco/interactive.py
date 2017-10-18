@@ -33,7 +33,7 @@ class InteractiveServer:
     def dispatch(self):
         pass
 
-    def run(self):
+    def active(self):
         self.display_banner()
         while True:
             try:

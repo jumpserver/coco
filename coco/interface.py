@@ -22,13 +22,6 @@ class SSHInterface(paramiko.ServerInterface):
         self.event = threading.Event()
 
     def check_auth_interactive(self, username, submethods):
-        """
-        :param username:  the username of the authenticating client
-        :param submethods: a comma-separated list of methods preferred
-                           by the client (usually empty)
-        :return: AUTH_FAILED if this auth method isn’t supported;
-                 otherwise an object containing queries for the user
-        """
         logger.info("Check auth interactive: %s %s" % (username, submethods))
         return paramiko.AUTH_FAILED
 
@@ -56,7 +49,7 @@ class SSHInterface(paramiko.ServerInterface):
     def validate_auth(self, username, password="", key=""):
         # Todo: Implement it
         self.request.user = "guang"
-        return True
+        return paramiko.AUTH_SUCCESSFUL
 
     def check_channel_direct_tcpip_request(self, chanid, origin, destination):
         logger.debug("Check channel direct tcpip request: %d %s %s" %
@@ -93,12 +86,12 @@ class SSHInterface(paramiko.ServerInterface):
             self, channel, term, width, height,
             pixelwidth, pixelheight, modes):
         logger.debug("Check channel pty request: %s %s %s %s %s %s" %
-                    (channel, term, width, height, pixelwidth, pixelheight))
+                     (channel, term, width, height, pixelwidth, pixelheight))
         self.request.type = 'pty'
         self.request.meta = {
             'channel': channel, 'term': term, 'width': width,
             'height': height, 'pixelwidth': pixelwidth,
-            'pixelheight': pixelheight, 'models': modes,
+            'pixelheight': pixelheight,
         }
         self.event.set()
         return True
@@ -109,6 +102,9 @@ class SSHInterface(paramiko.ServerInterface):
 
     def check_channel_shell_request(self, channel):
         logger.info("Check channel shell request: %s" % channel)
+        self.request.type = 'shell'
+        self.request.meta = {'channel': channel}
+        self.event.set()
         return True
 
     def check_channel_subsystem_request(self, channel, name):

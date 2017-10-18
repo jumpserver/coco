@@ -9,6 +9,7 @@ import sys
 
 from .utils import ssh_key_gen
 from .interface import SSHInterface
+from .interactive import InteractiveServer
 
 logger = logging.getLogger(__file__)
 BACKLOG = 5
@@ -22,7 +23,6 @@ class Request:
         self.addr = addr
         self.user = None
         self.change_size_event = threading.Event()
-        self.win_size = {}
 
 
 class SSHServer:
@@ -54,7 +54,7 @@ class SSHServer:
 
     def run(self):
         self.listen()
-        max_conn_num = self.app['MAX_CONNECTIONS']
+        max_conn_num = self.app.config['MAX_CONNECTIONS']
         while not self.stop_event.is_set():
             try:
                 client, addr = self.sock.accept()
@@ -102,7 +102,7 @@ class SSHServer:
 
     def dispatch(self, request, channel):
         if request.type == 'pty':
-            pass
+            InteractiveServer(self.app, request, channel).active()
         elif request.type == 'exec':
             pass
         elif request.type == 'subsystem':
