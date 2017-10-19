@@ -19,6 +19,8 @@ from jms.utils import wrap_with_line_feed as wr, wrap_with_primary as primary,\
 
 logger = logging.getLogger(__file__)
 
+class LogoutException(Exception):
+    pass
 
 class InteractiveServer(object):
     """Hi, This is a interactive server, show a navigation, accept user input,
@@ -124,8 +126,7 @@ class InteractiveServer(object):
         elif re.match(r'g\d+', option):
             self.display_asset_group_asset(option)
         elif option in ['q', 'Q']:
-            self.logout()
-            sys.exit()
+            raise LogoutException()
         elif option in ['h', 'H']:
             return self.display_banner()
         else:
@@ -297,6 +298,9 @@ class InteractiveServer(object):
         while True:
             try:
                 self.dispatch()
+            except LogoutException:
+                self.logout()
+                break
             except socket.error:
                 self.logout()
                 break
@@ -313,6 +317,6 @@ class InteractiveServer(object):
         #     }
         #  api.finish_proxy_log(data)
         self.client_channel.close()
-        del self
+        self.sel.close()
 
 
