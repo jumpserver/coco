@@ -5,7 +5,7 @@ import logging
 import threading
 import time
 import socket
-import select
+import selectors
 
 import paramiko
 
@@ -57,6 +57,7 @@ class ProxyServer(object):
         self.ssh = None
         self.backend_channel = None
         self.proxy_log_id = 0
+        self.sel = selectors.DefaultSelector()
 
     def is_finish_input(self, s):
         for char in s:
@@ -182,11 +183,11 @@ class ProxyServer(object):
         self.app.proxy_list[self.proxy_log_id] = \
             [self.client_channel, backend_channel]
 
+        self.sel.register(self.client_channel, selectors.EVENT_READ)
+        self.sel.register(self.backend_channel, selectors.EVENT_READ)
+
         while not self.stop_event.set():
-            try:
-                r, w, x = select.select([client_channel, backend_channel], [], [])
-            except select.error:
-                break
+            events = self.sel.select()  # block until data coming
 
             if self.change_win_size_event.is_set():
                self.change_win_size_event.clear()
@@ -194,7 +195,7 @@ class ProxyServer(object):
                height = self.client_channel.win_height
                backend_channel.resize_pty(width=width, height=height)
 
-            if client_channel in r:
+            if client_channel in [t[0].fileobj for t in events]:
                 # Get output of the command
                 self.is_first_input = False
                 if self.in_input_state is False:
@@ -213,7 +214,7 @@ class ProxyServer(object):
                     break
                 backend_channel.send(client_data)
 
-            if backend_channel in r:
+            if backend_channel in [t[0].fileobj for t in events]:
                 backend_data = backend_channel.recv(1024)
                 if self.in_input_state:
                     self.input_data.append(backend_data)
@@ -248,5 +249,3 @@ class ProxyServer(object):
         }
         self.service.finish_proxy_log(data)
         del self.app.proxy_list[self.proxy_log_id]
-
-
