@@ -41,6 +41,7 @@ class Coco:
         self.ws = None
         self.root_path = root_path
         self.name = name
+        self.lock = threading.Lock()
 
         if name is None:
             self.name = self.config['NAME']
@@ -97,14 +98,20 @@ class Coco:
         self.sshd.shutdown()
 
     def add_client(self, client):
-        self.clients.append(client)
-        print("%s add client, now %d s" % (self.name, len(self.clients)))
+        with self.lock:
+            self.clients.append(client)
+            print("%s add client, now %d s" % (self.name, len(self.clients)))
 
     def remove_client(self, client):
-        self.clients.remove(client)
-        client.send("Closed by server")
-        client.close()
-        print("%s remove client, now %d s" % (self.name, len(self.clients)))
+        with self.lock:
+            self.clients.remove(client)
+            print("%s remove client, now %d s" % (self.name, len(self.clients)))
+
+        try:
+            client.send("Closed by server")
+            client.close()
+        except:
+            pass
 
     def monitor_session(self):
         pass

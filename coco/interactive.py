@@ -44,45 +44,43 @@ class InteractiveServer:
                              self.request.meta.get("height", 24))
         self.client.send(wr(prompt, before=1, after=0))
         while True:
-            r, w, x = select.select([self.client], [], [])
-            if self.client in r:
-                data = self.client.recv(10)
-                if len(data) == 0:
-                    self.app.remove_client(self.client)
-                # Client input backspace
-                if data in char.BACKSPACE_CHAR:
-                    # If input words less than 0, should send 'BELL'
-                    if len(input_data) > 0:
-                        data = char.BACKSPACE_CHAR[data]
-                        input_data.pop()
-                    else:
-                        data = char.BELL_CHAR
-                    self.client.send(data)
-                    continue
-
-                # Todo: Move x1b to char
-                if data.startswith(b'\x1b') or data in char.UNSUPPORTED_CHAR:
-                    self.client.send('')
-                    continue
-
-                # handle shell expect
-                multi_char_with_enter = False
-                if len(data) > 1 and data[-1] in char.ENTER_CHAR:
-                    self.client.send(data)
-                    input_data.append(data[:-1])
-                    multi_char_with_enter = True
-
-                # If user type ENTER we should get user input
-                if data in char.ENTER_CHAR or multi_char_with_enter:
-                    self.client.send(wr('', after=2))
-                    option = parser.parse_input(b''.join(input_data))
-                    return option.strip()
+            data = self.client.recv(10)
+            if len(data) == 0:
+                self.app.remove_client(self.client)
+                break
+            # Client input backspace
+            if data in char.BACKSPACE_CHAR:
+                # If input words less than 0, should send 'BELL'
+                if len(input_data) > 0:
+                    data = char.BACKSPACE_CHAR[data]
+                    input_data.pop()
                 else:
-                    self.client.send(data)
-                    input_data.append(data)
+                    data = char.BELL_CHAR
+                self.client.send(data)
+                continue
+
+            # Todo: Move x1b to char
+            if data.startswith(b'\x1b') or data in char.UNSUPPORTED_CHAR:
+                self.client.send('')
+                continue
+
+            # handle shell expect
+            multi_char_with_enter = False
+            if len(data) > 1 and data[-1] in char.ENTER_CHAR:
+                self.client.send(data)
+                input_data.append(data[:-1])
+                multi_char_with_enter = True
+
+            # If user type ENTER we should get user input
+            if data in char.ENTER_CHAR or multi_char_with_enter:
+                self.client.send(wr('', after=2))
+                option = parser.parse_input(b''.join(input_data))
+                return option.strip()
+            else:
+                self.client.send(data)
+                input_data.append(data)
 
     def dispatch(self, opt):
-        print(opt)
         if opt in ['q', 'Q']:
             self.app.remove_client(self.client)
             return
