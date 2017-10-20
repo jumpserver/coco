@@ -166,3 +166,59 @@ class TtyIOParser(object):
         self.screen.reset()
         command = self.clean_ps1_etc(command)
         return command
+
+
+def wrap_with_line_feed(s, before=0, after=1):
+    return '\r\n' * before + s + '\r\n' * after
+
+
+def wrap_with_color(text, color='white', background=None,
+                    bolder=False, underline=False):
+    bolder_ = '1'
+    underline_ = '4'
+    color_map = {
+        'black': '30',
+        'red': '31',
+        'green': '32',
+        'brown': '33',
+        'blue': '34',
+        'purple': '35',
+        'cyan': '36',
+        'white': '37',
+    }
+    background_map = {
+        'black': '40',
+        'red': '41',
+        'green': '42',
+        'brown': '43',
+        'blue': '44',
+        'purple': '45',
+        'cyan': '46',
+        'white': '47',
+    }
+
+    wrap_with = []
+    if bolder:
+        wrap_with.append(bolder_)
+    if underline:
+        wrap_with.append(underline_)
+    if background:
+        wrap_with.append(background_map.get(background, ''))
+    wrap_with.append(color_map.get(color, ''))
+    return '\033[' + ';'.join(wrap_with) + 'm' + text + '\033[0m'
+
+
+def wrap_with_warning(text, bolder=False):
+    return wrap_with_color(text, color='red', bolder=bolder)
+
+
+def wrap_with_info(text, bolder=False):
+    return wrap_with_color(text, color='brown', bolder=bolder)
+
+
+def wrap_with_primary(text, bolder=False):
+    return wrap_with_color(text, color='green', bolder=bolder)
+
+
+def wrap_with_title(text):
+    return wrap_with_color(text, color='black', background='green')

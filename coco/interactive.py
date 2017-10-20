@@ -1,15 +1,21 @@
 #!coding: utf-8
 import socket
 
+import select
+
 from . import char
+from .utils import TtyIOParser, wrap_with_line_feed as wr, \
+    wrap_with_primary as primary, wrap_with_warning as warning
+from .forward import ProxyServer
+from .models import Asset, SystemUser
 
 
 class InteractiveServer:
 
-    def __init__(self, app, request, chan):
+    def __init__(self, app, request, client):
         self.app = app
         self.request = request
-        self.client = chan
+        self.client = client
 
     def display_banner(self):
         self.client.send(char.CLEAR_CHAR)
@@ -27,17 +33,98 @@ class InteractiveServer:
         0) 输入 \033[32mQ/q\033[0m 退出.\r\n""" % self.request.user
         self.client.send(banner)
 
-    def get_input(self, prompt='Opt> '):
+    def get_choice(self, prompt='Opt> '):
+        """实现了一个ssh input, 提示用户输入, 获取并返回
+
+        :return user input string
+        """
+        # Todo: 实现自动hostname或IP补全
+        input_data = []
+        parser = TtyIOParser(self.request.meta.get("width", 80),
+                             self.request.meta.get("height", 24))
+        self.client.send(wr(prompt, before=1, after=0))
+        while True:
+            r, w, x = select.select([self.client], [], [])
+            if self.client in r:
+                data = self.client.recv(10)
+                # Client input backspace
+                if data in char.BACKSPACE_CHAR:
+                    # If input words less than 0, should send 'BELL'
+                    if len(input_data) > 0:
+                        data = char.BACKSPACE_CHAR[data]
+                        input_data.pop()
+                    else:
+                        data = char.BELL_CHAR
+                    self.client.send(data)
+                    continue
+
+                # Todo: Move x1b to char
+                if data.startswith(b'\x1b') or data in char.UNSUPPORTED_CHAR:
+                    self.client.send('')
+                    continue
+
+                # handle shell expect
+                multi_char_with_enter = False
+                if len(data) > 1 and data[-1] in char.ENTER_CHAR:
+                    self.client.send(data)
+                    input_data.append(data[:-1])
+                    multi_char_with_enter = True
+
+                # If user type ENTER we should get user input
+                if data in char.ENTER_CHAR or multi_char_with_enter:
+                    self.client.send(wr('', after=2))
+                    option = parser.parse_input(b''.join(input_data))
+                    return option.strip()
+                else:
+                    self.client.send(data)
+                    input_data.append(data)
+
+    def dispatch(self, opt):
+        asset = Asset(id=1, hostname="123.57.183.135", ip="123.57.183.135", port=8022)
+        system_user = SystemUser(id=2, username="web", password="redhat123", name="web")
+        self.connect(asset, system_user)
+
+    def search_assets(self, opt, from_result=False):
         pass
 
-    def dispatch(self):
+    def display_assets(self):
         pass
 
-    def active(self):
+    def display_asset_groups(self):
+        pass
+
+    def display_group_assets(self):
+        pass
+
+    def display_search_result(self):
+        pass
+
+    def search_and_display(self, opt):
+        self.search_assets(opt=opt)
+        self.display_search_result()
+
+    def get_user_asset_groups(self):
+        pass
+
+    def get_user_assets(self):
+        pass
+
+    def choose_system_user(self, system_users):
+        pass
+
+    def search_and_proxy(self, opt, from_result=False):
+        pass
+
+    def connect(self, asset, system_user):
+        forwarder = ProxyServer(self.app, self.client, self.request)
+        forwarder.proxy(asset, system_user)
+
+    def activate(self):
         self.display_banner()
         while True:
             try:
-                self.dispatch()
+                opt = self.get_choice()
+                self.dispatch(opt)
             except socket.error:
                 break
         self.close()

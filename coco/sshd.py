@@ -1,5 +1,5 @@
 #! coding: utf-8
-
+import datetime
 import os
 import logging
 import socket
@@ -10,6 +10,7 @@ import sys
 from .utils import ssh_key_gen
 from .interface import SSHInterface
 from .interactive import InteractiveServer
+from .models import Client
 
 logger = logging.getLogger(__file__)
 BACKLOG = 5
@@ -23,6 +24,7 @@ class Request:
         self.addr = addr
         self.user = None
         self.change_size_event = threading.Event()
+        self.date_start = datetime.datetime.now()
 
 
 class SSHServer:
@@ -57,30 +59,30 @@ class SSHServer:
         max_conn_num = self.app.config['MAX_CONNECTIONS']
         while not self.stop_event.is_set():
             try:
-                client, addr = self.sock.accept()
+                sock, addr = self.sock.accept()
                 logger.info("Get ssh request from %s: %s" % (addr[0], addr[1]))
                 if len(self.app.connections) >= max_conn_num:
-                    client.close()
+                    sock.close()
                     logger.warning("Arrive max connection number %s, "
                                    "reject new request %s:%s" %
                                    (max_conn_num, addr[0], addr[1]))
                 else:
-                    self.app.connections.append((client, addr))
-                thread = threading.Thread(target=self.handle, args=(client, addr))
+                    self.app.connections.append((sock, addr))
+                thread = threading.Thread(target=self.handle, args=(sock, addr))
                 thread.daemon = True
                 thread.start()
             except Exception as e:
                 logger.error("SSH server error: %s" % e)
 
-    def handle(self, client, addr):
-        transport = paramiko.Transport(client, gss_kex=False)
+    def handle(self, sock, addr):
+        transport = paramiko.Transport(sock, gss_kex=False)
         try:
             transport.load_server_moduli()
         except IOError:
             logger.warning("Failed load moduli -- gex will be unsupported")
 
         transport.add_server_key(self.host_key)
-        request = Request(client, addr)
+        request = Request(sock, addr)
         server = SSHInterface(self.app, request)
         try:
             transport.start_server(server=server)
@@ -98,17 +100,18 @@ class SSHServer:
             logger.warning("Client not request a valid request")
             sys.exit(2)
 
-        self.dispatch(request, chan)
+        client = Client(chan, addr, request.user)
+        self.dispatch(request, client)
 
-    def dispatch(self, request, channel):
+    def dispatch(self, request, client):
         if request.type == 'pty':
-            InteractiveServer(self.app, request, channel).active()
+            InteractiveServer(self.app, request, client).activate()
         elif request.type == 'exec':
             pass
         elif request.type == 'subsystem':
             pass
         else:
-            channel.send("Not support request type: %s" % request.type)
+            client.send("Not support request type: %s" % request.type)
 
     def shutdown(self):
         self.stop_event.set()
