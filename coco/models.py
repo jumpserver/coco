@@ -49,7 +49,7 @@ class SystemUser(Decoder):
     name = ""
     username = ""
     password = ""
-    private_key = ""
+    private_key = None
 
     def __str__(self):
         return self.name

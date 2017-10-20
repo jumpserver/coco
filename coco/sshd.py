@@ -61,13 +61,11 @@ class SSHServer:
             try:
                 sock, addr = self.sock.accept()
                 logger.info("Get ssh request from %s: %s" % (addr[0], addr[1]))
-                if len(self.app.connections) >= max_conn_num:
+                if len(self.app.clients) >= max_conn_num:
                     sock.close()
                     logger.warning("Arrive max connection number %s, "
                                    "reject new request %s:%s" %
                                    (max_conn_num, addr[0], addr[1]))
-                else:
-                    self.app.connections.append((sock, addr))
                 thread = threading.Thread(target=self.handle, args=(sock, addr))
                 thread.daemon = True
                 thread.start()
@@ -101,6 +99,7 @@ class SSHServer:
             sys.exit(2)
 
         client = Client(chan, addr, request.user)
+        self.app.add_client(client)
         self.dispatch(request, client)
 
     def dispatch(self, request, client):

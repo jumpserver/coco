@@ -47,6 +47,8 @@ class InteractiveServer:
             r, w, x = select.select([self.client], [], [])
             if self.client in r:
                 data = self.client.recv(10)
+                if len(data) == 0:
+                    self.app.remove_client(self.client)
                 # Client input backspace
                 if data in char.BACKSPACE_CHAR:
                     # If input words less than 0, should send 'BELL'
@@ -80,6 +82,13 @@ class InteractiveServer:
                     input_data.append(data)
 
     def dispatch(self, opt):
+        print(opt)
+        if opt in ['q', 'Q']:
+            self.app.remove_client(self.client)
+            return
+        else:
+            self.client.send("hello")
+
         asset = Asset(id=1, hostname="123.57.183.135", ip="123.57.183.135", port=8022)
         system_user = SystemUser(id=2, username="web", password="redhat123", name="web")
         self.connect(asset, system_user)

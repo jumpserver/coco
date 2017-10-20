@@ -51,7 +51,7 @@ class Session:
         while self.running:
             try:
                 r, w, x = select.select([self.client + self.server]
-                                + self.watchers + self.sharers, [], [])
+                                 + self.sharers, [], [])
 
                 for sock in r:
                     if sock == self.server:
@@ -67,8 +67,6 @@ class Session:
                                 watcher.send("%s close the session" % self.client)
                             self.close()
                         self.server.send(data)
-                    elif sock in self.watchers:
-                        sock.send("WARN: Your didn't have the write permission\r\n")
                     elif sock in self.sharers:
                         data = sock.recv(BUF_SIZE)
                         if len(data) == 0:

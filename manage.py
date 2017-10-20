@@ -16,7 +16,11 @@ except:
 coco = Coco()
 coco.config.from_object(conf)
 
-print(coco.root_path)
+# Todo:
+# 0. argparser
+# 1. register application user
+# 2. backup record file
+# 3. xxx
 
 if __name__ == '__main__':
     coco.run_forever()

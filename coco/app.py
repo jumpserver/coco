@@ -37,7 +37,7 @@ class Coco:
     def __init__(self, name=None, root_path=None):
         self.config = self.config_class(BASE_DIR, defaults=self.default_config)
         self.sessions = []
-        self.connections = []
+        self.clients = []
         self.ws = None
         self.root_path = root_path
         self.name = name
@@ -95,6 +95,16 @@ class Coco:
     def shutdown(self):
         print("Grace shutdown the server")
         self.sshd.shutdown()
+
+    def add_client(self, client):
+        self.clients.append(client)
+        print("%s add client, now %d s" % (self.name, len(self.clients)))
+
+    def remove_client(self, client):
+        self.clients.remove(client)
+        client.send("Closed by server")
+        client.close()
+        print("%s remove client, now %d s" % (self.name, len(self.clients)))
 
     def monitor_session(self):
         pass

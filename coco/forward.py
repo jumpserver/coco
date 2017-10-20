@@ -1,4 +1,5 @@
-#coding: utf-8
+# coding: utf-8
+
 import socket
 
 import paramiko
@@ -34,7 +35,6 @@ class ProxyServer:
         pass
 
     def get_server_conn(self, asset, system_user):
-
         self.ssh = ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
