@@ -7,7 +7,6 @@ import re
 import socket
 import threading
 import logging
-import selectors
 
 from .proxy import ProxyServer
 from .globals import request
@@ -45,7 +44,6 @@ class InteractiveServer(object):
         self.assets = self.get_my_assets()
         self.asset_groups = self.get_my_asset_groups()
         self.search_result = []
-        self.sel = selectors.DefaultSelector()
 
     def display_banner(self):
         self.client_channel.send(self.CLEAR_CHAR)
@@ -69,11 +67,6 @@ class InteractiveServer(object):
         parser = TtyIOParser(request.win_width, request.win_height)
         self.client_channel.send(wr(prompt, before=1, after=0))
         while True:
-            events = self.sel.select()  # block until data coming
-
-            if self.client_channel not in [t[0].fileobj for t in events]:
-                continue
-
             data = self.client_channel.recv(1024)
             if data in self.BACKSPACE_CHAR:
                 # If input words less than 0, should send 'BELL'
@@ -293,7 +286,6 @@ class InteractiveServer(object):
             return
 
         self.display_banner()
-        self.sel.register(self.client_channel, selectors.EVENT_READ)
 
         while True:
             try:
@@ -317,6 +309,3 @@ class InteractiveServer(object):
         #     }
         #  api.finish_proxy_log(data)
         self.client_channel.close()
-        self.sel.close()
-
-
