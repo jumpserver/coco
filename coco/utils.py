@@ -169,6 +169,8 @@ class TtyIOParser(object):
 
 
 def wrap_with_line_feed(s, before=0, after=1):
+    if isinstance(s, bytes):
+        return b'\r\n' * before + s + b'\r\n' * after
     return '\r\n' * before + s + '\r\n' * after
 
 
@@ -205,7 +207,11 @@ def wrap_with_color(text, color='white', background=None,
     if background:
         wrap_with.append(background_map.get(background, ''))
     wrap_with.append(color_map.get(color, ''))
-    return '\033[' + ';'.join(wrap_with) + 'm' + text + '\033[0m'
+
+    data = '\033[' + ';'.join(wrap_with) + 'm' + text + '\033[0m'
+    if isinstance(text, bytes):
+        return data.encode('utf-8')
+    return data
 
 
 def wrap_with_warning(text, bolder=False):

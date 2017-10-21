@@ -1,5 +1,6 @@
 import json
 import threading
+import datetime
 
 
 BUF_SIZE = 4096
@@ -52,6 +53,16 @@ class SystemUser(Decoder):
     def __str__(self):
         return self.name
     __repr__ = __str__
+
+
+class Request:
+    def __init__(self, remote_ip=""):
+        self.type = ""
+        self.meta = {}
+        self.user = None
+        self.remote_ip = remote_ip
+        self.change_size_event = threading.Event()
+        self.date_start = datetime.datetime.now()
 
 
 class Client:
@@ -148,6 +159,9 @@ class WSProxy:
         self.child = child
         self.stop_event = threading.Event()
 
+        print(self.child)
+        print(self.child.fileno())
+
         self.auto_forward()
 
     def send(self, b):
@@ -158,7 +172,8 @@ class WSProxy:
         :param b: data
         :return:
         """
-        self.child.send(b)
+        if isinstance(b, str):
+            b = b.encode('utf-8')
 
     def forward(self):
         while not self.stop_event.is_set():

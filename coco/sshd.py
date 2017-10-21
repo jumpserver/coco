@@ -1,5 +1,5 @@
 #! coding: utf-8
-import datetime
+
 import os
 import logging
 import socket
@@ -10,21 +10,10 @@ import sys
 from .utils import ssh_key_gen
 from .interface import SSHInterface
 from .interactive import InteractiveServer
-from .models import Client
+from .models import Client, Request
 
 logger = logging.getLogger(__file__)
 BACKLOG = 5
-
-
-class Request:
-    def __init__(self, client, addr):
-        self.type = ""
-        self.meta = {}
-        self.client = client
-        self.addr = addr
-        self.user = None
-        self.change_size_event = threading.Event()
-        self.date_start = datetime.datetime.now()
 
 
 class SSHServer:
@@ -38,7 +27,7 @@ class SSHServer:
     def listen(self):
         host = self.app.config["BIND_HOST"]
         port = self.app.config["SSHD_PORT"]
-        print('Starting shh server at %(host)s:%(port)s' %
+        print('Starting ssh server at %(host)s:%(port)s' %
               {"host": host, "port": port})
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((host, port))
@@ -80,7 +69,7 @@ class SSHServer:
             logger.warning("Failed load moduli -- gex will be unsupported")
 
         transport.add_server_key(self.host_key)
-        request = Request(sock, addr)
+        request = Request()
         server = SSHInterface(self.app, request)
         try:
             transport.start_server(server=server)

@@ -1,5 +1,6 @@
 #!coding: utf-8
 import socket
+import threading
 
 from . import char
 from .utils import TtyIOParser, wrap_with_line_feed as wr, \
@@ -29,7 +30,7 @@ class InteractiveServer:
         8) 输入 \033[32mD/d\033[0m 批量下载文件.(未完成)\r
         9) 输入 \033[32mH/h\033[0m 帮助.\r
         0) 输入 \033[32mQ/q\033[0m 退出.\r\n""" % self.request.user
-        self.client.send(banner)
+        self.client.send(banner.encode('utf-8'))
 
     def get_choice(self, prompt='Opt> '):
         """实现了一个ssh input, 提示用户输入, 获取并返回
@@ -40,7 +41,7 @@ class InteractiveServer:
         input_data = []
         parser = TtyIOParser(self.request.meta.get("width", 80),
                              self.request.meta.get("height", 24))
-        self.client.send(wr(prompt, before=1, after=0))
+        self.client.send(wr(prompt, before=1, after=0).encode('utf-8'))
         while True:
             data = self.client.recv(10)
             if len(data) == 0:
@@ -59,7 +60,7 @@ class InteractiveServer:
 
             # Todo: Move x1b to char
             if data.startswith(b'\x1b') or data in char.UNSUPPORTED_CHAR:
-                self.client.send('')
+                self.client.send(b'')
                 continue
 
             # handle shell expect
@@ -71,7 +72,7 @@ class InteractiveServer:
 
             # If user type ENTER we should get user input
             if data in char.ENTER_CHAR or multi_char_with_enter:
-                self.client.send(wr('', after=2))
+                self.client.send(wr(b'', after=2))
                 option = parser.parse_input(b''.join(input_data))
                 return option.strip()
             else:
@@ -140,6 +141,11 @@ class InteractiveServer:
             except socket.error:
                 break
         self.close()
+
+    def activate_async(self):
+        thread = threading.Thread(target=self.activate)
+        thread.daemon = True
+        thread.start()
 
     def close(self):
         pass

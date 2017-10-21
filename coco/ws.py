@@ -1,45 +1,84 @@
 # coding: utf-8
+import socket
+import threading
 
+import time
 import tornado.web
 import tornado.websocket
 import tornado.httpclient
 import tornado.ioloop
+import tornado.gen
+
+from .models import User, Request, Client, WSProxy
+from .interactive import InteractiveServer
 
 
-class MainHandler(tornado.web.RequestHandler):
-    def get(self, *args, **kwargs):
-        self.write("Hello world")
+class BaseWehSocketHandler:
+    def prepare(self):
+        self.app = self.settings["app"]
+        child, parent = socket.socketpair()
+        addr = (self.request.remote_ip, 0)
+        self.client = Client(parent, addr, self.current_user)
+        self.proxy = WSProxy(self, child)
+        self.app.clients.append(self.client)
+
+    def get_current_user(self):
+        return User(id=1, username="guanghongwei", name="广宏伟")
+
+    def check_origin(self, origin):
+        return True
 
 
-class InteractiveHandler(tornado.websocket.WebSocketHandler):
+class InteractiveWehSocketHandler(BaseWehSocketHandler, tornado.websocket.WebSocketHandler):
+    @tornado.web.authenticated
+    def open(self):
+        request = Request(self.request.remote_ip)
+        self.request.__dict__.update(request.__dict__)
+        InteractiveServer(self.app, self.request,self.client).activate_async()
+
+    def on_message(self, message):
+        print(message)
+        self.proxy.send(message)
+
+    def on_close(self):
+        self.proxy.close()
+
+
+class ProxyWehSocketHandler(BaseWehSocketHandler):
     pass
 
 
-class ProxyHandler(tornado.websocket.WebSocketHandler):
-    pass
-
-
-class MonitorHandler(tornado.websocket.WebSocketHandler):
+class MonitorWehSocketHandler(BaseWehSocketHandler):
     pass
 
 
 class WSServer:
     routers = [
-        (r'^/$', MainHandler),
-        (r'/ws/interactive/', MainHandler),
-        (r'/ws/proxy/(?P<asset_id>[0-9]+)/(?P<system_user_id>[0-9]+)/', MainHandler),
-        (r'/ws/session/(?P<session_id>[0-9]+)/monitor/', MainHandler),
-        (r'/ws/session/(?P<session+id>[0-9]+)/join/', MainHandler),
+        (r'/ws/interactive/', InteractiveWehSocketHandler),
+        (r'/ws/proxy/(?P<asset_id>[0-9]+)/(?P<system_user_id>[0-9]+)/', ProxyWehSocketHandler),
+        (r'/ws/session/(?P<session_id>[0-9]+)/monitor/', MonitorWehSocketHandler),
     ]
+
+    # prepare may be rewrite it
+    settings = {
+        'cookie_secret': '',
+        'app': None,
+        'login_url': '/login'
+    }
 
     def __init__(self, app):
         self.app = app
+        self._prepare()
+
+    def _prepare(self):
+        self.settings['cookie_secret'] = self.app.config['SECRET_KEY']
+        self.settings['app'] = self.app
 
     def run(self):
         host = self.app.config["BIND_HOST"]
         port = self.app.config["WS_PORT"]
         print('Starting websocket server at %(host)s:%(port)s' %
               {"host": host, "port": port})
-        ws = tornado.web.Application(self.routers)
+        ws = tornado.web.Application(self.routers, **self.settings)
         ws.listen(port=port, address=host)
         tornado.ioloop.IOLoop.current().start()

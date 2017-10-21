@@ -24,16 +24,10 @@ class ProxyServer:
             self.client.send("No permission")
             return
 
-        if len(self.app.sessions) == 1:
-            session = self.app.sessions[0]
-            session.add_sharer(self.client)
-            while True:
-                time.sleep(10)
-        else:
-            session = Session(self.client, self.server)
-            self.app.sessions.append(session)
-            session.bridge()
-            self.app.sessions.remove(session)
+        session = Session(self.client, self.server)
+        self.app.sessions.append(session)
+        session.bridge()
+        self.app.sessions.remove(session)
 
     def validate_permission(self, asset, system_user):
         """
