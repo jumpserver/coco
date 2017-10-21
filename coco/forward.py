@@ -1,9 +1,9 @@
 # coding: utf-8
 
 import socket
+import threading
 
 import paramiko
-import time
 
 from .session import Session
 from .models import Server
@@ -26,6 +26,7 @@ class ProxyServer:
 
         session = Session(self.client, self.server)
         self.app.sessions.append(session)
+        self.watch_win_size_change_async()
         session.bridge()
         self.app.sessions.remove(session)
 
@@ -68,4 +69,18 @@ class ProxyServer:
         height = self.request.meta.get('height', 24)
         chan = ssh.invoke_shell(term, width=width, height=height)
         return Server(chan, asset, system_user)
+
+    def watch_win_size_change(self):
+        while self.request.change_size_event.wait():
+            self.request.change_size_event.clear()
+            width = self.request.meta.get('width', 80)
+            height = self.request.meta.get('height', 24)
+            print("Change win size: %s - %s" % (width, height))
+            self.server.chan.resize_pty(width=width, height=height)
+
+    def watch_win_size_change_async(self):
+        thread = threading.Thread(target=self.watch_win_size_change)
+        thread.daemon = True
+        thread.start()
+
 

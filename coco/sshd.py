@@ -45,16 +45,10 @@ class SSHServer:
 
     def run(self):
         self.listen()
-        max_conn_num = self.app.config['MAX_CONNECTIONS']
         while not self.stop_event.is_set():
             try:
                 sock, addr = self.sock.accept()
                 logger.info("Get ssh request from %s: %s" % (addr[0], addr[1]))
-                if len(self.app.clients) >= max_conn_num:
-                    sock.close()
-                    logger.warning("Arrive max connection number %s, "
-                                   "reject new request %s:%s" %
-                                   (max_conn_num, addr[0], addr[1]))
                 thread = threading.Thread(target=self.handle, args=(sock, addr))
                 thread.daemon = True
                 thread.start()

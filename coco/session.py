@@ -65,7 +65,6 @@ class Session:
                                     self.watchers + self.sharers, [], [])
             for sock in r:
                 data = sock.recv(BUF_SIZE)
-                print(data.decode('utf-8'))
                 if sock == self.server:
                     if len(data) == 0:
                         self.close()

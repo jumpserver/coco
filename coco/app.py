@@ -1,7 +1,6 @@
 import os
 import time
 import threading
-from queue import Queue
 import logging
 
 from .config import Config
@@ -45,6 +44,7 @@ class Coco:
         self.root_path = root_path
         self.name = name
         self.lock = threading.Lock()
+        self.stop_evt = threading.Event()
 
         if name is None:
             self.name = self.config['NAME']
@@ -71,7 +71,6 @@ class Coco:
         print('Coco version %s, more see https://www.jumpserver.org' % __version__)
         print('Quit the server with CONTROL-C.')
 
-        exit_queue = Queue()
         try:
             if self.config["SSHD_PORT"] != 0:
                 self.run_sshd()
@@ -79,10 +78,9 @@ class Coco:
             if self.config['WS_PORT'] != 0:
                 self.run_ws()
 
-            if exit_queue.get():
-                self.shutdown()
-
+            self.stop_evt.wait()
         except KeyboardInterrupt:
+            self.stop_evt.set()
             self.shutdown()
 
     def run_sshd(self):

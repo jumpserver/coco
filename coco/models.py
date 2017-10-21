@@ -159,28 +159,27 @@ class WSProxy:
         self.child = child
         self.stop_event = threading.Event()
 
-        print(self.child)
-        print(self.child.fileno())
-
         self.auto_forward()
 
-    def send(self, b):
+    def send(self, msg):
         """
         If ws use proxy send data, then send the data to child sock, then
         the parent sock recv
 
-        :param b: data
+        :param msg: terminal write message {"data": "message"}
         :return:
         """
-        if isinstance(b, str):
-            b = b.encode('utf-8')
+        data = msg["data"]
+        if isinstance(data, str):
+            data = data.encode('utf-8')
+        self.child.send(data)
 
     def forward(self):
         while not self.stop_event.is_set():
             data = self.child.recv(BUF_SIZE)
             if len(data) == 0:
                 self.close()
-            self.ws.write_message(data)
+            self.ws.write_message(json.dumps({"data": data.decode("utf-8")}))
 
     def auto_forward(self):
         thread = threading.Thread(target=self.forward, args=())

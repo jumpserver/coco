@@ -68,8 +68,7 @@ class SSHInterface(paramiko.ServerInterface):
         return False
 
     def check_channel_exec_request(self, channel, command):
-        logger.debug("Check channel exec request: %s `%s`" %
-                     (channel, command))
+        logger.debug("Check channel exec request:  `%s`" % command)
         self.request.type = 'exec'
         self.request.meta = {'channel': channel, 'command': command}
         self.event.set()
@@ -85,8 +84,8 @@ class SSHInterface(paramiko.ServerInterface):
     def check_channel_pty_request(
             self, channel, term, width, height,
             pixelwidth, pixelheight, modes):
-        logger.debug("Check channel pty request: %s %s %s %s %s %s" %
-                     (channel, term, width, height, pixelwidth, pixelheight))
+        logger.debug("Check channel pty request: %s %s %s %s %s" %
+                     (term, width, height, pixelwidth, pixelheight))
         self.request.type = 'pty'
         self.request.meta = {
             'channel': channel, 'term': term, 'width': width,

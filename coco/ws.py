@@ -1,8 +1,8 @@
 # coding: utf-8
 import socket
-import threading
+import json
+import logging
 
-import time
 import tornado.web
 import tornado.websocket
 import tornado.httpclient
@@ -11,6 +11,9 @@ import tornado.gen
 
 from .models import User, Request, Client, WSProxy
 from .interactive import InteractiveServer
+
+
+logger = logging.getLogger(__file__)
 
 
 class BaseWehSocketHandler:
@@ -34,14 +37,31 @@ class InteractiveWehSocketHandler(BaseWehSocketHandler, tornado.websocket.WebSoc
     def open(self):
         request = Request(self.request.remote_ip)
         self.request.__dict__.update(request.__dict__)
-        InteractiveServer(self.app, self.request,self.client).activate_async()
+        InteractiveServer(self.app, self.request, self.client).activate_async()
 
     def on_message(self, message):
-        print(message)
-        self.proxy.send(message)
+        try:
+            message = json.loads(message)
+        except json.JSONDecodeError:
+            logger.info("Loads websocket json message failed")
+            return
+
+        if message.get('event'):
+            self.evt_handle(message)
+        elif message.get('data'):
+            self.proxy.send(message)
 
     def on_close(self):
         self.proxy.close()
+
+    def evt_handle(self, data):
+        if data['event'] == 'change_size':
+            try:
+                self.request.meta['width'] = data['meta']['width']
+                self.request.meta['height'] = data['meta']['height']
+                self.request.change_size_event.set()
+            except KeyError:
+                pass
 
 
 class ProxyWehSocketHandler(BaseWehSocketHandler):
