@@ -3,7 +3,6 @@
 from __future__ import unicode_literals
 
 import sys
-import select
 import re
 import socket
 import threading
@@ -19,6 +18,8 @@ from jms.utils import wrap_with_line_feed as wr, wrap_with_primary as primary,\
 
 logger = logging.getLogger(__file__)
 
+class LogoutException(Exception):
+    pass
 
 class InteractiveServer(object):
     """Hi, This is a interactive server, show a navigation, accept user input,
@@ -66,38 +67,36 @@ class InteractiveServer(object):
         parser = TtyIOParser(request.win_width, request.win_height)
         self.client_channel.send(wr(prompt, before=1, after=0))
         while True:
-            r, w, x = select.select([self.client_channel], [], [])
-            if self.client_channel in r:
-                data = self.client_channel.recv(1024)
-                if data in self.BACKSPACE_CHAR:
-                    # If input words less than 0, should send 'BELL'
-                    if len(input_data) > 0:
-                        data = self.BACKSPACE_CHAR[data]
-                        input_data.pop()
-                    else:
-                        data = self.BELL_CHAR
-                    self.client_channel.send(data)
-                    continue
-
-                if data.startswith(b'\x1b') or data in self.UNSUPPORTED_CHAR:
-                    self.client_channel.send('')
-                    continue
-
-                # handle shell expect
-                multi_char_with_enter = False
-                if len(data) > 1 and data[-1] in self.ENTER_CHAR:
-                    self.client_channel.send(data)
-                    input_data.append(data[:-1])
-                    multi_char_with_enter = True
-
-                # If user type ENTER we should get user input
-                if data in self.ENTER_CHAR or multi_char_with_enter:
-                    self.client_channel.send(wr('', after=2))
-                    option = parser.parse_input(b''.join(input_data))
-                    return option.strip()
+            data = self.client_channel.recv(1024)
+            if data in self.BACKSPACE_CHAR:
+                # If input words less than 0, should send 'BELL'
+                if len(input_data) > 0:
+                    data = self.BACKSPACE_CHAR[data]
+                    input_data.pop()
                 else:
-                    self.client_channel.send(data)
-                    input_data.append(data)
+                    data = self.BELL_CHAR
+                self.client_channel.send(data)
+                continue
+
+            if data.startswith(b'\x1b') or data in self.UNSUPPORTED_CHAR:
+                self.client_channel.send('')
+                continue
+
+            # handle shell expect
+            multi_char_with_enter = False
+            if len(data) > 1 and data[-1] in self.ENTER_CHAR:
+                self.client_channel.send(data)
+                input_data.append(data[:-1])
+                multi_char_with_enter = True
+
+            # If user type ENTER we should get user input
+            if data in self.ENTER_CHAR or multi_char_with_enter:
+                self.client_channel.send(wr('', after=2))
+                option = parser.parse_input(b''.join(input_data))
+                return option.strip()
+            else:
+                self.client_channel.send(data)
+                input_data.append(data)
 
     def dispatch(self, twice=False):
         """根据用户的输入执行不同的操作
@@ -120,8 +119,7 @@ class InteractiveServer(object):
         elif re.match(r'g\d+', option):
             self.display_asset_group_asset(option)
         elif option in ['q', 'Q']:
-            self.logout()
-            sys.exit()
+            raise LogoutException()
         elif option in ['h', 'H']:
             return self.display_banner()
         else:
@@ -288,9 +286,13 @@ class InteractiveServer(object):
             return
 
         self.display_banner()
+
         while True:
             try:
                 self.dispatch()
+            except LogoutException:
+                self.logout()
+                break
             except socket.error:
                 self.logout()
                 break
@@ -307,6 +309,3 @@ class InteractiveServer(object):
         #     }
         #  api.finish_proxy_log(data)
         self.client_channel.close()
-        del self
-
-

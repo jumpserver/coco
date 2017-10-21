@@ -5,7 +5,7 @@ import logging
 import threading
 import time
 import socket
-import select
+import selectors
 
 import paramiko
 
@@ -57,6 +57,7 @@ class ProxyServer(object):
         self.ssh = None
         self.backend_channel = None
         self.proxy_log_id = 0
+        self.sel = selectors.DefaultSelector()
 
     def is_finish_input(self, s):
         for char in s:
@@ -102,11 +103,10 @@ class ProxyServer(object):
         user = self.user
         asset = self.asset
         system_user = self.system_user
-        client_channel = self.client_channel
         try:
             # Todo: win_width in request or client_channel
-            width = int(client_channel.win_width)
-            height = int(client_channel.win_height)
+            width = int(self.client_channel.win_width)
+            height = int(self.client_channel.win_height)
         except TypeError:
             pass
         if not self.validate_user_asset_permission():
@@ -123,7 +123,7 @@ class ProxyServer(object):
         self.proxy_log_id = proxy_log_id = self.service.send_proxy_log(data)
         self.app.proxy_list[proxy_log_id] = self.client_channel, self.backend_channel
         try:
-            client_channel.send(
+            self.client_channel.send(
                 wr('Connecting %s@%s:%s ... ' %
                    (system_user.username, asset.ip, asset.port)))
             ssh.connect(hostname=asset.ip, port=asset.port,
@@ -152,7 +152,7 @@ class ProxyServer(object):
             logger.info(msg)
 
         if failed:
-            client_channel.send(wr(warning(msg+'\r\n')))
+            self.client_channel.send(wr(warning(msg+'\r\n')))
             data = {
                 "proxy_log_id": proxy_log_id,
                 "date_finished": time.time(),
@@ -173,28 +173,27 @@ class ProxyServer(object):
         return False
 
     def proxy(self):
-        self.backend_channel = backend_channel = self.connect()
-        client_channel = self.client_channel
+        self.backend_channel = self.connect()
 
-        if backend_channel is None:
+        if self.backend_channel is None:
             return
 
         self.app.proxy_list[self.proxy_log_id] = \
-            [self.client_channel, backend_channel]
+            [self.client_channel, self.backend_channel]
+
+        self.sel.register(self.client_channel, selectors.EVENT_READ)
+        self.sel.register(self.backend_channel, selectors.EVENT_READ)
 
         while not self.stop_event.set():
-            try:
-                r, w, x = select.select([client_channel, backend_channel], [], [])
-            except select.error:
-                break
+            events = self.sel.select()  # block until data coming
 
             if self.change_win_size_event.is_set():
                self.change_win_size_event.clear()
                width = self.client_channel.win_width
                height = self.client_channel.win_height
-               backend_channel.resize_pty(width=width, height=height)
+               self.backend_channel.resize_pty(width=width, height=height)
 
-            if client_channel in r:
+            if self.client_channel in [t[0].fileobj for t in events]:
                 # Get output of the command
                 self.is_first_input = False
                 if self.in_input_state is False:
@@ -202,7 +201,7 @@ class ProxyServer(object):
                     del self.output_data[:]
 
                 self.in_input_state = True
-                client_data = client_channel.recv(1024)
+                client_data = self.client_channel.recv(1024)
 
                 if self.is_finish_input(client_data):
                     self.in_input_state = False
@@ -211,17 +210,17 @@ class ProxyServer(object):
 
                 if len(client_data) == 0:
                     break
-                backend_channel.send(client_data)
+                self.backend_channel.send(client_data)
 
-            if backend_channel in r:
-                backend_data = backend_channel.recv(1024)
+            if self.backend_channel in [t[0].fileobj for t in events]:
+                backend_data = self.backend_channel.recv(1024)
                 if self.in_input_state:
                     self.input_data.append(backend_data)
                 else:
                     self.output_data.append(backend_data)
 
                 if len(backend_data) == 0:
-                    client_channel.send(
+                    self.client_channel.send(
                         wr('Disconnect from %s' % self.asset.ip))
                     logger.info('Logout from asset %(host)s: %(username)s' % {
                         'host': self.asset.ip,
@@ -229,7 +228,7 @@ class ProxyServer(object):
                     })
                     break
 
-                client_channel.send(backend_data)
+                self.client_channel.send(backend_data)
                 # Todo: record log send
                 # if self.is_match_ignore_command(self.input):
                 #     output = 'ignore output ...'
@@ -249,4 +248,6 @@ class ProxyServer(object):
         self.service.finish_proxy_log(data)
         del self.app.proxy_list[self.proxy_log_id]
 
-
+        def close(self):
+            self.backend_channel.close()
+            sef.sel.close()
