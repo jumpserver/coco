@@ -6,6 +6,7 @@ import logging
 
 from .config import Config
 from .sshd import SSHServer
+from .ws import WSServer
 from .logging import create_logger
 
 
@@ -59,7 +60,7 @@ class Coco:
 
     def prepare(self):
         self.sshd = SSHServer(self)
-        pass
+        self.ws = WSServer(self)
 
     def heartbeat(self):
         pass
@@ -68,10 +69,6 @@ class Coco:
         self.prepare()
         print(time.ctime())
         print('Coco version %s, more see https://www.jumpserver.org' % __version__)
-
-        # Todo: move to websocket server
-        print('Starting websocket server at %(host)s:%(port)s' % {
-            'host': self.config['BIND_HOST'], 'port': self.config['WS_PORT']})
         print('Quit the server with CONTROL-C.')
 
         exit_queue = Queue()
@@ -94,7 +91,9 @@ class Coco:
         thread.start()
 
     def run_ws(self):
-        pass
+        thread = threading.Thread(target=self.ws.run, args=())
+        thread.daemon = True
+        thread.start()
 
     def shutdown(self):
         for client in self.clients:
