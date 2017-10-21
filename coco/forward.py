@@ -40,7 +40,7 @@ class ProxyServer:
         try:
             ssh.connect(asset.ip, port=asset.port, username=system_user.username,
                     password=system_user.password, pkey=system_user.private_key)
-        except (paramiko.AuthenticationException,) as e:
+        except (paramiko.AuthenticationException, paramiko.ssh_exception.NoValidConnectionsError) as e:
             pass
 
         except socket.error:

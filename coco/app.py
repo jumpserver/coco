@@ -50,6 +50,7 @@ class Coco:
 
         self.make_logger()
         self.sshd = None
+        self.running = True
 
     def make_logger(self):
         create_logger(self)

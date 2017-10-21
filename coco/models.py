@@ -1,8 +1,6 @@
 import json
 import threading
 
-import select
-
 
 BUF_SIZE = 4096
 
@@ -160,12 +158,10 @@ class WSProxy:
 
     def forward(self):
         while not self.stop_event.is_set():
-            r, w, e = select.select([self.child], [], [])
-            if self.child in r:
-                data = self.child.recv(BUF_SIZE)
-                if len(data) == 0:
-                    self.close()
-                self.ws.write_message(data)
+            data = self.child.recv(BUF_SIZE)
+            if len(data) == 0:
+                self.close()
+            self.ws.write_message(data)
 
     def auto_forward(self):
         thread = threading.Thread(target=self.forward, args=())

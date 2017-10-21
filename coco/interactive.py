@@ -1,8 +1,6 @@
 #!coding: utf-8
 import socket
 
-import select
-
 from . import char
 from .utils import TtyIOParser, wrap_with_line_feed as wr, \
     wrap_with_primary as primary, wrap_with_warning as warning
