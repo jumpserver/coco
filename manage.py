@@ -2,9 +2,15 @@
 #
 
 import os
+import sys
 
 from coco import Coco
-import conf
+
+try:
+    import conf
+except ImportError:
+    print("Please prepare config file `cp conf_example.py conf.py`")
+    sys.exit(1)
 
 try:
     os.mkdir("logs")

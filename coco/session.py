@@ -30,7 +30,13 @@ class Session:
         :return:
         """
         logger.info("Session % add watcher %s" % (self, watcher))
+        watcher.send("Welcome to join session %s\r\n" % self.id)
         self.watchers.append(watcher)
+
+    def remove_watcher(self, watcher):
+        logger.info("Session %s remove watcher %s" % (self, watcher))
+        watcher.send("Leave session %s at %s" % (self.id, datetime.datetime.now()))
+        self.watchers.remove(watcher)
 
     def add_sharer(self, sharer):
         """
@@ -38,8 +44,14 @@ class Session:
         :param sharer:  A client socket
         :return:
         """
-        logger.info("Session % add share %s" % (self, sharer))
+        logger.info("Session %s add share %s" % (self.id, sharer))
+        sharer.send("Welcome to join session %s\r\n" % self.id)
         self.sharers.append(sharer)
+
+    def remove_sharer(self, sharer):
+        logger.info("Session %s remove sharer %s" % (self.id, sharer))
+        sharer.send("Leave session %s at %s" % (self.id, datetime.datetime.now()))
+        self.sharers.remove(sharer)
 
     def bridge(self):
         """
@@ -47,34 +59,34 @@ class Session:
         :return:
 
         """
-
+        logger.info("Start bridge session %s" % self.id)
         while self.running:
-            try:
-                r, w, x = select.select([self.client + self.server]
-                                 + self.sharers, [], [])
-
-                for sock in r:
-                    if sock == self.server:
-                        data = sock.recv(BUF_SIZE)
-                        if len(data) == 0:
-                            self.close()
-                        for watcher in [self.client] + self.watchers + self.sharers:
-                            watcher.send(data)
-                    elif sock == self.client:
-                        data = sock.recv(BUF_SIZE)
-                        if len(data) == 0:
-                            for watcher in self.watchers + self.sharers:
-                                watcher.send("%s close the session" % self.client)
-                            self.close()
-                        self.server.send(data)
-                    elif sock in self.sharers:
-                        data = sock.recv(BUF_SIZE)
-                        if len(data) == 0:
-                            sock.send("Leave session %s" % self.id)
-                        self.server.send(data)
-
-            except Exception as e:
-                pass
+            r, w, x = select.select([self.client, self.server] +
+                                    self.watchers + self.sharers, [], [])
+            for sock in r:
+                data = sock.recv(BUF_SIZE)
+                print(data.decode('utf-8'))
+                if sock == self.server:
+                    if len(data) == 0:
+                        self.close()
+                        break
+                    for watcher in [self.client] + self.watchers + self.sharers:
+                        watcher.send(data)
+                elif sock == self.client:
+                    if len(data) == 0:
+                        for watcher in self.watchers + self.sharers:
+                            watcher.send("Client %s close the session" % self.client)
+                        self.close()
+                        break
+                    self.server.send(data)
+                elif sock in self.sharers:
+                    if len(data) == 0:
+                        logger.info("Sharer %s leave session %s" % (sock, self.id))
+                        self.remove_sharer(sock)
+                    self.server.send(data)
+                elif sock in self.watchers:
+                    if len(data) == 0:
+                        logger.info("Watcher %s leave session %s" % (sock, self.id))
 
     def set_size(self, width, height):
         self.server.resize_pty(width=width, height=height)
@@ -91,10 +103,13 @@ class Session:
         pass
 
     def close(self):
-        pass
+        self.running = False
+        self.server.close()
+        return
 
     def __str__(self):
         return self.id
+    __repr__ = __str__
 
 
 

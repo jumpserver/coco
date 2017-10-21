@@ -99,13 +99,17 @@ class Server:
         self.system_user = system_user
 
     def fileno(self):
-        return self.chan.fileno
+        return self.chan.fileno()
 
     def send(self, b):
         return self.chan.send(b)
 
     def recv(self, size):
         return self.chan.recv(size)
+
+    def close(self):
+        self.chan.close()
+        return self.chan.transport.close()
 
     def __getattr__(self, item):
         return getattr(self.chan, item)

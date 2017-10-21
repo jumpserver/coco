@@ -26,8 +26,11 @@ def create_logger(app):
     log_path = os.path.join(log_dir, 'coco.log')
     logger = logging.getLogger()
 
+    # main_formatter = logging.Formatter(
+    #     fmt='%(asctime)s [%(module)s %(levelname)s] %(message)s',
+    #     datefmt='%Y-%m-%d %H:%M:%S')
     main_formatter = logging.Formatter(
-        fmt='%(asctime)s [%(module)s %(levelname)s] %(message)s',
+        fmt='%(asctime)s [%(levelname)s] %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
     console_handler = StreamHandler()
     file_handler = TimedRotatingFileHandler(

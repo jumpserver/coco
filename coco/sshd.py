@@ -87,6 +87,8 @@ class SSHServer:
         except paramiko.SSHException:
             logger.warning("SSH negotiation failed.")
             sys.exit(1)
+        except EOFError:
+            logger.warning("EOF Error")
 
         chan = transport.accept(10)
         if chan is None:

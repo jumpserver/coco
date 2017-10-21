@@ -79,20 +79,25 @@ class InteractiveServer:
                 input_data.append(data)
 
     def dispatch(self, opt):
-        if opt in ['q', 'Q']:
+        if opt in ['q', 'Q', '0']:
             self.app.remove_client(self.client)
-            return
+        elif opt in ['h', 'H', '9']:
+            self.display_banner()
+        elif opt in ['p', 'P', '3']:
+            self.display_assets()
+        elif opt in ['g', 'G', '5']:
+            self.display_asset_groups()
         else:
-            self.client.send("hello")
-
-        asset = Asset(id=1, hostname="123.57.183.135", ip="123.57.183.135", port=8022)
-        system_user = SystemUser(id=2, username="web", password="redhat123", name="web")
-        self.connect(asset, system_user)
+            self.search_and_proxy(opt)
 
     def search_assets(self, opt, from_result=False):
         pass
 
     def display_assets(self):
+        """
+        Display user all assets
+        :return:
+        """
         pass
 
     def display_asset_groups(self):
@@ -118,7 +123,9 @@ class InteractiveServer:
         pass
 
     def search_and_proxy(self, opt, from_result=False):
-        pass
+        asset = Asset(id=1, hostname="testserver", ip="123.57.183.135", port=8022)
+        system_user = SystemUser(id=2, username="web", password="redhat123", name="web")
+        self.connect(asset, system_user)
 
     def connect(self, asset, system_user):
         forwarder = ProxyServer(self.app, self.client, self.request)

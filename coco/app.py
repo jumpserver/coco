@@ -2,6 +2,7 @@ import os
 import time
 import threading
 from queue import Queue
+import logging
 
 from .config import Config
 from .sshd import SSHServer
@@ -11,6 +12,7 @@ from .logging import create_logger
 __version__ = '0.4.0'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+logger = logging.getLogger(__file__)
 
 
 class Coco:
@@ -95,24 +97,27 @@ class Coco:
         pass
 
     def shutdown(self):
-        print("Grace shutdown the server")
+        for client in self.clients:
+            self.remove_client(client)
+        time.sleep(1)
         self.sshd.shutdown()
+        logger.info("Grace shutdown the server")
 
     def add_client(self, client):
         with self.lock:
             self.clients.append(client)
-            print("%s add client, now %d s" % (self.name, len(self.clients)))
+            logger.info("New client %s join, total %d now" % (client, len(self.clients)))
 
     def remove_client(self, client):
         with self.lock:
-            self.clients.remove(client)
-            print("%s remove client, now %d s" % (self.name, len(self.clients)))
+            try:
+                self.clients.remove(client)
+                logger.info("Client %s leave, total %d now" % (client, len(self.clients)))
 
-        try:
-            client.send("Closed by server")
-            client.close()
-        except:
-            pass
+                client.send("Closed by server")
+                client.close()
+            except:
+                pass
 
     def monitor_session(self):
         pass
