@@ -5,6 +5,8 @@ import uuid
 import socket
 import logging
 import datetime
+import selectors
+
 
 BUF_SIZE = 1024
 logger = logging.getLogger(__file__)
@@ -21,6 +23,7 @@ class Session:
         self.running = True
         self.date_created = datetime.datetime.now()
         self.date_finished = None
+        self.sel = selectors.DefaultSelector()
 
     def add_watcher(self, watcher):
         """
@@ -31,11 +34,13 @@ class Session:
         """
         logger.info("Session % add watcher %s" % (self, watcher))
         watcher.send("Welcome to join session %s\r\n" % self.id)
+        self.sel.register(watcher, selectors.EVENT_READ)
         self.watchers.append(watcher)
 
     def remove_watcher(self, watcher):
         logger.info("Session %s remove watcher %s" % (self, watcher))
         watcher.send("Leave session %s at %s" % (self.id, datetime.datetime.now()))
+        self.sel.unregister(watcher)
         self.watchers.remove(watcher)
 
     def add_sharer(self, sharer):
@@ -46,11 +51,13 @@ class Session:
         """
         logger.info("Session %s add share %s" % (self.id, sharer))
         sharer.send("Welcome to join session %s\r\n" % self.id)
+        self.sel.register(sharer, selectors.EVENT_READ)
         self.sharers.append(sharer)
 
     def remove_sharer(self, sharer):
         logger.info("Session %s remove sharer %s" % (self.id, sharer))
         sharer.send("Leave session %s at %s" % (self.id, datetime.datetime.now()))
+        self.sel.unregister(sharer)
         self.sharers.remove(sharer)
 
     def bridge(self):
@@ -60,10 +67,11 @@ class Session:
 
         """
         logger.info("Start bridge session %s" % self.id)
+        self.sel.register(self.client, selectors.EVENT_READ)
+        self.sel.register(self.server, selectors.EVENT_READ)
         while self.running:
-            r, w, x = select.select([self.client, self.server] +
-                                    self.watchers + self.sharers, [], [])
-            for sock in r:
+            events = self.sel.select()
+            for sock in [key.fileobj for key, _ in events]:
                 data = sock.recv(BUF_SIZE)
                 if sock == self.server:
                     if len(data) == 0:
