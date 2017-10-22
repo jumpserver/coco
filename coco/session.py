@@ -24,6 +24,7 @@ class Session:
         self.watchers = []  # Only watch session
         self.sharers = []  # Join to the session, read and write
         self.running = True
+        self.replaying = True
         self.date_created = datetime.datetime.now()
         self.date_finished = None
         self.sel = selectors.DefaultSelector()
@@ -111,11 +112,12 @@ class Session:
         Record the session to a file. Using it replay in the future
         :return:
         """
+        logger.info("Start record session %s" % self.id)
         parent, child = socket.socketpair()
         self.add_watcher(parent)
-        with open(os.path.join(self.record_dir, self.id + ".rec"), 'wb') as screenf, \
+        with open(os.path.join(self.record_dir, self.id + ".rec"), 'wb') as dataf, \
             open(os.path.join(self.record_dir, self.id + ".time"), "w") as timef:
-            screenf.write("Script started on {}\n".format(time.asctime()).encode("utf-8"))
+            dataf.write("Script started on {}\n".format(time.asctime()).encode("utf-8"))
 
             while self.running:
                 start_t = time.time()
@@ -125,10 +127,9 @@ class Session:
                 if size == 0:
                     break
                 timef.write("%.4f %s\n" % (end_t-start_t, size))
-                screenf.write(data)
-                print("Pass %.4f, print %d" % (end_t-start_t, size))
-                print("Data: {}".format(data.decode('utf-8')))
-            screenf.write("Script done on {}\n".format(time.asctime()).encode("utf-8"))
+                dataf.write(data)
+            dataf.write("Script done on {}\n".format(time.asctime()).encode("utf-8"))
+        logger.info("End session record %s" % self.id)
 
     def record_async(self):
         thread = threading.Thread(target=self.record)
@@ -140,9 +141,26 @@ class Session:
         Replay the session
         :return:
         """
-        pass
+        with open(os.path.join(self.record_dir, self.id + ".rec"), 'rb') as dataf, \
+               open(os.path.join(self.record_dir, self.id + ".time"), "r") as timef:
 
-    def replay_down(self):
+            self.client.send(dataf.readline())
+            for l in timef:
+                if not self.replaying:
+                    break
+                t, size = float(l.split()[0]), int(l.split()[1])
+                data = dataf.read(size)
+                print("Sleep %s and send %s" % (t, data))
+                time.sleep(t)
+                self.client.send(data)
+        self.client.send("Replay session {} end".format(self.id).encode('utf-8'))
+        self.replaying = False
+
+    def replay_download(self):
+        """
+        Using termrecord generate html, then down user download it and share it
+        :return:
+        """
         pass
 
     def close(self):
@@ -152,7 +170,9 @@ class Session:
 
     def __str__(self):
         return self.id
-    __repr__ = __str__
+
+    def __repr__(self):
+        return self.id
 
 
 

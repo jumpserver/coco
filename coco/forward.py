@@ -8,7 +8,6 @@ import paramiko
 
 from .session import Session
 from .models import Server
-from .exception import PermissionFailed
 
 
 logger = logging.getLogger(__file__)
@@ -22,12 +21,9 @@ class ProxyServer:
         self.server = None
 
     def proxy(self, asset, system_user):
-        try:
-            self.server = self.get_server_conn(asset, system_user)
-        except PermissionFailed:
-            self.client.send(b"No permission")
+        self.server = self.get_server_conn(asset, system_user)
+        if self.server is None:
             return
-
         session = Session(self.client, self.server)
         self.app.sessions.append(session)
         self.watch_win_size_change_async()
@@ -51,7 +47,8 @@ class ProxyServer:
 
     def get_server_conn(self, asset, system_user):
         if not self.validate_permission(asset, system_user):
-            raise PermissionFailed
+            self.client.send(b'No permission')
+            return None
 
         self.get_system_user_auth(system_user)
         ssh = paramiko.SSHClient()
@@ -62,12 +59,12 @@ class ProxyServer:
                         password=system_user.password,
                         pkey=system_user.private_key)
         except paramiko.AuthenticationException as e:
-            self.client.send(b"Authentication failed: %s" % e)
-            return
+            self.client.send("Authentication failed: {}".format(e).encode("utf-8"))
+            return None
 
         except socket.error as e:
-            self.client.send(b"Connection server error: %s" % e)
-            return
+            self.client.send("Connection server error: {}".format(e).encode("utf-8"))
+            return None
 
         term = self.request.meta.get('term', 'xterm')
         width = self.request.meta.get('width', 80)
@@ -87,5 +84,4 @@ class ProxyServer:
         thread = threading.Thread(target=self.watch_win_size_change)
         thread.daemon = True
         thread.start()
-
 

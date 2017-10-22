@@ -7,6 +7,7 @@ from .utils import TtyIOParser, wrap_with_line_feed as wr, \
     wrap_with_primary as primary, wrap_with_warning as warning
 from .forward import ProxyServer
 from .models import Asset, SystemUser
+from .session import Session
 
 
 class InteractiveServer:
@@ -32,7 +33,7 @@ class InteractiveServer:
         0) 输入 \033[32mQ/q\033[0m 退出.\r\n""" % self.request.user
         self.client.send(banner.encode('utf-8'))
 
-    def get_choice(self, prompt='Opt> '):
+    def get_choice(self, prompt=b'Opt> '):
         """实现了一个ssh input, 提示用户输入, 获取并返回
 
         :return user input string
@@ -41,7 +42,7 @@ class InteractiveServer:
         input_data = []
         parser = TtyIOParser(self.request.meta.get("width", 80),
                              self.request.meta.get("height", 24))
-        self.client.send(wr(prompt, before=1, after=0).encode('utf-8'))
+        self.client.send(wr(prompt, before=1, after=0))
         while True:
             data = self.client.recv(10)
             if len(data) == 0:
@@ -73,7 +74,8 @@ class InteractiveServer:
             # If user type ENTER we should get user input
             if data in char.ENTER_CHAR or multi_char_with_enter:
                 self.client.send(wr(b'', after=2))
-                option = parser.parse_input(b''.join(input_data))
+                option = parser.parse_input(input_data)
+                del input_data[:]
                 return option.strip()
             else:
                 self.client.send(data)
@@ -124,13 +126,18 @@ class InteractiveServer:
         pass
 
     def search_and_proxy(self, opt, from_result=False):
-        asset = Asset(id=1, hostname="testserver", ip="123.57.183.135", port=8022)
-        system_user = SystemUser(id=2, username="web", password="redhat123", name="web")
+        asset = Asset(id=1, hostname="testserver", ip="192.168.244.164", port=22)
+        system_user = SystemUser(id=2, username="root", password="redhat", name="web")
         self.connect(asset, system_user)
 
     def connect(self, asset, system_user):
         forwarder = ProxyServer(self.app, self.client, self.request)
         forwarder.proxy(asset, system_user)
+
+    def replay_session(self, session_id):
+        session = Session(self.client, None)
+        session.id = "5a5dbfbe-093f-4bc1-810f-e8401b9e6045"
+        session.replay()
 
     def activate(self):
         self.display_banner()

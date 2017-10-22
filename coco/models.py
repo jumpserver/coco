@@ -2,6 +2,8 @@ import json
 import threading
 import datetime
 
+from . import char
+from . import utils
 
 BUF_SIZE = 4096
 
@@ -108,19 +110,73 @@ class Server:
         self.chan = chan
         self.asset = asset
         self.system_user = system_user
+        self.send_bytes = 0
+        self.recv_bytes = 0
+
+        self.input_data = []
+        self.output_data = []
+        self.input = ''
+        self.output = ''
+        self._in_input_state = True
+        self._input_initial = False
+        self._in_auto_complete_state = False
+        self._in_vim_state = False
 
     def fileno(self):
         return self.chan.fileno()
 
     def send(self, b):
+        if not self._input_initial:
+            self._input_initial = True
+
+        if self._have_enter_char(b):
+            self._in_input_state = False
+        else:
+            if not self._in_input_state:
+                print("#" * 30 + " 新周期 " + "#" * 30)
+                self._parse_input()
+                self._parse_output()
+                del self.input_data[:]
+                del self.output_data[:]
+            self._in_input_state = True
+
+        # if b == '\t':
+        #     self._in_auto_complete_state = True
+        # else:
+        #     self._in_auto_complete_state = False
+
+        print("Send: %s" % b)
         return self.chan.send(b)
 
     def recv(self, size):
-        return self.chan.recv(size)
+        data = self.chan.recv(size)
+        print("Recv: %s" % data)
+        if self._input_initial:
+            if self._in_input_state:
+                self.input_data.append(data)
+            else:
+                self.output_data.append(data)
+
+        return data
 
     def close(self):
         self.chan.close()
         return self.chan.transport.close()
+
+    @staticmethod
+    def _have_enter_char(s):
+        for c in char.ENTER_CHAR:
+            if c in s:
+                return True
+        return False
+
+    def _parse_output(self):
+        parser = utils.TtyIOParser()
+        print("\tOutput: %s" % parser.parse_output(self.output_data))
+
+    def _parse_input(self):
+        parser = utils.TtyIOParser()
+        print("\tInput: %s" % parser.parse_input(self.input_data))
 
     def __getattr__(self, item):
         return getattr(self.chan, item)

@@ -84,7 +84,7 @@ class SSHInterface(paramiko.ServerInterface):
     def check_channel_pty_request(
             self, channel, term, width, height,
             pixelwidth, pixelheight, modes):
-        logger.debug("Check channel pty request: %s %s %s %s %s" %
+        logger.info("Check channel pty request: %s %s %s %s %s" %
                      (term, width, height, pixelwidth, pixelheight))
         self.request.type = 'pty'
         self.request.meta = {
@@ -101,8 +101,6 @@ class SSHInterface(paramiko.ServerInterface):
 
     def check_channel_shell_request(self, channel):
         logger.info("Check channel shell request: %s" % channel)
-        self.request.type = 'shell'
-        self.request.meta = {'channel': channel}
         self.event.set()
         return True
 

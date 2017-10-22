@@ -138,11 +138,17 @@ class TtyIOParser(object):
         return self.ps1_pattern.sub('', command)
 
     def parse_output(self, data, sep='\n'):
-        output = []
-        if not isinstance(data, bytes):
-            data = data.encode('utf-8', 'ignore')
+        """
+        Parse user command output
 
-        self.stream.feed(data)
+        :param data: output data list like, [b'data', b'data']
+        :param sep:  line separator
+        :return: output unicode data
+        """
+        output = []
+
+        for d in data:
+            self.stream.feed(d)
         for line in self.screen.display:
             if line.strip():
                 output.append(line)
@@ -150,11 +156,15 @@ class TtyIOParser(object):
         return sep.join(output[0:-1])
 
     def parse_input(self, data):
-        command = []
-        if not isinstance(data, bytes):
-            data = data.encode('utf-8', 'ignore')
+        """
+        Parse user input command
 
-        self.stream.feed(data)
+        :param data: input data list, like [b'data', b'data']
+        :return: command unicode
+        """
+        command = []
+        for d in data:
+            self.stream.feed(d)
         for line in self.screen.display:
             line = line.strip()
             if line:

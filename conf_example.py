@@ -51,4 +51,5 @@ APP_NAME = "coco"
 # 和Jumpserver 保持心跳时间间隔
 # HEARTBEAT_INTERVAL = 5
 
-
+# 异步上报统计命令
+# COMMAND_PUSH_ASYNC = True
