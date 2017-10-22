@@ -15,6 +15,7 @@ except ImportError:
 try:
     os.mkdir("logs")
     os.mkdir("keys")
+    os.mkdir("sessions")
 except:
     pass
 

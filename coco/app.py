@@ -29,6 +29,7 @@ class Coco:
         'SECRET_KEY': None,
         'LOG_LEVEL': 'INFO',
         'LOG_DIR': os.path.join(BASE_DIR, 'logs'),
+        'SESSION_DIR': os.path.join(BASE_DIR, 'sessions'),
         'ASSET_SORT_BY': 'hostname',  # hostname, ip
         'SSH_PASSWORD_AUTH': True,
         'SSH_PUBLIC_KEY_AUTH': True,

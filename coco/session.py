@@ -1,10 +1,12 @@
 #!coding: utf-8
 
-import select
+import os
+import threading
 import uuid
 import socket
 import logging
 import datetime
+import time
 import selectors
 
 
@@ -14,10 +16,11 @@ logger = logging.getLogger(__file__)
 
 class Session:
 
-    def __init__(self, client, server):
+    def __init__(self, client, server, record_dir="/tmp"):
         self.id = str(uuid.uuid4())
         self.client = client  # Master of the session, it's a client sock
         self.server = server  # Server channel
+        self.record_dir = record_dir  # Dir to save session record
         self.watchers = []  # Only watch session
         self.sharers = []  # Join to the session, read and write
         self.running = True
@@ -25,38 +28,43 @@ class Session:
         self.date_finished = None
         self.sel = selectors.DefaultSelector()
 
-    def add_watcher(self, watcher):
+    def add_watcher(self, watcher, silent=False):
         """
         Add a watcher, and will be transport server side msg to it.
 
         :param watcher: A client socket
+        :param silent: If true not send welcome message
         :return:
         """
         logger.info("Session % add watcher %s" % (self, watcher))
-        watcher.send("Welcome to join session %s\r\n" % self.id)
+        if not silent:
+            watcher.send("Welcome to watch session {}\r\n".format(self.id).encode("utf-8"))
         self.sel.register(watcher, selectors.EVENT_READ)
         self.watchers.append(watcher)
 
     def remove_watcher(self, watcher):
         logger.info("Session %s remove watcher %s" % (self, watcher))
-        watcher.send("Leave session %s at %s" % (self.id, datetime.datetime.now()))
         self.sel.unregister(watcher)
         self.watchers.remove(watcher)
 
-    def add_sharer(self, sharer):
+    def add_sharer(self, sharer, silent=False):
         """
         Add a sharer, it can read and write to server
         :param sharer:  A client socket
+        :param silent: If true not send welcome message
         :return:
         """
         logger.info("Session %s add share %s" % (self.id, sharer))
-        sharer.send("Welcome to join session %s\r\n" % self.id)
+        if not silent:
+            sharer.send("Welcome to join session {}\r\n"
+                        .format(self.id).encode("utf-8"))
         self.sel.register(sharer, selectors.EVENT_READ)
         self.sharers.append(sharer)
 
     def remove_sharer(self, sharer):
         logger.info("Session %s remove sharer %s" % (self.id, sharer))
-        sharer.send("Leave session %s at %s" % (self.id, datetime.datetime.now()))
+        sharer.send("Leave session {} at {}"
+                    .format(self.id, datetime.datetime.now()).encode("utf-8"))
         self.sel.unregister(sharer)
         self.sharers.remove(sharer)
 
@@ -105,14 +113,42 @@ class Session:
         """
         parent, child = socket.socketpair()
         self.add_watcher(parent)
+        with open(os.path.join(self.record_dir, self.id + ".rec"), 'wb') as screenf, \
+            open(os.path.join(self.record_dir, self.id + ".time"), "w") as timef:
+            screenf.write("Script started on {}\n".format(time.asctime()).encode("utf-8"))
+
+            while self.running:
+                start_t = time.time()
+                data = child.recv(BUF_SIZE)
+                end_t = time.time()
+                size = len(data)
+                if size == 0:
+                    break
+                timef.write("%.4f %s\n" % (end_t-start_t, size))
+                screenf.write(data)
+                print("Pass %.4f, print %d" % (end_t-start_t, size))
+                print("Data: {}".format(data.decode('utf-8')))
+            screenf.write("Script done on {}\n".format(time.asctime()).encode("utf-8"))
+
+    def record_async(self):
+        thread = threading.Thread(target=self.record)
+        thread.daemon = True
+        thread.start()
 
     def replay(self):
+        """
+        Replay the session
+        :return:
+        """
+        pass
+
+    def replay_down(self):
         pass
 
     def close(self):
         self.running = False
-        self.server.close()
-        return
+        for chan in [self.client, self.server] + self.watchers + self.sharers:
+            chan.close()
 
     def __str__(self):
         return self.id

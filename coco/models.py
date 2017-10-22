@@ -126,8 +126,8 @@ class Server:
         return getattr(self.chan, item)
 
     def __str__(self):
-        return "<%s@%s:%s>" % \
-               (self.system_user.username, self.asset.hostname, self.asset.port)
+        return "<%s@%s:%s>" % (self.system_user.username,
+                               self.asset.hostname, self.asset.port)
 
 
 class WSProxy:

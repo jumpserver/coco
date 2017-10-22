@@ -2,12 +2,16 @@
 
 import socket
 import threading
+import logging
 
 import paramiko
 
 from .session import Session
 from .models import Server
 from .exception import PermissionFailed
+
+
+logger = logging.getLogger(__file__)
 
 
 class ProxyServer:
@@ -21,12 +25,13 @@ class ProxyServer:
         try:
             self.server = self.get_server_conn(asset, system_user)
         except PermissionFailed:
-            self.client.send("No permission")
+            self.client.send(b"No permission")
             return
 
         session = Session(self.client, self.server)
         self.app.sessions.append(session)
         self.watch_win_size_change_async()
+        session.record_async()
         session.bridge()
         self.app.sessions.remove(session)
 
@@ -57,11 +62,11 @@ class ProxyServer:
                         password=system_user.password,
                         pkey=system_user.private_key)
         except paramiko.AuthenticationException as e:
-            self.client.send("Authentication failed: %s" % e)
+            self.client.send(b"Authentication failed: %s" % e)
             return
 
         except socket.error as e:
-            self.client.send("Connection server error: %s" % e)
+            self.client.send(b"Connection server error: %s" % e)
             return
 
         term = self.request.meta.get('term', 'xterm')
@@ -75,7 +80,7 @@ class ProxyServer:
             self.request.change_size_event.clear()
             width = self.request.meta.get('width', 80)
             height = self.request.meta.get('height', 24)
-            print("Change win size: %s - %s" % (width, height))
+            logger.debug("Change win size: %s - %s" % (width, height))
             self.server.chan.resize_pty(width=width, height=height)
 
     def watch_win_size_change_async(self):

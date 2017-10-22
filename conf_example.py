@@ -36,6 +36,9 @@ APP_NAME = "coco"
 # 日志存放的目录
 # LOG_DIR = os.path.join(BASE_DIR, 'logs')
 
+# Session录像存放目录
+# SESSION_DIR = os.path.join(BASE_DIR, 'sessions')
+
 # 资产显示排序方式, ['ip', 'hostname']
 # ASSET_LIST_SORT_BY = 'ip'
 
