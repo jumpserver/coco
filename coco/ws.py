@@ -20,8 +20,10 @@ class BaseWehSocketHandler:
     def prepare(self):
         self.app = self.settings["app"]
         child, parent = socket.socketpair()
-        addr = (self.request.remote_ip, 0)
-        self.client = Client(parent, addr, self.current_user)
+        request = Request((self.request.remote_ip, 0))
+        request.user = self.current_user
+        self.request.__dict__.update(request.__dict__)
+        self.client = Client(parent, self.request)
         self.proxy = WSProxy(self, child)
         self.app.clients.append(self.client)
 
@@ -35,9 +37,7 @@ class BaseWehSocketHandler:
 class InteractiveWehSocketHandler(BaseWehSocketHandler, tornado.websocket.WebSocketHandler):
     @tornado.web.authenticated
     def open(self):
-        request = Request(self.request.remote_ip)
-        self.request.__dict__.update(request.__dict__)
-        InteractiveServer(self.app, self.request, self.client).activate_async()
+        InteractiveServer(self.app, self.client).activate_async()
 
     def on_message(self, message):
         try:

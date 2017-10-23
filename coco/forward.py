@@ -5,22 +5,26 @@ import threading
 import logging
 
 import paramiko
+import time
 
 from .session import Session
 from .models import Server
 
 
 logger = logging.getLogger(__file__)
+TIMEOUT = 8
 
 
 class ProxyServer:
-    def __init__(self, app, client, request):
+    def __init__(self, app, client):
         self.app = app
-        self.request = request
         self.client = client
+        self.request = client.request
         self.server = None
+        self.connecting = True
 
     def proxy(self, asset, system_user):
+        self.send_connecting_message()
         self.server = self.get_server_conn(asset, system_user)
         if self.server is None:
             return
@@ -46,6 +50,7 @@ class ProxyServer:
         """
 
     def get_server_conn(self, asset, system_user):
+        logger.info("Connect to %s" % asset.hostname)
         if not self.validate_permission(asset, system_user):
             self.client.send(b'No permission')
             return None
@@ -57,14 +62,18 @@ class ProxyServer:
             ssh.connect(asset.ip, port=asset.port,
                         username=system_user.username,
                         password=system_user.password,
-                        pkey=system_user.private_key)
+                        pkey=system_user.private_key,
+                        timeout=TIMEOUT)
         except paramiko.AuthenticationException as e:
-            self.client.send("Authentication failed: {}".format(e).encode("utf-8"))
+            self.client.send("[Errno 66] Authentication failed: {}".format(e).encode("utf-8"))
             return None
 
         except socket.error as e:
-            self.client.send("Connection server error: {}".format(e).encode("utf-8"))
+            self.client.send(" {}".format(e).encode("utf-8"))
             return None
+        finally:
+            self.connecting = False
+            self.client.send(b'\r\n')
 
         term = self.request.meta.get('term', 'xterm')
         width = self.request.meta.get('width', 80)
@@ -82,6 +91,18 @@ class ProxyServer:
 
     def watch_win_size_change_async(self):
         thread = threading.Thread(target=self.watch_win_size_change)
+        thread.daemon = True
+        thread.start()
+
+    def send_connecting_message(self):
+        def func():
+            delay = 0.0
+            self.client.send('Connecting to {} {:.1f}'.format('abc.com', delay).encode('utf-8'))
+            while self.connecting and delay < TIMEOUT:
+                self.client.send('\x08\x08\x08{:.1f}'.format(delay).encode('utf-8'))
+                time.sleep(0.1)
+                delay += 0.1
+        thread = threading.Thread(target=func)
         thread.daemon = True
         thread.start()
 

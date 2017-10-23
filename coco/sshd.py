@@ -22,18 +22,9 @@ class SSHServer:
         self.stop_event = threading.Event()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.host_key_path = os.path.join(self.app.root_path, 'keys', 'host_rsa_key')
-        self.host_key = self.get_host_key()
 
-    def listen(self):
-        host = self.app.config["BIND_HOST"]
-        port = self.app.config["SSHD_PORT"]
-        print('Starting ssh server at %(host)s:%(port)s' %
-              {"host": host, "port": port})
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind((host, port))
-        self.sock.listen(BACKLOG)
-
-    def get_host_key(self):
+    @property
+    def host_key(self):
         if not os.path.isfile(self.host_key_path):
             self.gen_host_key()
         return paramiko.RSAKey(filename=self.host_key_path)
@@ -44,7 +35,13 @@ class SSHServer:
             f.write(ssh_key)
 
     def run(self):
-        self.listen()
+        host = self.app.config["BIND_HOST"]
+        port = self.app.config["SSHD_PORT"]
+        print('Starting ssh server at %(host)s:%(port)s' %
+              {"host": host, "port": port})
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind((host, port))
+        self.sock.listen(BACKLOG)
         while not self.stop_event.is_set():
             try:
                 sock, addr = self.sock.accept()
@@ -63,7 +60,7 @@ class SSHServer:
             logger.warning("Failed load moduli -- gex will be unsupported")
 
         transport.add_server_key(self.host_key)
-        request = Request()
+        request = Request(addr)
         server = SSHInterface(self.app, request)
         try:
             transport.start_server(server=server)
@@ -72,6 +69,7 @@ class SSHServer:
             sys.exit(1)
         except EOFError:
             logger.warning("EOF Error")
+            sys.exit(1)
 
         chan = transport.accept(10)
         if chan is None:
@@ -83,19 +81,20 @@ class SSHServer:
             logger.warning("Client not request a valid request")
             sys.exit(2)
 
-        client = Client(chan, addr, request.user)
+        client = Client(chan, request)
         self.app.add_client(client)
-        self.dispatch(request, client)
+        self.dispatch(client)
 
-    def dispatch(self, request, client):
-        if request.type == 'pty':
-            InteractiveServer(self.app, request, client).activate()
-        elif request.type == 'exec':
+    def dispatch(self, client):
+        request_type = client.request.type
+        if request_type == 'pty':
+            InteractiveServer(self.app, client).activate()
+        elif request_type == 'exec':
             pass
-        elif request.type == 'subsystem':
+        elif request_type == 'subsystem':
             pass
         else:
-            client.send("Not support request type: %s" % request.type)
+            client.send("Not support request type: %s" % request_type)
 
     def shutdown(self):
         self.stop_event.set()

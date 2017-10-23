@@ -100,7 +100,7 @@ class SSHInterface(paramiko.ServerInterface):
         return paramiko.OPEN_SUCCEEDED
 
     def check_channel_shell_request(self, channel):
-        logger.info("Check channel shell request: %s" % channel)
+        logger.info("Check channel shell request: %s" % channel.get_id())
         self.event.set()
         return True
 

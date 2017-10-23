@@ -1,4 +1,5 @@
 #!coding: utf-8
+import logging
 import socket
 import threading
 
@@ -9,13 +10,15 @@ from .forward import ProxyServer
 from .models import Asset, SystemUser
 from .session import Session
 
+logger = logging.getLogger(__file__)
+
 
 class InteractiveServer:
 
-    def __init__(self, app, request, client):
+    def __init__(self, app, client):
         self.app = app
-        self.request = request
         self.client = client
+        self.request = client.request
 
     def display_banner(self):
         self.client.send(char.CLEAR_CHAR)
@@ -40,8 +43,7 @@ class InteractiveServer:
         """
         # Todo: 实现自动hostname或IP补全
         input_data = []
-        parser = TtyIOParser(self.request.meta.get("width", 80),
-                             self.request.meta.get("height", 24))
+        parser = TtyIOParser()
         self.client.send(wr(prompt, before=1, after=0))
         while True:
             data = self.client.recv(10)
@@ -128,10 +130,10 @@ class InteractiveServer:
     def search_and_proxy(self, opt, from_result=False):
         asset = Asset(id=1, hostname="testserver", ip="192.168.244.164", port=22)
         system_user = SystemUser(id=2, username="root", password="redhat", name="web")
-        self.connect(asset, system_user)
+        self.proxy(asset, system_user)
 
-    def connect(self, asset, system_user):
-        forwarder = ProxyServer(self.app, self.client, self.request)
+    def proxy(self, asset, system_user):
+        forwarder = ProxyServer(self.app, self.client)
         forwarder.proxy(asset, system_user)
 
     def replay_session(self, session_id):
@@ -145,7 +147,8 @@ class InteractiveServer:
             try:
                 opt = self.get_choice()
                 self.dispatch(opt)
-            except socket.error:
+            except socket.error as e:
+                logger.error("Cocket error %s" % e)
                 break
         self.close()
 

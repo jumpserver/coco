@@ -37,7 +37,7 @@ class Session:
         :param silent: If true not send welcome message
         :return:
         """
-        logger.info("Session % add watcher %s" % (self, watcher))
+        logger.info("Session %s add watcher %s" % (self, watcher))
         if not silent:
             watcher.send("Welcome to watch session {}\r\n".format(self.id).encode("utf-8"))
         self.sel.register(watcher, selectors.EVENT_READ)
@@ -165,8 +165,7 @@ class Session:
 
     def close(self):
         self.running = False
-        for chan in [self.client, self.server] + self.watchers + self.sharers:
-            chan.close()
+        self.server.close()
 
     def __str__(self):
         return self.id

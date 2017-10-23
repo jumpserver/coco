@@ -58,11 +58,12 @@ class SystemUser(Decoder):
 
 
 class Request:
-    def __init__(self, remote_ip=""):
+    def __init__(self, addr):
         self.type = ""
         self.meta = {}
         self.user = None
-        self.remote_ip = remote_ip
+        self.addr = addr
+        self.remote_ip = self.addr[0]
         self.change_size_event = threading.Event()
         self.date_start = datetime.datetime.now()
 
@@ -74,13 +75,13 @@ class Client:
     ```
     client = Client(chan, addr, user)
     ```
-
     """
 
-    def __init__(self, chan, addr, user):
+    def __init__(self, chan, request):
         self.chan = chan
-        self.addr = addr
-        self.user = user
+        self.request = request
+        self.user = request.user
+        self.addr = request.addr
 
     def fileno(self):
         return self.chan.fileno()
@@ -119,7 +120,6 @@ class Server:
         self.output = ''
         self._in_input_state = True
         self._input_initial = False
-        self._in_auto_complete_state = False
         self._in_vim_state = False
 
     def fileno(self):
@@ -139,11 +139,6 @@ class Server:
                 del self.input_data[:]
                 del self.output_data[:]
             self._in_input_state = True
-
-        # if b == '\t':
-        #     self._in_auto_complete_state = True
-        # else:
-        #     self._in_auto_complete_state = False
 
         print("Send: %s" % b)
         return self.chan.send(b)
