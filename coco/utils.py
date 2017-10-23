@@ -1,17 +1,31 @@
 #!coding: utf-8
+
+from __future__ import unicode_literals
+
+import hashlib
+import re
+import threading
 import base64
 import calendar
-import os
-import re
-
-import paramiko
-from io import StringIO
-import hashlib
-import threading
-
 import time
+import datetime
+from io import StringIO
 
 import pyte
+import pytz
+from email.utils import formatdate
+
+import paramiko
+from dotmap import DotMap
+
+
+try:
+    from Queue import Queue, Empty
+except ImportError:
+    from queue import Queue, Empty
+
+from .compat import to_string, to_bytes
+
 
 
 def ssh_key_string_to_obj(text):
@@ -228,3 +242,109 @@ def wrap_with_primary(text, bolder=False):
 
 def wrap_with_title(text):
     return wrap_with_color(text, color='black', background='green')
+
+
+def b64encode_as_string(data):
+    return to_string(base64.b64encode(data))
+
+
+
+def make_signature(access_key_secret, date=None):
+    if isinstance(date, bytes):
+        date = date.decode("utf-8")
+    if isinstance(date, int):
+        date_gmt = http_date(date)
+    elif date is None:
+        date_gmt = http_date(int(time.time()))
+    else:
+        date_gmt = date
+
+    data = str(access_key_secret) + "\n" + date_gmt
+    return content_md5(data)
+
+
+def split_string_int(s):
+    """Split string or int
+
+    example: test-01-02-db => ['test-', '01', '-', '02', 'db']
+    """
+    string_list = []
+    index = 0
+    pre_type = None
+    word = ''
+    for i in s:
+        if index == 0:
+            pre_type = int if i.isdigit() else str
+            word = i
+        else:
+            if pre_type is int and i.isdigit() or pre_type is str and not i.isdigit():
+                word += i
+            else:
+                string_list.append(word.lower() if not word.isdigit() else int(word))
+                word = i
+                pre_type = int if i.isdigit() else str
+        index += 1
+    string_list.append(word.lower() if not word.isdigit() else int(word))
+    return string_list
+
+
+def sort_assets(assets, order_by='hostname'):
+    if order_by == 'hostname':
+        key = lambda asset: split_string_int(asset['hostname'])
+        # print(assets)
+        # assets = sorted(assets, key=key)
+    elif order_by == 'ip':
+            assets = sorted(assets, key=lambda asset: [int(d) for d in asset['ip'].split('.') if d.isdigit()])
+    else:
+        key = lambda asset: asset.__getitem__(order_by)
+        assets = sorted(assets, key=key)
+    return assets
+
+
+class PKey(object):
+    @classmethod
+    def from_string(cls, key_string):
+        try:
+            pkey = paramiko.RSAKey(file_obj=StringIO(key_string))
+            return pkey
+        except paramiko.SSHException:
+            try:
+                pkey = paramiko.DSSKey(file_obj=StringIO(key_string))
+                return pkey
+            except paramiko.SSHException:
+                return None
+
+
+def from_string(cls, key_string):
+    return cls(key_string=key_string).pkey
+
+
+def timestamp_to_datetime_str(ts):
+    datetime_format = '%Y-%m-%dT%H:%M:%S.%fZ'
+    dt = datetime.datetime.fromtimestamp(ts, tz=pytz.timezone('UTC'))
+    return dt.strftime(datetime_format)
+
+
+def to_dotmap(data):
+    """将接受dict转换为DotMap"""
+    if isinstance(data, dict):
+        data = DotMap(data)
+    elif isinstance(data, list):
+        data = [DotMap(d) for d in data]
+    else:
+        raise ValueError('Dict or list type required...')
+    return data
+
+
+class MultiQueue(Queue):
+    def mget(self, size=1, block=True, timeout=5):
+        items = []
+        for i in range(size):
+            try:
+                items.append(self.get(block=block, timeout=timeout))
+            except Empty:
+                break
+        return items
+
+
+
