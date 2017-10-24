@@ -91,7 +91,7 @@ class Session:
                 elif sock == self.client:
                     if len(data) == 0:
                         for watcher in self.watchers + self.sharers:
-                            watcher.send("Client %s close the session" % self.client)
+                            watcher.send(b"Client %s close the session" % self.client)
                         self.close()
                         break
                     self.server.send(data)

@@ -128,8 +128,8 @@ class InteractiveServer:
         pass
 
     def search_and_proxy(self, opt, from_result=False):
-        asset = Asset(id=1, hostname="testserver", ip="192.168.244.164", port=22)
-        system_user = SystemUser(id=2, username="root", password="redhat", name="web")
+        asset = Asset(id=1, hostname="testserver", ip="123.57.183.135", port=8022)
+        system_user = SystemUser(id=2, username="web", password="redhat123", name="web")
         self.proxy(asset, system_user)
 
     def proxy(self, asset, system_user):
@@ -148,7 +148,7 @@ class InteractiveServer:
                 opt = self.get_choice()
                 self.dispatch(opt)
             except socket.error as e:
-                logger.error("Cocket error %s" % e)
+                logger.error("Socket error %s" % e)
                 break
         self.close()
 
