@@ -7,6 +7,8 @@ from .config import Config
 from .sshd import SSHServer
 from .ws import WSServer
 from .logging import create_logger
+from .sdk import AppService
+from .auth import AppAccessKey
 
 
 __version__ = '0.4.0'
@@ -46,6 +48,7 @@ class Coco:
         self.name = name
         self.lock = threading.Lock()
         self.stop_evt = threading.Event()
+        self.service = None
 
         if name is None:
             self.name = self.config['NAME']
@@ -62,6 +65,7 @@ class Coco:
     def prepare(self):
         self.sshd = SSHServer(self)
         self.ws = WSServer(self)
+        self.initial_service()
 
     def heartbeat(self):
         pass
@@ -116,6 +120,9 @@ class Coco:
                 client.close()
             except:
                 pass
+
+    def initial_service(self):
+        self.service = AppService(self)
 
     def monitor_session(self):
         pass

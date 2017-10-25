@@ -11,14 +11,31 @@ import requests
 from requests.structures import CaseInsensitiveDict
 from cachetools import cached, TTLCache
 
-from .auth import Auth, ServiceAccessKey
-from .utils import sort_assets, PKey, to_dotmap, timestamp_to_datetime_str
-from .exception import RequestError, LoadAccessKeyError
-from .config import API_URL_MAPPING
+from .auth import Auth, ServiceAccessKey, AccessKey
+from .utils import sort_assets, PKey, timestamp_to_datetime_str
+from .exception import RequestError, LoadAccessKeyError, ResponseError
 
 
 _USER_AGENT = 'jms-sdk-py'
 CACHED_TTL = os.environ.get('CACHED_TTL', 30)
+
+API_URL_MAPPING = {
+    'terminal-register': '/api/applications/v1/terminal/register/',
+    'terminal-heatbeat': '/api/applications/v1/terminal/heatbeat/',
+    'send-proxy-log': '/api/audits/v1/proxy-log/receive/',
+    'finish-proxy-log': '/api/audits/v1/proxy-log/%s/',
+    'send-command-log': '/api/audits/v1/command-log/',
+    'send-record-log': '/api/audits/v1/record-log/',
+    'user-auth': '/api/users/v1/auth/',
+    'user-assets': '/api/perms/v1/user/%s/assets/',
+    'user-asset-groups': '/api/perms/v1/user/%s/asset-groups/',
+    'user-asset-groups-assets': '/api/perms/v1/user/my/asset-groups-assets/',
+    'assets-of-group': '/api/perms/v1/user/my/asset-group/%s/assets/',
+    'my-profile': '/api/users/v1/profile/',
+    'system-user-auth-info': '/api/assets/v1/system-user/%s/auth-info/',
+    'validate-user-asset-permission':
+        '/api/perms/v1/asset-permission/user/validate/',
+}
 
 
 class FakeResponse(object):
@@ -31,118 +48,96 @@ class FakeResponse(object):
 
 
 class Request(object):
-    func_mapping = {
+    methods = {
         'get': requests.get,
         'post': requests.post,
         'patch': requests.patch,
         'put': requests.put,
     }
 
-    def __init__(self, url, method='get', data=None, params=None, headers=None,
-                 content_type='application/json', app_name=''):
+    def __init__(self, url, method='get', data=None, params=None,
+                 headers=None, content_type='application/json'):
         self.url = url
         self.method = method
         self.params = params or {}
-        self.result = None
 
         if not isinstance(headers, dict):
             headers = {}
         self.headers = CaseInsensitiveDict(headers)
-
         self.headers['Content-Type'] = content_type
         if data is None:
             data = {}
         self.data = json.dumps(data)
 
-        if 'User-Agent' not in self.headers:
-            if app_name:
-                self.headers['User-Agent'] = _USER_AGENT + '/' + app_name
-            else:
-                self.headers['User-Agent'] = _USER_AGENT
-
-    def request(self):
-        self.result = self.func_mapping.get(self.method)(
+    def do(self):
+        result = self.methods.get(self.method)(
             url=self.url, headers=self.headers,
-            data=self.data,
-            params=self.params)
-        print(self.headers)
-        return self.result
+            data=self.data, params=self.params)
+        return result
 
 
-class ApiRequest(object):
-    api_url_mapping = API_URL_MAPPING
+class AppRequest(object):
 
-    def __init__(self, app_name, endpoint, auth=None):
-        self.app_name = app_name
+    def __init__(self, endpoint, auth=None):
         self._auth = auth
-        self.req = None
         self.endpoint = endpoint
 
     @staticmethod
-    def parse_result(result):
+    def clean_result(resp):
+        if resp.status_code >= 400:
+            return ResponseError("Response code is {0.code}: {0.text}".format(resp))
+
         try:
-            content = result.json()
-        except ValueError:
-            content = {'error': 'We only support json response'}
-            logging.warning(result.content)
-            logging.warning(content)
-        except AttributeError:
-            content = {'error': 'Request error'}
-        return result, content
+            result = resp.json()
+        except json.JSONDecodeError:
+            return RequestError("Response json couldn't be decode: {0.text}".format(resp))
+        else:
+            return result
 
-    def request(self, api_name=None, pk=None, method='get', use_auth=True,
-                data=None, params=None, content_type='application/json'):
+    def do(self, api_name=None, pk=None, method='get', use_auth=True,
+           data=None, params=None, content_type='application/json'):
 
-        if api_name in self.api_url_mapping:
-            path = self.api_url_mapping.get(api_name)
+        if api_name in API_URL_MAPPING:
+            path = API_URL_MAPPING.get(api_name)
             if pk and '%s' in path:
                 path = path % pk
         else:
             path = '/'
 
         url = self.endpoint.rstrip('/') + path
-        print(url)
-        self.req = req = Request(url, method=method, data=data,
-                                 params=params, content_type=content_type,
-                                 app_name=self.app_name)
+        req = Request(url, method=method, data=data,
+                      params=params, content_type=content_type)
         if use_auth:
             if not self._auth:
                 raise RequestError('Authentication required')
             else:
                 self._auth.sign_request(req)
+
         try:
-            result = req.request()
-            if result.status_code > 500:
-                logging.warning('Server internal error')
-        except (requests.ConnectionError, requests.ConnectTimeout):
-            result = FakeResponse()
-            logging.warning('Connect endpoint: {} error'.format(self.endpoint))
-        return self.parse_result(result)
+            resp = req.do()
+        except (requests.ConnectionError, requests.ConnectTimeout) as e:
+            return RequestError("Connect endpoint: {} {}".format(self.endpoint, e))
+
+        return self.clean_result(resp)
 
     def get(self, *args, **kwargs):
         kwargs['method'] = 'get'
-        print("+"* 10)
-        print(*args)
-        print("+"* 10)
-        # print(**kwargs)
-        print("+"* 10)
-
-        return self.request(*args, **kwargs)
+        return self.do(*args, **kwargs)
 
     def post(self, *args, **kwargs):
         kwargs['method'] = 'post'
-        return self.request(*args, **kwargs)
+        return self.do(*args, **kwargs)
 
     def put(self, *args, **kwargs):
         kwargs['method'] = 'put'
-        return self.request(*args, **kwargs)
+        return self.do(*args, **kwargs)
 
     def patch(self, *args, **kwargs):
         kwargs['method'] = 'patch'
-        return self.request(*args, **kwargs)
+        return self.do(*args, **kwargs)
 
 
-class AppService(ApiRequest):
+class AppService:
     """使用该类和Jumpserver api进行通信,将terminal用到的常用api进行了封装,
     直接调用方法即可.
         from jms import AppService
@@ -172,14 +167,50 @@ class AppService(ApiRequest):
     """
     access_key_class = ServiceAccessKey
 
-    def __init__(self, app_name, endpoint, auth=None, config=None):
-        super(AppService, self).__init__(app_name, endpoint, auth=auth)
-        self.config = config
-        self.access_key = self.access_key_class(config=config)
-        self.user = None
-        self.token = None
-        self.session_id = None
-        self.csrf_token = None
+    def __init__(self, app):
+        self.app = app
+        # super(AppService, self).__init__(app_name, endpoint, auth=auth)
+        # self.config = config
+        # self.access_key = self.access_key_class(config=config)
+        self.access_key = None
+
+    def load_access_key(self):
+        # Must be get access key if not register it
+        self.access_key = ServiceAccessKey(self).load()
+        if self.access_key is None:
+            self.register_and_wait_for_accept()
+            self.save_key_to_store()
+
+    def register_and_wait_for_accept(self):
+        """注册Terminal, 通常第一次启动需要向Jumpserver注册
+
+        content: {
+            'terminal': {'id': 1, 'name': 'terminal name', ...},
+            'user': {
+                        'username': 'same as terminal name',
+                        'name': 'same as username',
+                    },
+            'access_key_id': 'ACCESS KEY ID',
+            'access_key_secret': 'ACCESS KEY SECRET',
+        }
+        """
+        r, content = self.post('terminal-register',
+                               data={'name': self.app.name},
+                               use_auth=False)
+        if r.status_code == 201:
+            logging.info('Your can save access_key: %s somewhere '
+                         'or set it in config' % content['access_key_id'])
+            return True, to_dotmap(content)
+        elif r.status_code == 200:
+            logging.error('Terminal {} exist already, register failed'
+                          .format(self.app_name))
+        else:
+            logging.error('Register terminal {} failed'.format(self.app_name))
+        return False, None
+
+    def save_key_so_store(self):
+        pass
+
 
     def auth(self, access_key_id=None, access_key_secret=None):
         """App认证, 请求api需要签名header
@@ -205,32 +236,7 @@ class AppService(ApiRequest):
         else:
             raise LoadAccessKeyError('Load access key all failed, auth ignore')
 
-    def register_terminal(self):
-        """注册Terminal, 通常第一次启动需要向Jumpserver注册
 
-        content: {
-            'terminal': {'id': 1, 'name': 'terminal name', ...},
-            'user': {
-                        'username': 'same as terminal name',
-                        'name': 'same as username',
-                    },
-            'access_key_id': 'ACCESS KEY ID',
-            'access_key_secret': 'ACCESS KEY SECRET',
-        }
-        """
-        r, content = self.post('terminal-register',
-                               data={'name': self.app_name},
-                               use_auth=False)
-        if r.status_code == 201:
-            logging.info('Your can save access_key: %s somewhere '
-                         'or set it in config' % content['access_key_id'])
-            return True, to_dotmap(content)
-        elif r.status_code == 200:
-            logging.error('Terminal {} exist already, register failed'
-                          .format(self.app_name))
-        else:
-            logging.error('Register terminal {} failed'.format(self.app_name))
-        return False, None
 
     def terminal_heatbeat(self):
         """和Jumpserver维持心跳, 当Terminal断线后,jumpserver可以知晓

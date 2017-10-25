@@ -3,12 +3,24 @@
 #
 
 import os
-import six
 import logging
-from io import IOBase
+import time
 
 from . import utils
 from .exception import LoadAccessKeyError
+
+
+def make_signature(access_key_secret, date=None):
+    if isinstance(date, bytes):
+        date = date.decode("utf-8")
+    if isinstance(date, int):
+        date_gmt = utils.http_date(date)
+    elif date is None:
+        date_gmt = utils.http_date(int(time.time()))
+    else:
+        date_gmt = date
+    data = str(access_key_secret) + "\n" + date_gmt
+    return utils.content_md5(data)
 
 
 class AccessKeyAuth(object):
@@ -48,7 +60,8 @@ class SessionAuth(object):
 
 
 class Auth(object):
-    def __init__(self, token=None, access_key_id=None, access_key_secret=None,
+    def __init__(self, token=None, access_key_id=None,
+                 access_key_secret=None,
                  session_id=None, csrf_token=None):
 
         if token is not None:
@@ -58,8 +71,8 @@ class Auth(object):
         elif session_id and csrf_token:
             self.instance = SessionAuth(session_id, csrf_token)
         else:
-            raise OSError('Need token or access_key_id, access_key_secret '
-                          'or session_id, csrf_token')
+            raise SyntaxError('Need token or access_key_id, access_key_secret '
+                              'or session_id, csrf_token')
 
     def sign_request(self, req):
         return self.instance.sign_request(req)
@@ -70,22 +83,27 @@ class AccessKey(object):
         self.id = id
         self.secret = secret
 
-    def clean(self, value, delimiter=':', silent=False):
+    @staticmethod
+    def clean(value, delimiter=':', silent=False):
         try:
-            self.id, self.secret = value.split(delimiter)
+            id, secret = value.split(delimiter)
         except (AttributeError, ValueError) as e:
             if not silent:
                 raise LoadAccessKeyError(e)
+            return '', ''
         else:
-            return ':'.join([self.id, self.secret])
+            return id, secret
 
-    def load_from_env(self, env, delimiter=':', silent=False):
+    @classmethod
+    def load_from_env(cls, env, **kwargs):
         value = os.environ.get(env)
-        return self.clean(value, delimiter, silent)
+        id, secret = cls.clean(value, **kwargs)
+        return cls(id, secret)
 
-    def load_from_f(self, f, delimiter=':', silent=False):
+    @classmethod
+    def load_from_f(cls, f, **kwargs):
         value = ''
-        if isinstance(f, six.string_types) and os.path.isfile(f):
+        if isinstance(f, str) and os.path.isfile(f):
             f = open(f)
         if hasattr(f, 'read'):
             for line in f:
@@ -93,10 +111,11 @@ class AccessKey(object):
                     value = line.strip()
                     break
             f.close()
-        return self.clean(value, delimiter, silent)
+        id, secret = cls.clean(value, **kwargs)
+        return cls(id, secret)
 
     def save_to_f(self, f, silent=False):
-        if isinstance(f, six.string_types):
+        if isinstance(f, str):
             f = open(f, 'w')
         try:
             f.write(str('{0}:{1}'.format(self.id, self.secret)))
@@ -113,7 +132,6 @@ class AccessKey(object):
 
     def __str__(self):
         return '{0}:{1}'.format(self.id, self.secret)
-
     __repr__ = __str__
 
 
@@ -133,7 +151,7 @@ class ServiceAccessKey(AccessKey):
     default_key_store = os.path.join(os.environ.get('HOME', ''), '.access_key')
 
     def __init__(self, id=None, secret=None, config=None):
-        super(ServiceAccessKey, self).__init__(id=id, secret=secret)
+        super().__init__(id=id, secret=secret)
         self.config = config or {}
         self._key_store = None
         self._key_env = None

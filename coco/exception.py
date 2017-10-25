@@ -12,3 +12,6 @@ class LoadAccessKeyError(Exception):
 class RequestError(Exception):
     pass
 
+
+class ResponseError(Exception):
+    pass

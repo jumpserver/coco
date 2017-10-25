@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 
 import hashlib
 import re
+import os
 import threading
 import base64
 import calendar
@@ -11,21 +12,17 @@ import time
 import datetime
 from io import StringIO
 
+import paramiko
 import pyte
 import pytz
 from email.utils import formatdate
 
-import paramiko
-from dotmap import DotMap
 
 
 try:
     from Queue import Queue, Empty
 except ImportError:
     from queue import Queue, Empty
-
-from .compat import to_string, to_bytes
-
 
 
 def ssh_key_string_to_obj(text):
@@ -258,21 +255,6 @@ def b64encode_as_string(data):
     return to_string(base64.b64encode(data))
 
 
-
-def make_signature(access_key_secret, date=None):
-    if isinstance(date, bytes):
-        date = date.decode("utf-8")
-    if isinstance(date, int):
-        date_gmt = http_date(date)
-    elif date is None:
-        date_gmt = http_date(int(time.time()))
-    else:
-        date_gmt = date
-
-    data = str(access_key_secret) + "\n" + date_gmt
-    return content_md5(data)
-
-
 def split_string_int(s):
     """Split string or int
 
@@ -333,17 +315,6 @@ def timestamp_to_datetime_str(ts):
     datetime_format = '%Y-%m-%dT%H:%M:%S.%fZ'
     dt = datetime.datetime.fromtimestamp(ts, tz=pytz.timezone('UTC'))
     return dt.strftime(datetime_format)
-
-
-def to_dotmap(data):
-    """将接受dict转换为DotMap"""
-    if isinstance(data, dict):
-        data = DotMap(data)
-    elif isinstance(data, list):
-        data = [DotMap(d) for d in data]
-    else:
-        raise ValueError('Dict or list type required...')
-    return data
 
 
 class MultiQueue(Queue):
