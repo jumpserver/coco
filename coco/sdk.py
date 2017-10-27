@@ -5,22 +5,25 @@ import os
 import json
 import base64
 import logging
+import sys
 
 import paramiko
 import requests
+import time
 from requests.structures import CaseInsensitiveDict
 from cachetools import cached, TTLCache
 
-from .auth import Auth, ServiceAccessKey, AccessKey
+from .auth import AppAccessKey, AccessKeyAuth
 from .utils import sort_assets, PKey, timestamp_to_datetime_str
-from .exception import RequestError, LoadAccessKeyError, ResponseError
+from .exception import RequestError, ResponseError
 
 
 _USER_AGENT = 'jms-sdk-py'
 CACHED_TTL = os.environ.get('CACHED_TTL', 30)
+logger = logging.getLogger(__file__)
 
 API_URL_MAPPING = {
-    'terminal-register': '/api/applications/v1/terminal/register/',
+    'terminal-register': '/api/applications/v1/terminal/',
     'terminal-heatbeat': '/api/applications/v1/terminal/heatbeat/',
     'send-proxy-log': '/api/audits/v1/proxy-log/receive/',
     'finish-proxy-log': '/api/audits/v1/proxy-log/%s/',
@@ -38,21 +41,13 @@ API_URL_MAPPING = {
 }
 
 
-class FakeResponse(object):
-    def __init__(self):
-        self.status_code = 500
-
-    @staticmethod
-    def json():
-        return {}
-
-
 class Request(object):
     methods = {
         'get': requests.get,
         'post': requests.post,
         'patch': requests.patch,
         'put': requests.put,
+        'delete': requests.delete,
     }
 
     def __init__(self, url, method='get', data=None, params=None,
@@ -76,23 +71,23 @@ class Request(object):
         return result
 
 
-class AppRequest(object):
+class AppRequests(object):
 
     def __init__(self, endpoint, auth=None):
-        self._auth = auth
+        self.auth = auth
         self.endpoint = endpoint
 
     @staticmethod
     def clean_result(resp):
-        if resp.status_code >= 400:
-            return ResponseError("Response code is {0.code}: {0.text}".format(resp))
+        if resp.status_code >= 500:
+            raise ResponseError("Response code is {0.code}: {0.text}".format(resp))
 
         try:
-            result = resp.json()
+            _ = resp.json()
         except json.JSONDecodeError:
-            return RequestError("Response json couldn't be decode: {0.text}".format(resp))
+            raise ResponseError("Response json couldn't be decode: {0.text}".format(resp))
         else:
-            return result
+            return resp
 
     def do(self, api_name=None, pk=None, method='get', use_auth=True,
            data=None, params=None, content_type='application/json'):
@@ -108,15 +103,15 @@ class AppRequest(object):
         req = Request(url, method=method, data=data,
                       params=params, content_type=content_type)
         if use_auth:
-            if not self._auth:
+            if not self.auth:
                 raise RequestError('Authentication required')
             else:
-                self._auth.sign_request(req)
+                self.auth.sign_request(req)
 
         try:
             resp = req.do()
         except (requests.ConnectionError, requests.ConnectTimeout) as e:
-            return RequestError("Connect endpoint: {} {}".format(self.endpoint, e))
+            raise RequestError("Connect endpoint {} error: {}".format(self.endpoint, e))
 
         return self.clean_result(resp)
 
@@ -138,121 +133,89 @@ class AppRequest(object):
 
 
 class AppService:
-    """使用该类和Jumpserver api进行通信,将terminal用到的常用api进行了封装,
-    直接调用方法即可.
-        from jms import AppService
-
-        service = AppService(app_name='coco', endpoint='http://localhost:8080')
-
-        # 如果app是第一次启动, 注册一下,并得到 access key, 然后认真
-        service.register()
-        service.auth()  # 直接使用注册得到的access key进行认证
-
-        # 如果已经启动过, 需要使用access key进行认证
-        service.auth(access_key_id, access_key_secret)
-
-        service.check_auth()  # 检测一下是否认证有效
-        data = {
-            "username": "ibuler",
-            "name": "Guanghongwei",
-            "hostname": "localhost",
-            "ip": "127.0.0.1",
-            "system_user": "web",
-            "login_type": "ST",
-            "is_failed": 0,
-            "date_start": 1484206685,
-        }
-        service.send_proxy_log(data)
-
-    """
-    access_key_class = ServiceAccessKey
+    access_key_class = AppAccessKey
 
     def __init__(self, app):
         self.app = app
-        # super(AppService, self).__init__(app_name, endpoint, auth=auth)
-        # self.config = config
-        # self.access_key = self.access_key_class(config=config)
         self.access_key = None
+        self.requests = AppRequests(app.config['JUMPSERVER_ENDPOINT'])
+        self.prepare()
+
+    def prepare(self):
+        self.load_access_key()
+        self.set_auth()
+        self.valid_auth()
 
     def load_access_key(self):
         # Must be get access key if not register it
-        self.access_key = ServiceAccessKey(self).load()
+        self.access_key = self.access_key_class(self.app).load()
         if self.access_key is None:
-            self.register_and_wait_for_accept()
-            self.save_key_to_store()
+            self.register_and_save()
 
-    def register_and_wait_for_accept(self):
-        """注册Terminal, 通常第一次启动需要向Jumpserver注册
+    def set_auth(self):
+        self.requests.auth = AccessKeyAuth(self.access_key)
 
-        content: {
-            'terminal': {'id': 1, 'name': 'terminal name', ...},
-            'user': {
-                        'username': 'same as terminal name',
-                        'name': 'same as username',
-                    },
-            'access_key_id': 'ACCESS KEY ID',
-            'access_key_secret': 'ACCESS KEY SECRET',
-        }
-        """
-        r, content = self.post('terminal-register',
-                               data={'name': self.app.name},
-                               use_auth=False)
-        if r.status_code == 201:
-            logging.info('Your can save access_key: %s somewhere '
-                         'or set it in config' % content['access_key_id'])
-            return True, to_dotmap(content)
-        elif r.status_code == 200:
-            logging.error('Terminal {} exist already, register failed'
-                          .format(self.app_name))
+    def valid_auth(self):
+        while True:
+            delay = 1
+            if self.heatbeat() is None:
+                msg = "Access key is not valid or need admin " \
+                      "accepted, waiting %d s" % delay
+                logger.info(msg)
+                delay += 1
+                time.sleep(1)
+            else:
+                break
+
+    def register_and_save(self):
+        self.register()
+        self.save_access_key()
+
+    def save_access_key(self):
+        self.access_key.save_to_key_store()
+
+    def register(self):
+        try:
+            resp = self.requests.post('terminal-register',
+                                      data={'name': self.app.name},
+                                      use_auth=False)
+        except (RequestError, ResponseError) as e:
+            logger.error(e)
+            sys.exit()
+
+        if resp.status_code == 201:
+            access_key = resp.json()['access_key']
+            access_key_id = access_key['id']
+            access_key_secret = access_key['secret']
+            self.access_key = self.access_key_class(
+                app=self.app, id=access_key_id, secret=access_key_secret
+            )
+            logger.info('Register app success: %s' % access_key_id,)
+        elif resp.status_code == 400:
+            msg = '{} exist already, register failed'.format(self.app.name)
+            logging.error(msg)
+            sys.exit()
         else:
-            logging.error('Register terminal {} failed'.format(self.app_name))
-        return False, None
+            logging.error('Register terminal {} failed unknown'.format(self.app.name))
+            sys.exit()
 
-    def save_key_so_store(self):
-        pass
+    def wait_util_accept(self):
+        while True:
+            if self.heatbeat() is None:
+                time.sleep(1)
+            else:
+                break
 
-
-    def auth(self, access_key_id=None, access_key_secret=None):
-        """App认证, 请求api需要签名header
-        :param access_key_id: 注册时或新建app用户生成access key id
-        :param access_key_secret: 同上access key secret
-        """
-        if None not in (access_key_id, access_key_secret):
-            self.access_key.id = access_key_id
-            self.access_key.secret = access_key_secret
-
-        self._auth = Auth(access_key_id=self.access_key.id,
-                          access_key_secret=self.access_key.secret)
-
-    def auth_magic(self):
-        """加载配置文件定义的变量,尝试从配置文件, Keystore, 环境变量加载
-        Access Key 然后进行认证
-        """
-        self.access_key = self.access_key_class(config=self.config)
-        self.access_key.load_from_conf_all()
-        if self.access_key:
-            self._auth = Auth(access_key_id=self.access_key.id,
-                              access_key_secret=self.access_key.secret)
-        else:
-            raise LoadAccessKeyError('Load access key all failed, auth ignore')
-
-
-
-    def terminal_heatbeat(self):
+    def heatbeat(self):
         """和Jumpserver维持心跳, 当Terminal断线后,jumpserver可以知晓
 
         Todo: Jumpserver发送的任务也随heatbeat返回, 并执行,如 断开某用户
         """
-        r, content = self.post('terminal-heatbeat', use_auth=True)
+        r, content = self.requests.post('terminal-heatbeat', use_auth=True)
         if r.status_code == 201:
             return content
         else:
             return None
-
-    def is_authenticated(self):
-        """执行auth后只是构造了请求头, 可以使用该方法连接Jumpserver测试认证"""
-        result = self.terminal_heatbeat()
-        return result
 
     def validate_user_asset_permission(self, user_id, asset_id, system_user_id):
         """验证用户是否有登录该资产的权限"""
