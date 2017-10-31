@@ -80,7 +80,7 @@ class AppRequests(object):
     @staticmethod
     def clean_result(resp):
         if resp.status_code >= 500:
-            raise ResponseError("Response code is {0.code}: {0.text}".format(resp))
+            raise ResponseError("Response code is {0.status_code}: {0.text}".format(resp))
 
         try:
             _ = resp.json()
@@ -138,82 +138,85 @@ class AppService:
     def __init__(self, app):
         self.app = app
         self.access_key = None
-        self.requests = AppRequests(app.config['JUMPSERVER_ENDPOINT'])
-        self.prepare()
+        self.requests = AppRequests(app.config['CORE_HOST'])
 
-    def prepare(self):
+    def initial(self):
         self.load_access_key()
         self.set_auth()
         self.valid_auth()
 
     def load_access_key(self):
         # Must be get access key if not register it
-        self.access_key = self.access_key_class(self.app).load()
+        self.access_key = self.access_key_class()
+        self.access_key.set_app(self.app)
+        self.access_key = self.access_key.load()
         if self.access_key is None:
+            logger.info("No access key found, register it")
             self.register_and_save()
 
     def set_auth(self):
         self.requests.auth = AccessKeyAuth(self.access_key)
 
     def valid_auth(self):
-        while True:
-            delay = 1
+        delay = 1
+        while delay < 300:
             if self.heatbeat() is None:
                 msg = "Access key is not valid or need admin " \
                       "accepted, waiting %d s" % delay
                 logger.info(msg)
-                delay += 1
-                time.sleep(1)
+                delay += 3
+                time.sleep(3)
             else:
                 break
+        if delay >= 300:
+            logger.info("Start timeout")
+            sys.exit()
 
     def register_and_save(self):
         self.register()
         self.save_access_key()
 
     def save_access_key(self):
-        self.access_key.save_to_key_store()
+        self.access_key.save_to_file()
 
     def register(self):
         try:
-            resp = self.requests.post('terminal-register',
-                                      data={'name': self.app.name},
-                                      use_auth=False)
+            resp = self.requests.post(
+                'terminal-register', data={'name': self.app.name}, use_auth=False
+            )
         except (RequestError, ResponseError) as e:
             logger.error(e)
-            sys.exit()
+            return
 
         if resp.status_code == 201:
             access_key = resp.json()['access_key']
             access_key_id = access_key['id']
             access_key_secret = access_key['secret']
             self.access_key = self.access_key_class(
-                app=self.app, id=access_key_id, secret=access_key_secret
+                id=access_key_id, secret=access_key_secret
             )
+            self.access_key.set_app(self.app)
             logger.info('Register app success: %s' % access_key_id,)
-        elif resp.status_code == 400:
+        elif resp.status_code == 409:
             msg = '{} exist already, register failed'.format(self.app.name)
             logging.error(msg)
             sys.exit()
         else:
-            logging.error('Register terminal {} failed unknown'.format(self.app.name))
+            logging.error('Register terminal {} failed unknown: {}'.format(self.app.name, resp.json()))
             sys.exit()
-
-    def wait_util_accept(self):
-        while True:
-            if self.heatbeat() is None:
-                time.sleep(1)
-            else:
-                break
 
     def heatbeat(self):
         """和Jumpserver维持心跳, 当Terminal断线后,jumpserver可以知晓
 
         Todo: Jumpserver发送的任务也随heatbeat返回, 并执行,如 断开某用户
         """
-        r, content = self.requests.post('terminal-heatbeat', use_auth=True)
-        if r.status_code == 201:
-            return content
+        try:
+            resp = self.requests.post('terminal-heatbeat', use_auth=True)
+        except (ResponseError, RequestError):
+            return None
+
+        if resp.status_code == 201:
+            return True
         else:
             return None
 
@@ -224,9 +227,9 @@ class AppService:
             'asset_id': asset_id,
             'system_user_id': system_user_id,
         }
-        r, content = self.get('validate-user-asset-permission',
-                              use_auth=True,
-                              params=params)
+        r, content = self.requests.get(
+            'validate-user-asset-permission', use_auth=True, params=params
+        )
         if r.status_code == 200:
             return True
         else:
@@ -234,7 +237,7 @@ class AppService:
 
     def get_system_user_auth_info(self, system_user):
         """获取系统用户的认证信息: 密码, ssh私钥"""
-        r, content = self.get('system-user-auth-info', pk=system_user['id'])
+        r, content = self.requests.get('system-user-auth-info', pk=system_user['id'])
         if r.status_code == 200:
             password = content['password'] or ''
             private_key_string = content['private_key'] or ''
@@ -275,7 +278,7 @@ class AppService:
         data['date_start'] = timestamp_to_datetime_str(data['date_start'])
         data['is_failed'] = 1 if data.get('is_failed') else 0
 
-        r, content = self.post('send-proxy-log', data=data, use_auth=True)
+        r, content = self.requests.post('send-proxy-log', data=data, use_auth=True)
         if r.status_code != 201:
             logging.warning('Send proxy log failed: %s' % content)
             return None
@@ -296,7 +299,7 @@ class AppService:
         data['is_failed'] = 1 if data.get('is_failed') else 0
         data['is_finished'] = 1
         proxy_log_id = data.get('proxy_log_id') or 0
-        r, content = self.patch('finish-proxy-log', pk=proxy_log_id, data=data)
+        r, content = self.requests.patch('finish-proxy-log', pk=proxy_log_id, data=data)
 
         if r.status_code != 200:
             logging.warning('Finish proxy log failed: %s' % proxy_log_id)
@@ -327,7 +330,7 @@ class AppService:
             output = d['output'].encode('utf-8', 'ignore')
             d['output'] = base64.b64encode(output).decode("utf-8")
 
-        result, content = self.post('send-command-log', data=data)
+        result, content = self.requests.post('send-command-log', data=data)
         if result.status_code != 201:
             logging.warning('Send command log failed: %s' % content)
             return False
@@ -349,7 +352,7 @@ class AppService:
             if d.get('output') and isinstance(d['output'], str):
                 d['output'] = d['output'].encode('utf-8')
             d['output'] = base64.b64encode(d['output'])
-        result, content = self.post('send-record-log', data=data)
+        result, content = self.requests.post('send-record-log', data=data)
         if result.status_code != 201:
             logging.warning('Send record log failed: %s' % content)
             return False
@@ -371,27 +374,6 @@ class AppService:
     #     user = user_service.is_authenticated()
     #     return user
 
-
-    def login(self, data):
-        """用户登录Terminal时需要向Jumpserver进行认证, 登陆成功后返回用户和token
-        data = {
-            'username': 'admin',
-            'password': 'admin',
-            'public_key': 'public key string',
-            'login_type': 'ST',  # (('ST', 'SSH Terminal'),
-                                 #  ('WT', 'Web Terminal'))
-            'remote_addr': '2.2.2.2',  # User ip address not app address
-        }
-        """
-        r, content = self.post('user-auth', data=data, use_auth=False)
-        if r.status_code == 200:
-            self.token = content['token']
-            self.user = content['user']
-            self.auth(self.token)
-            return self.user,  self.token
-        else:
-            return None, None
-
     @cached(TTLCache(maxsize=100, ttl=60))
     def get_user_assets(self, user):
         """获取用户被授权的资产列表
@@ -399,7 +381,7 @@ class AppService:
          'system_users_granted': [{'id': 1, 'username': 'x',..}]
         ]
         """
-        r, content = self.get('user-assets', pk=user['id'], use_auth=True)
+        r, content = self.requests.get('user-assets', pk=user['id'], use_auth=True)
         if r.status_code == 200:
             assets = content
         else:
@@ -416,7 +398,7 @@ class AppService:
         """获取用户授权的资产组列表
         [{'name': 'x', 'comment': 'x', 'assets_amount': 2}, ..]
         """
-        r, content = self.get('user-asset-groups', pk=user['id'], uassetsse_auth=True)
+        r, content = self.requests.get('user-asset-groups', pk=user['id'], uassetsse_auth=True)
         if r.status_code == 200:
             asset_groups = content
         else:
@@ -429,7 +411,7 @@ class AppService:
         """获取用户授权的资产组列表及下面的资产
         [{'name': 'x', 'comment': 'x', 'assets': []}, ..]
         """
-        r, content = self.get('user-asset-groups-assets', pk=user['id'], use_auth=True)
+        r, content = self.requests.get('user-asset-groups-assets', pk=user['id'], use_auth=True)
         if r.status_code == 200:
             asset_groups_assets = content
         else:
@@ -443,7 +425,7 @@ class AppService:
 
         :param asset_group_id: 资产组id
         """
-        r, content = self.get('assets-of-group', use_auth=True,
+        r, content = self.requests.get('assets-of-group', use_auth=True,
                               pk=asset_group_id)
         if r.status_code == 200:
             assets = content

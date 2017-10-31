@@ -91,7 +91,8 @@ def content_md5(data):
     """
     if isinstance(data, str):
         data = hashlib.md5(data.encode('utf-8'))
-    return base64.b64encode(data.digest())
+    value = base64.b64encode(data.digest())
+    return value.decode('utf-8')
 
 
 _STRPTIME_LOCK = threading.Lock()
@@ -126,7 +127,7 @@ def iso8601_to_unixtime(time_string):
 
 def make_signature(access_key_secret, date=None):
     if isinstance(date, bytes):
-        date = date.decode("utf-8")
+        date = bytes.decode(date)
     if isinstance(date, int):
         date_gmt = http_date(date)
     elif date is None:

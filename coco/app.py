@@ -5,10 +5,9 @@ import logging
 
 from .config import Config
 from .sshd import SSHServer
-from .ws import WSServer
+from .httpd import HttpServer
 from .logging import create_logger
 from .sdk import AppService
-from .auth import AppAccessKey
 
 
 __version__ = '0.4.0'
@@ -27,6 +26,7 @@ class Coco:
         'SSHD_PORT': 2222,
         'WS_PORT': 5000,
         'ACCESS_KEY': '',
+        'ACCESS_KEY_ENV': 'COCO_ACCESS_KEY',
         'ACCESS_KEY_FILE': os.path.join(BASE_DIR, 'keys', '.access_key'),
         'SECRET_KEY': None,
         'LOG_LEVEL': 'INFO',
@@ -43,7 +43,6 @@ class Coco:
         self.config = self.config_class(BASE_DIR, defaults=self.default_config)
         self.sessions = []
         self.clients = []
-        self.ws = None
         self.root_path = root_path
         self.name = name
         self.lock = threading.Lock()
@@ -55,7 +54,7 @@ class Coco:
         if root_path is None:
             self.root_path = BASE_DIR
 
-        self.make_logger()
+        self.httpd = None
         self.sshd = None
         self.running = True
 
@@ -63,8 +62,9 @@ class Coco:
         create_logger(self)
 
     def prepare(self):
+        self.make_logger()
         self.sshd = SSHServer(self)
-        self.ws = WSServer(self)
+        self.httpd = HttpServer(self)
         self.initial_service()
 
     def heartbeat(self):
@@ -94,7 +94,7 @@ class Coco:
         thread.start()
 
     def run_ws(self):
-        thread = threading.Thread(target=self.ws.run, args=())
+        thread = threading.Thread(target=self.httpd.run, args=())
         thread.daemon = True
         thread.start()
 
@@ -123,6 +123,7 @@ class Coco:
 
     def initial_service(self):
         self.service = AppService(self)
+        self.service.initial()
 
     def monitor_session(self):
         pass

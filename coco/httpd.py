@@ -72,7 +72,7 @@ class MonitorWehSocketHandler(BaseWehSocketHandler):
     pass
 
 
-class WSServer:
+class HttpServer:
     routers = [
         (r'/ws/interactive/', InteractiveWehSocketHandler),
         (r'/ws/proxy/(?P<asset_id>[0-9]+)/(?P<system_user_id>[0-9]+)/', ProxyWehSocketHandler),
