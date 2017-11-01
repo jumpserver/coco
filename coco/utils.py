@@ -282,15 +282,10 @@ def split_string_int(s):
 
 
 def sort_assets(assets, order_by='hostname'):
-    if order_by == 'hostname':
-        key = lambda asset: split_string_int(asset['hostname'])
-        # print(assets)
-        # assets = sorted(assets, key=key)
-    elif order_by == 'ip':
-            assets = sorted(assets, key=lambda asset: [int(d) for d in asset['ip'].split('.') if d.isdigit()])
+    if order_by == 'ip':
+        assets = sorted(assets, key=lambda asset: [int(d) for d in asset.ip.split('.') if d.isdigit()])
     else:
-        key = lambda asset: asset.__getitem__(order_by)
-        assets = sorted(assets, key=key)
+        assets = sorted(assets, key=lambda asset: getattr(asset, order_by))
     return assets
 
 

@@ -16,7 +16,7 @@ from cachetools import cached, TTLCache
 from .auth import AppAccessKey, AccessKeyAuth
 from .utils import sort_assets, PKey, timestamp_to_datetime_str
 from .exception import RequestError, ResponseError
-
+from .models import User, Asset
 
 _USER_AGENT = 'jms-sdk-py'
 CACHED_TTL = os.environ.get('CACHED_TTL', 30)
@@ -160,7 +160,7 @@ class AppService:
     def valid_auth(self):
         delay = 1
         while delay < 300:
-            if self.heatbeat() is None:
+            if self.heartbeat() is None:
                 msg = "Access key is not valid or need admin " \
                       "accepted, waiting %d s" % delay
                 logger.info(msg)
@@ -205,7 +205,7 @@ class AppService:
             logging.error('Register terminal {} failed unknown: {}'.format(self.app.name, resp.json()))
             sys.exit()
 
-    def heatbeat(self):
+    def heartbeat(self):
         """和Jumpserver维持心跳, 当Terminal断线后,jumpserver可以知晓
 
         Todo: Jumpserver发送的任务也随heatbeat返回, 并执行,如 断开某用户
@@ -219,6 +219,29 @@ class AppService:
             return True
         else:
             return None
+
+    def check_user_credential(self, username, password="", pubkey="",
+                              remote_addr="8.8.8.8", login_type='ST'):
+        data = {
+            'username': username,
+            'password': password,
+            'public_key': pubkey,
+            'remote_addr': remote_addr,
+            'login_type': login_type,
+        }
+        try:
+            resp = self.requests.post('user-auth', data=data, use_auth=False)
+        except (ResponseError, RequestError):
+            return None
+
+        if resp.status_code == 200:
+            user = User.from_json(resp.json()["user"])
+            return user
+        else:
+            return None
+
+    def check_user_cookie(self, session_id, csrf_token):
+        pass
 
     def validate_user_asset_permission(self, user_id, asset_id, system_user_id):
         """验证用户是否有登录该资产的权限"""
@@ -358,22 +381,6 @@ class AppService:
             return False
         return True
 
-    # Todo: 或许没什么用
-    # def check_user_authentication(self, token=None, session_id=None,
-    #                               csrf_token=None):
-    #     """
-    #     用户登陆webterminal或其它网站时,检测用户cookie中的sessionid和csrf_token
-    #     是否合法, 如果合法返回用户,否则返回空
-    #     :param session_id: cookie中的 sessionid
-    #     :param csrf_token: cookie中的 csrftoken
-    #     :return: user object or None
-    #     """
-    #     user_service = UserService(endpoint=self.endpoint)
-    #     user_service.auth(token=token, session_id=session_id,
-    #                       csrf_token=csrf_token)
-    #     user = user_service.is_authenticated()
-    #     return user
-
     @cached(TTLCache(maxsize=100, ttl=60))
     def get_user_assets(self, user):
         """获取用户被授权的资产列表
@@ -381,25 +388,30 @@ class AppService:
          'system_users_granted': [{'id': 1, 'username': 'x',..}]
         ]
         """
-        r, content = self.requests.get('user-assets', pk=user['id'], use_auth=True)
-        if r.status_code == 200:
-            assets = content
-        else:
-            assets = []
+        try:
+            resp = self.requests.get('user-assets', pk=user.id, use_auth=True)
+        except (RequestError, ResponseError):
+            return []
 
-        assets = sort_assets(assets)
-        for asset in assets:
-            asset['system_users'] = \
-                [system_user for system_user in asset.get('system_users_granted')]
-        return to_dotmap(assets)
+        if resp.status_code == 200:
+            assets = Asset.from_multi_json(resp.json())
+        else:
+            return []
+
+        assets = sort_assets(assets, self.app.config["ASSET_LIST_SORT_BY"])
+        return assets
 
     @cached(TTLCache(maxsize=100, ttl=60))
     def get_user_asset_groups(self, user):
         """获取用户授权的资产组列表
         [{'name': 'x', 'comment': 'x', 'assets_amount': 2}, ..]
         """
-        r, content = self.requests.get('user-asset-groups', pk=user['id'], uassetsse_auth=True)
-        if r.status_code == 200:
+        try:
+            resp = self.requests.get('user-asset-groups', pk=user.id, use_auth=True)
+        except (ResponseError, RequestError):
+            return []
+
+        if resp.status_code == 200:
             asset_groups = content
         else:
             asset_groups = []
