@@ -4,7 +4,6 @@
 
 import os
 import logging
-import time
 
 from . import utils
 from .exception import LoadAccessKeyError
