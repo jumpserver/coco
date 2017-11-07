@@ -79,9 +79,17 @@ class Coco(object):
                         "proxy_log_id": proxy_log_id,
                         "date_finished": time.time(),
                     }
+                    try:
+                        backend_channel.close()
+                        client_channel.close()
+                    finally:
+                        self.service.finish_proxy_log(data)
+                else:
+                    data = {
+                        "proxy_log_id": proxy_log_id,
+                        "date_finished": time.time(),
+                    }
                     self.service.finish_proxy_log(data)
-                    backend_channel.close()
-                    client_channel.close()
 
     def heatbeat(self):
         def _keep():
