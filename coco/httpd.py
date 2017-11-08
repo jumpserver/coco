@@ -9,7 +9,9 @@ import tornado.httpclient
 import tornado.ioloop
 import tornado.gen
 
-from .models import User, Request, Client, WSProxy
+# Todo: Remove for future
+from jms.models import User
+from .models import Request, Client, WSProxy
 from .interactive import InteractiveServer
 
 

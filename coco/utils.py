@@ -253,7 +253,7 @@ def wrap_with_title(text):
 
 
 def b64encode_as_string(data):
-    return to_string(base64.b64encode(data))
+    return base64.b64encode(data).decode("utf-8")
 
 
 def split_string_int(s):

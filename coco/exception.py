@@ -5,13 +5,4 @@ class PermissionFailed(Exception):
     pass
 
 
-class LoadAccessKeyError(Exception):
-    pass
 
-
-class RequestError(Exception):
-    pass
-
-
-class ResponseError(Exception):
-    pass

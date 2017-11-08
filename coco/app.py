@@ -2,12 +2,12 @@ import os
 import time
 import threading
 import logging
+from jms.service import AppService
 
 from .config import Config
 from .sshd import SSHServer
 from .httpd import HttpServer
 from .logging import create_logger
-from .sdk import AppService
 
 
 __version__ = '0.4.0'

@@ -3,11 +3,13 @@ import logging
 import socket
 import threading
 
+# Todo remove
+from jms.models import Asset, SystemUser
+
 from . import char
 from .utils import TtyIOParser, wrap_with_line_feed as wr, \
     wrap_with_primary as primary, wrap_with_warning as warning
 from .forward import ProxyServer
-from .models import Asset, SystemUser
 from .session import Session
 
 logger = logging.getLogger(__file__)
