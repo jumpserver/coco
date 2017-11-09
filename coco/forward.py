@@ -19,7 +19,7 @@ class ProxyServer:
     def __init__(self, app, client):
         self.app = app
         self.client = client
-        self.request = client.do
+        self.request = client.request
         self.server = None
         self.connecting = True
 

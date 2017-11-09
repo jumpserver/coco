@@ -5,3 +5,4 @@
 *.log
 logs/*
 conf.py
+host_rsa_key

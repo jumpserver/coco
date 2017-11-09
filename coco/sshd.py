@@ -86,7 +86,7 @@ class SSHServer:
         self.dispatch(client)
 
     def dispatch(self, client):
-        request_type = client.do.type
+        request_type = client.request.type
         if request_type == 'pty':
             InteractiveServer(self.app, client).activate()
         elif request_type == 'exec':

@@ -61,17 +61,25 @@ class Coco:
     def make_logger(self):
         create_logger(self)
 
-    def prepare(self):
+    def bootstrap(self):
         self.make_logger()
         self.sshd = SSHServer(self)
         self.httpd = HttpServer(self)
         self.initial_service()
+        self.heartbeat()
 
     def heartbeat(self):
-        pass
+        def _heartbeat():
+            while not self.stop_evt.is_set():
+                self.service.terminal_heartbeat()
+                time.sleep(self.config["HEARTBEAT_INTERVAL"])
+
+        thread = threading.Thread(target=_heartbeat)
+        thread.daemon = True
+        thread.start()
 
     def run_forever(self):
-        self.prepare()
+        self.bootstrap()
         print(time.ctime())
         print('Coco version %s, more see https://www.jumpserver.org' % __version__)
         print('Quit the server with CONTROL-C.')

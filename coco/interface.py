@@ -34,8 +34,13 @@ class SSHInterface(paramiko.ServerInterface):
         return False
 
     def get_allowed_auths(self, username):
-        # Todo: Check with server settings or self config
-        return ",".join(["password", "publickkey"])
+        supported = []
+        if self.app.config["SSH_PASSWORD_AUTH"]:
+            supported.append("password")
+        if self.app.config["SSH_PUBLIC_KEY_AUTH"]:
+            supported.append("publickey")
+
+        return ",".join(supported)
 
     def check_auth_none(self, username):
         return paramiko.AUTH_FAILED
@@ -44,12 +49,20 @@ class SSHInterface(paramiko.ServerInterface):
         return self.validate_auth(username, password=password)
 
     def check_auth_publickey(self, username, key):
+        key = key.get_base64()
         return self.validate_auth(username, key=key)
 
     def validate_auth(self, username, password="", key=""):
-        # Todo: Implement it
-        self.request.user = "guang"
-        return paramiko.AUTH_SUCCESSFUL
+        user, _ = self.app.service.authenticate(
+            username, password=password, pubkey=key,
+            remote_addr=self.request.remote_ip, login_type="ST"
+        )
+
+        if user:
+            self.request.user = user
+            return paramiko.AUTH_SUCCESSFUL
+        else:
+            return paramiko.AUTH_FAILED
 
     def check_channel_direct_tcpip_request(self, chanid, origin, destination):
         logger.debug("Check channel direct tcpip request: %d %s %s" %

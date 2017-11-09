@@ -18,7 +18,6 @@ import pytz
 from email.utils import formatdate
 
 
-
 try:
     from Queue import Queue, Empty
 except ImportError:
@@ -190,6 +189,30 @@ class TtyIOParser(object):
         return command
 
 
+def is_obj_attr_has(obj, val, attrs=("hostname", "ip", "comment")):
+    if not attrs:
+        vals = [val for val in obj.__dict__.values() if isinstance(val, (str, int))]
+    else:
+        vals = [getattr(obj, attr) for attr in attrs if hasattr(obj, attr) and isinstance(hasattr(obj, attr), (str, int))]
+
+    for v in vals:
+        if str(v).find(val) != -1:
+            return True
+    return False
+
+
+def is_obj_attr_eq(obj, val, attrs=("id", "hostname", "ip")):
+    if not attrs:
+        vals = [val for val in obj.__dict__.values() if isinstance(val, (str, int))]
+    else:
+        vals = [getattr(obj, attr) for attr in attrs if hasattr(obj, attr)]
+
+    for v in vals:
+        if str(v) == str(val):
+            return True
+    return False
+
+
 def wrap_with_line_feed(s, before=0, after=1):
     if isinstance(s, bytes):
         return b'\r\n' * before + s + b'\r\n' * after
@@ -230,10 +253,15 @@ def wrap_with_color(text, color='white', background=None,
         wrap_with.append(background_map.get(background, ''))
     wrap_with.append(color_map.get(color, ''))
 
+    is_bytes = True if isinstance(text, bytes) else False
+
+    if is_bytes:
+        text = text.decode("utf-8")
     data = '\033[' + ';'.join(wrap_with) + 'm' + text + '\033[0m'
-    if isinstance(text, bytes):
+    if is_bytes:
         return data.encode('utf-8')
-    return data
+    else:
+        return data
 
 
 def wrap_with_warning(text, bolder=False):
@@ -301,10 +329,6 @@ class PKey(object):
                 return pkey
             except paramiko.SSHException:
                 return None
-
-
-def from_string(cls, key_string):
-    return cls(key_string=key_string).pkey
 
 
 def timestamp_to_datetime_str(ts):
