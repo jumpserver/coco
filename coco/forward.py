@@ -67,7 +67,6 @@ class ProxyServer:
         except paramiko.AuthenticationException as e:
             self.client.send("[Errno 66] Authentication failed: {}".format(e).encode("utf-8"))
             return None
-
         except socket.error as e:
             self.client.send(" {}".format(e).encode("utf-8"))
             return None
@@ -97,12 +96,11 @@ class ProxyServer:
     def send_connecting_message(self):
         def func():
             delay = 0.0
-            self.client.send('Connecting to {} {:.1f}'.format('abc.com', delay).encode('utf-8'))
+            self.client.send('Connecting to {} {:.1f}'.format(self.server, delay).encode('utf-8'))
             while self.connecting and delay < TIMEOUT:
                 self.client.send('\x08\x08\x08{:.1f}'.format(delay).encode('utf-8'))
                 time.sleep(0.1)
                 delay += 0.1
         thread = threading.Thread(target=func)
-        thread.daemon = True
         thread.start()
 

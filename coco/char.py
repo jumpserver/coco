@@ -5,3 +5,4 @@ ENTER_CHAR = [b'\r', b'\n', b'\r\n']
 UNSUPPORTED_CHAR = {b'\x15': 'Ctrl-U', b'\x0c': 'Ctrl-L', b'\x05': 'Ctrl-E'}
 CLEAR_CHAR = b'\x1b[H\x1b[2J'
 BELL_CHAR = b'\x07'
+NEW_LINE = b'\r\n'

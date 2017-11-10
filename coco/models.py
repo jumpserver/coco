@@ -38,6 +38,8 @@ class Client:
         return self.chan.fileno()
 
     def send(self, b):
+        if isinstance(b, str):
+            b = b.encode("utf-8")
         return self.chan.send(b)
 
     def recv(self, size):
@@ -77,6 +79,8 @@ class Server:
         return self.chan.fileno()
 
     def send(self, b):
+        if isinstance(b, str):
+            b = b.encode("utf-8")
         if not self._input_initial:
             self._input_initial = True
 
