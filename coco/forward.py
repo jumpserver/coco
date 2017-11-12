@@ -9,6 +9,7 @@ import time
 
 from .session import Session
 from .models import Server
+from .utils import wrap_with_line_feed as wr
 
 
 logger = logging.getLogger(__file__)
@@ -24,7 +25,7 @@ class ProxyServer:
         self.connecting = True
 
     def proxy(self, asset, system_user):
-        self.send_connecting_message()
+        self.send_connecting_message(asset, system_user)
         self.server = self.get_server_conn(asset, system_user)
         if self.server is None:
             return
@@ -41,23 +42,28 @@ class ProxyServer:
         system user
         :return: True or False
         """
-        return True
+        return self.app.service.validate_user_asset_permission(
+            self.client.user.id, asset.id, system_user.id
+        )
 
     def get_system_user_auth(self, system_user):
         """
         Get the system user auth ..., using this to connect asset
         :return: system user have full info
         """
+        system_user.password, system_user.private_key = \
+            self.app.service.get_system_user_auth_info(system_user)
 
     def get_server_conn(self, asset, system_user):
         logger.info("Connect to %s" % asset.hostname)
         if not self.validate_permission(asset, system_user):
-            self.client.send(b'No permission')
+            self.client.send(_('No permission'))
             return None
 
         self.get_system_user_auth(system_user)
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        print(asset.ip, asset.port, system_user.username, system_user.password, system_user.private_key)
         try:
             ssh.connect(asset.ip, port=asset.port,
                         username=system_user.username,
@@ -65,10 +71,10 @@ class ProxyServer:
                         pkey=system_user.private_key,
                         timeout=TIMEOUT)
         except paramiko.AuthenticationException as e:
-            self.client.send("[Errno 66] Authentication failed: {}".format(e).encode("utf-8"))
+            self.client.send(wr("[Errno 66] {}".format(e)))
             return None
         except socket.error as e:
-            self.client.send(" {}".format(e).encode("utf-8"))
+            self.client.send(wr(" {}".format(e)))
             return None
         finally:
             self.connecting = False
@@ -93,10 +99,10 @@ class ProxyServer:
         thread.daemon = True
         thread.start()
 
-    def send_connecting_message(self):
+    def send_connecting_message(self, asset, system_user):
         def func():
             delay = 0.0
-            self.client.send('Connecting to {} {:.1f}'.format(self.server, delay).encode('utf-8'))
+            self.client.send('Connecting to {}@{} {:.1f}'.format(system_user, asset, delay))
             while self.connecting and delay < TIMEOUT:
                 self.client.send('\x08\x08\x08{:.1f}'.format(delay).encode('utf-8'))
                 time.sleep(0.1)

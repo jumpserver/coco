@@ -10,18 +10,16 @@ import base64
 import calendar
 import time
 import datetime
+import gettext
 from io import StringIO
 
 import paramiko
 import pyte
 import pytz
 from email.utils import formatdate
+from queue import Queue, Empty
 
-
-try:
-    from Queue import Queue, Empty
-except ImportError:
-    from queue import Queue, Empty
+BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 
 def ssh_key_string_to_obj(text):
@@ -348,4 +346,19 @@ class MultiQueue(Queue):
         return items
 
 
+def _gettext():
+    gettext.bindtextdomain("coco", os.path.join(BASE_DIR, "locale"))
+    gettext.textdomain("coco")
+    return gettext.gettext
 
+
+def make_message():
+    os.makedirs(os.path.join(BASE_DIR, "locale", "zh_CN"))
+    pass
+
+
+def compile_message():
+    pass
+
+
+ugettext = _gettext()
