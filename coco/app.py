@@ -1,3 +1,4 @@
+import datetime
 import os
 import time
 import threading
@@ -8,6 +9,7 @@ from .config import Config
 from .sshd import SSHServer
 from .httpd import HttpServer
 from .logging import create_logger
+from . import utils
 
 
 __version__ = '0.4.0'
@@ -67,16 +69,39 @@ class Coco:
         self.httpd = HttpServer(self)
         self.initial_service()
         self.heartbeat()
+        self.monitor_sessions()
 
     def heartbeat(self):
-        def _heartbeat():
+        def func():
             while not self.stop_evt.is_set():
-                self.service.terminal_heartbeat()
+                _sessions = [s.to_json() for s in self.sessions]
+                tasks = self.service.terminal_heartbeat(_sessions)
+                if tasks:
+                    self.handle_task(tasks)
                 time.sleep(self.config["HEARTBEAT_INTERVAL"])
 
-        thread = threading.Thread(target=_heartbeat)
+        thread = threading.Thread(target=func)
         thread.daemon = True
         thread.start()
+
+    def monitor_sessions(self):
+        def func():
+            while True:
+                for s in self.sessions:
+                    if s.is_finished:
+                        if s.date_finished is None:
+                            self.sessions.remove(s)
+                            continue
+                        delta = datetime.datetime.now() - s.date_finished
+                        if delta > datetime.timedelta(minutes=1):
+                            self.sessions.remove(s)
+                time.sleep(5)
+
+        thread = threading.Thread(target=func)
+        thread.start()
+
+    def handle_task(self, tasks):
+        pass
 
     def run_forever(self):
         self.bootstrap()
@@ -132,7 +157,3 @@ class Coco:
     def initial_service(self):
         self.service = AppService(self)
         self.service.initial()
-
-    def monitor_session(self):
-        pass
-

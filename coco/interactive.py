@@ -32,17 +32,17 @@ class InteractiveServer:
     def display_banner(self):
         self.client.send(char.CLEAR_CHAR)
 
-        banner = _("""\n {title} {user}, 欢迎使用Jumpserver开源跳板机系统  {end}\r\n\r
-        1) 输入 {green}ID{end} 直接登录 或 输入{green}部分 IP,主机名,备注{end} 进行搜索登录(如果唯一).\r
-        2) 输入 {green}/{end} + {green}IP, 主机名 or 备注 {end}搜索. 如: /ip\r
-        3) 输入 {green}P/p{end} 显示您有权限的主机.\r
-        4) 输入 {green}G/g{end} 显示您有权限的主机组.\r
-        5) 输入 {green}G/g{end} + {green}组ID{end} 显示该组下主机. 如: g1\r
-        6) 输入 {green}E/e{end} 批量执行命令.(未完成)\r
-        7) 输入 {green}U/u{end} 批量上传文件.(未完成)\r
-        8) 输入 {green}D/d{end} 批量下载文件.(未完成)\r
-        9) 输入 {green}H/h{end} 帮助.\r
-        0) 输入 {green}Q/q{end} 退出.\r\n""").format(
+        banner = _("""\n {title}   {user}, 欢迎使用Jumpserver开源跳板机系统  {end}\r\n\r
+    1) 输入 {green}ID{end} 直接登录 或 输入{green}部分 IP,主机名,备注{end} 进行搜索登录(如果唯一).\r
+    2) 输入 {green}/{end} + {green}IP, 主机名{end} or {green}备注 {end}搜索. 如: /ip\r
+    3) 输入 {green}P/p{end} 显示您有权限的主机.\r
+    4) 输入 {green}G/g{end} 显示您有权限的主机组.\r
+    5) 输入 {green}G/g{end} + {green}组ID{end} 显示该组下主机. 如: g1\r
+    6) 输入 {green}E/e{end} 批量执行命令.(未完成)\r
+    7) 输入 {green}U/u{end} 批量上传文件.(未完成)\r
+    8) 输入 {green}D/d{end} 批量下载文件.(未完成)\r
+    9) 输入 {green}H/h{end} 帮助.\r
+    0) 输入 {green}Q/q{end} 退出.\r\n""").format(
             title="\033[1;32m", green="\033[32m",
             end="\033[0m", user=self.client.user
         )
@@ -160,7 +160,7 @@ class InteractiveServer:
         amount_max_length = max(len(str(max([group.assets_amount for group in self.asset_groups]))), 10)
         header = '{1:>%d} {0.name:%d} {0.assets_amount:<%s} ' % (id_max_length, name_max_length, amount_max_length)
         comment_length = self.request.meta["width"] - len(header.format(fake_group, id_max_length))
-        line = header + '{0.comment:%s}' % (comment_length / 2) # comment中可能有中文
+        line = header + '{0.comment:%s}' % (comment_length//2)  # comment中可能有中文
         header += "{0.comment:%s}" % comment_length
         self.client.send(title(header.format(fake_group, "ID")))
         for index, group in enumerate(self.asset_groups):
@@ -184,7 +184,7 @@ class InteractiveServer:
         header = '{1:>%d} {0.hostname:%d} {0.ip:15} {0.system_users_join:%d} ' % \
                  (id_max_length, hostname_max_length, sysuser_max_length)
         comment_length = self.request.meta["width"] - len(header.format(fake_asset, id_max_length))
-        line = header + '{0.comment:.%d}' % (comment_length / 2)  # comment中可能有中文
+        line = header + '{0.comment:.%d}' % (comment_length // 2)  # comment中可能有中文
         header += '{0.comment:%s}' % comment_length
         self.client.send(wr(title(header.format(fake_asset, "ID"))))
         for index, asset in enumerate(self.search_result, 1):
@@ -216,7 +216,7 @@ class InteractiveServer:
             return None
 
         while True:
-            self.client.send(wr(_("Choose one to login: ")))
+            self.client.send(wr(_("Choose one to login: "), after=1))
             self.display_system_users(system_users)
             opt = self.get_choice("ID> ")
             if opt.isdigit() and len(system_users) > int(opt):

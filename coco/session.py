@@ -23,7 +23,7 @@ class Session:
         self.record_dir = record_dir  # Dir to save session record
         self.watchers = []  # Only watch session
         self.sharers = []  # Join to the session, read and write
-        self.running = True
+        self.is_finished = False
         self.replaying = True
         self.date_created = datetime.datetime.now()
         self.date_finished = None
@@ -78,7 +78,7 @@ class Session:
         logger.info("Start bridge session %s" % self.id)
         self.sel.register(self.client, selectors.EVENT_READ)
         self.sel.register(self.server, selectors.EVENT_READ)
-        while self.running:
+        while not self.is_finished:
             events = self.sel.select()
             for sock in [key.fileobj for key, _ in events]:
                 data = sock.recv(BUF_SIZE)
@@ -91,7 +91,7 @@ class Session:
                 elif sock == self.client:
                     if len(data) == 0:
                         for watcher in self.watchers + self.sharers:
-                            watcher.send(b"Client %s close the session" % self.client)
+                            watcher.send("Client {} close the session".format(self.client).encode("utf-8"))
                         self.close()
                         break
                     self.server.send(data)
@@ -119,7 +119,7 @@ class Session:
             open(os.path.join(self.record_dir, self.id + ".time"), "w") as timef:
             dataf.write("Script started on {}\n".format(time.asctime()).encode("utf-8"))
 
-            while self.running:
+            while not self.is_finished:
                 start_t = time.time()
                 data = child.recv(BUF_SIZE)
                 end_t = time.time()
@@ -164,8 +164,21 @@ class Session:
         pass
 
     def close(self):
-        self.running = False
+        self.is_finished = True
+        self.date_finished = datetime.datetime.now()
         self.server.close()
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "user": self.client.user.username,
+            "asset": self.server.asset.hostname,
+            "system_user": self.server.system_user.username,
+            "login_from": "ST",
+            "is_finished": self.is_finished,
+            "date_start": self.date_created.strftime("%Y-%m-%d %H:%M:%S"),
+            "date_finished": self.date_finished.strftime("%Y-%m-%d %H:%M:%S") if self.date_finished else None
+        }
 
     def __str__(self):
         return self.id

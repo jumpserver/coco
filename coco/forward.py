@@ -34,7 +34,7 @@ class ProxyServer:
         self.watch_win_size_change_async()
         session.record_async()
         session.bridge()
-        self.app.sessions.remove(session)
+        session.is_finished = True
 
     def validate_permission(self, asset, system_user):
         """
