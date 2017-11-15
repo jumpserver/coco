@@ -29,12 +29,12 @@ class ProxyServer:
         self.server = self.get_server_conn(asset, system_user)
         if self.server is None:
             return
-        session = Session(self.client, self.server)
+        session = Session(self.client, self.server, self.app.config["SESSION_DIR"])
         self.app.sessions.append(session)
         self.watch_win_size_change_async()
         session.record_async()
         session.bridge()
-        session.is_finished = True
+        session.stop_evt.set()
 
     def validate_permission(self, asset, system_user):
         """

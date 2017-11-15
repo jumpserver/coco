@@ -16,14 +16,14 @@ logger = logging.getLogger(__file__)
 
 class Session:
 
-    def __init__(self, client, server, record_dir="/tmp"):
+    def __init__(self, client, server, session_dir):
         self.id = str(uuid.uuid4())
         self.client = client  # Master of the session, it's a client sock
         self.server = server  # Server channel
-        self.record_dir = record_dir  # Dir to save session record
+        self.session_dir = session_dir  # Dir to save session record
         self.watchers = []  # Only watch session
-        self.sharers = []  # Join to the session, read and write
-        self.is_finished = False
+        self.sharers = []   # Join to the session, read and write
+        self.stop_evt = threading.Event()
         self.replaying = True
         self.date_created = datetime.datetime.now()
         self.date_finished = None
@@ -78,7 +78,7 @@ class Session:
         logger.info("Start bridge session %s" % self.id)
         self.sel.register(self.client, selectors.EVENT_READ)
         self.sel.register(self.server, selectors.EVENT_READ)
-        while not self.is_finished:
+        while not self.stop_evt.is_set():
             events = self.sel.select()
             for sock in [key.fileobj for key, _ in events]:
                 data = sock.recv(BUF_SIZE)
@@ -115,11 +115,14 @@ class Session:
         logger.info("Start record session %s" % self.id)
         parent, child = socket.socketpair()
         self.add_watcher(parent)
-        with open(os.path.join(self.record_dir, self.id + ".rec"), 'wb') as dataf, \
-            open(os.path.join(self.record_dir, self.id + ".time"), "w") as timef:
+        record_dir = os.path.join(self.session_dir, self.date_created.strftime("%Y-%m-%d"))
+        if not os.path.isdir(record_dir):
+            os.mkdir(record_dir)
+        with open(os.path.join(record_dir, self.id + ".rec"), 'wb') as dataf, \
+            open(os.path.join(record_dir, self.id + ".time"), "w") as timef:
             dataf.write("Script started on {}\n".format(time.asctime()).encode("utf-8"))
 
-            while not self.is_finished:
+            while not self.stop_evt.is_set():
                 start_t = time.time()
                 data = child.recv(BUF_SIZE)
                 end_t = time.time()
@@ -133,7 +136,6 @@ class Session:
 
     def record_async(self):
         thread = threading.Thread(target=self.record)
-        thread.daemon = True
         thread.start()
 
     def replay(self):
@@ -141,8 +143,8 @@ class Session:
         Replay the session
         :return:
         """
-        with open(os.path.join(self.record_dir, self.id + ".rec"), 'rb') as dataf, \
-               open(os.path.join(self.record_dir, self.id + ".time"), "r") as timef:
+        with open(os.path.join(self.session_dir, self.id + ".rec"), 'rb') as dataf, \
+               open(os.path.join(self.session_dir, self.id + ".time"), "r") as timef:
 
             self.client.send(dataf.readline())
             for l in timef:
@@ -150,7 +152,6 @@ class Session:
                     break
                 t, size = float(l.split()[0]), int(l.split()[1])
                 data = dataf.read(size)
-                print("Sleep %s and send %s" % (t, data))
                 time.sleep(t)
                 self.client.send(data)
         self.client.send("Replay session {} end".format(self.id).encode('utf-8'))
@@ -164,7 +165,7 @@ class Session:
         pass
 
     def close(self):
-        self.is_finished = True
+        self.stop_evt.set()
         self.date_finished = datetime.datetime.now()
         self.server.close()
 
@@ -175,7 +176,7 @@ class Session:
             "asset": self.server.asset.hostname,
             "system_user": self.server.system_user.username,
             "login_from": "ST",
-            "is_finished": self.is_finished,
+            "is_finished": True if self.stop_evt.is_set() else False,
             "date_start": self.date_created.strftime("%Y-%m-%d %H:%M:%S"),
             "date_finished": self.date_finished.strftime("%Y-%m-%d %H:%M:%S") if self.date_finished else None
         }

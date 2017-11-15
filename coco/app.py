@@ -86,16 +86,16 @@ class Coco:
 
     def monitor_sessions(self):
         def func():
-            while True:
+            while not self.stop_evt.is_set():
                 for s in self.sessions:
-                    if s.is_finished:
+                    if s.stop_evt.is_set():
                         if s.date_finished is None:
                             self.sessions.remove(s)
                             continue
                         delta = datetime.datetime.now() - s.date_finished
                         if delta > datetime.timedelta(minutes=1):
                             self.sessions.remove(s)
-                time.sleep(5)
+                time.sleep(self.config["HEARTBEAT_INTERVAL"])
 
         thread = threading.Thread(target=func)
         thread.start()
