@@ -8,7 +8,7 @@ import paramiko
 
 from .session import Session
 from .models import Server
-from .record import FileRecorder
+from .record import LocalFileReplayRecorder, LocalFileCommandRecorder
 from .utils import wrap_with_line_feed as wr
 
 
@@ -33,10 +33,11 @@ class ProxyServer:
         session = Session(self.client, self.server)
         self.app.add_session(session)
         self.watch_win_size_change_async()
-        recorder = FileRecorder(self.app, session)
-        session.add_recorder(recorder)
+        replay_recorder = LocalFileReplayRecorder(self.app, session)
+        session.add_recorder(replay_recorder)
         session.record_replay_async()
-        self.server.add_recorder(recorder)
+        cmd_recorder = LocalFileCommandRecorder(self.app, session)
+        self.server.add_recorder(cmd_recorder)
         self.server.record_command_async()
         session.bridge()
         session.stop_evt.set()

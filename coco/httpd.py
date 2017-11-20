@@ -98,7 +98,7 @@ class HttpServer:
 
     def run(self):
         host = self.app.config["BIND_HOST"]
-        port = self.app.config["WS_PORT"]
+        port = self.app.config["HTTPD_PORT"]
         print('Starting websocket server at %(host)s:%(port)s' %
               {"host": host, "port": port})
         ws = tornado.web.Application(self.routers, **self.settings)

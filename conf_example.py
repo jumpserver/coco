@@ -14,8 +14,8 @@ APP_NAME = "coco"
 # 监听的SSH端口号, 默认2222
 # SSHD_PORT = 2222
 
-# 监听的WS端口号，默认5000
-# WS_PORT = 5000
+# 监听的HTTP/WS端口号，默认5000
+# HTTPD_PORT = 5000
 
 # 是否开启DEBUG
 # DEBUG = True

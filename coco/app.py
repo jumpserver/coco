@@ -25,7 +25,7 @@ class Coco:
         'DEBUG': True,
         'BIND_HOST': '0.0.0.0',
         'SSHD_PORT': 2222,
-        'WS_PORT': 5000,
+        'HTTPD_PORT': 5000,
         'ACCESS_KEY': '',
         'ACCESS_KEY_ENV': 'COCO_ACCESS_KEY',
         'ACCESS_KEY_FILE': os.path.join(BASE_DIR, 'keys', '.access_key'),
@@ -33,12 +33,14 @@ class Coco:
         'LOG_LEVEL': 'INFO',
         'LOG_DIR': os.path.join(BASE_DIR, 'logs'),
         'SESSION_DIR': os.path.join(BASE_DIR, 'sessions'),
-        'SESSION_COMMAND_STORE': "server",  # elasticsearch
+        'REPLAY_STORE_ENGINE': 'server',   # local, server
+        'COMMAND_STORE_ENGINE': 'server',  # local, server, elasticsearch(not yet)
         'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
         'SSH_PASSWORD_AUTH': True,
         'SSH_PUBLIC_KEY_AUTH': True,
         'HEARTBEAT_INTERVAL': 5,
         'MAX_CONNECTIONS': 500,
+        # 'MAX_RECORD_OUTPUT_LENGTH': 4096,
     }
 
     def __init__(self, name=None, root_path=None):
@@ -130,7 +132,7 @@ class Coco:
             if self.config["SSHD_PORT"] != 0:
                 self.run_sshd()
 
-            if self.config['WS_PORT'] != 0:
+            if self.config['HTTPD_PORT'] != 0:
                 self.run_httpd()
 
             self.stop_evt.wait()
