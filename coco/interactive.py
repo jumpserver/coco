@@ -3,7 +3,6 @@ import logging
 import socket
 import threading
 
-# Todo remove
 from jms.models import Asset, AssetGroup
 
 from . import char
@@ -12,7 +11,6 @@ from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
     is_obj_attr_has, is_obj_attr_eq, sort_assets, TtyIOParser, \
     ugettext as _
 from .forward import ProxyServer
-from .session import Session
 
 logger = logging.getLogger(__file__)
 
@@ -172,9 +170,10 @@ class InteractiveServer:
         self.display_search_result()
 
     def display_search_result(self):
-        if len(self.search_result) == 0:
-            self.client.send(warning("Nothing match"))
-            return
+        # if len(self.search_result) == 0:
+        #     self.client.send(warning("Nothing match"))
+        #     return
+        print("Total assets: ".format(len(self.assets)))
 
         self.search_result = sort_assets(self.search_result, self.app.config["ASSET_LIST_SORT_BY"])
         fake_asset = Asset(hostname=_("Hostname"), ip=_("IP"), system_users_join=_("LoginAs"), comment=_("Comment"))
@@ -189,7 +188,9 @@ class InteractiveServer:
         self.client.send(wr(title(header.format(fake_asset, "ID"))))
         for index, asset in enumerate(self.search_result, 1):
             self.client.send(wr(line.format(asset, index)))
-        self.client.send(wr(_("Total: {}").format(len(self.search_result)), before=1))
+        self.client.send(wr(_("Total: {} Matched: {}").format(
+            len(self.assets), len(self.search_result)), before=1)
+        )
 
     def search_and_display(self, q):
         self.search_assets(q)
@@ -204,6 +205,7 @@ class InteractiveServer:
 
     def get_user_assets(self):
         self.assets = self.app.service.get_user_assets(self.client.user)
+        logger.debug("Get user {} assets total: {}".format(self.client.user, len(self.assets)))
 
     def get_user_assets_async(self):
         thread = threading.Thread(target=self.get_user_assets)
@@ -260,7 +262,7 @@ class InteractiveServer:
                 break
         self.close()
 
-    def activate_async(self):
+    def interact_async(self):
         thread = threading.Thread(target=self.interact)
         thread.daemon = True
         thread.start()

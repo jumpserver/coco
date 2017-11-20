@@ -39,7 +39,7 @@ class BaseWehSocketHandler:
 class InteractiveWehSocketHandler(BaseWehSocketHandler, tornado.websocket.WebSocketHandler):
     @tornado.web.authenticated
     def open(self):
-        InteractiveServer(self.app, self.client).activate_async()
+        InteractiveServer(self.app, self.client).interact_async()
 
     def on_message(self, message):
         try:

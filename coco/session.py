@@ -25,7 +25,7 @@ class Session:
         self.replaying = True
         self.date_created = datetime.datetime.now()
         self.date_finished = None
-        self.recorder = []
+        self.recorders = []
         self.stop_evt = threading.Event()
         self.sel = selectors.DefaultSelector()
 
@@ -70,11 +70,16 @@ class Session:
         self.sel.unregister(sharer)
         self.sharers.remove(sharer)
 
+    def add_recorder(self, recorder):
+        self.recorders.append(recorder)
+
+    def remove_recorder(self, recorder):
+        self.recorders.remove(recorder)
+
     def bridge(self):
         """
         Bridge clients with server
         :return:
-
         """
         logger.info("Start bridge session %s" % self.id)
         self.sel.register(self.client, selectors.EVENT_READ)
@@ -92,39 +97,42 @@ class Session:
                 elif sock == self.client:
                     if len(data) == 0:
                         for watcher in self.watchers + self.sharers:
-                            watcher.send("Client {} close the session"
-                                         .format(self.client)
-                                         .encode("utf-8"))
+                            watcher.send("Client {} close the session".format(self.client).encode("utf-8"))
                         self.close()
                         break
                     self.server.send(data)
                 elif sock in self.sharers:
                     if len(data) == 0:
-                        logger.info("Sharer {} leave session {}"
-                                    .format(sock, self.id))
+                        logger.info("Sharer {} leave session {}".format(sock, self.id))
                         self.remove_sharer(sock)
                     self.server.send(data)
                 elif sock in self.watchers:
                     if len(data) == 0:
-                        logger.info("Watcher {} leave session {}"
-                                    .format(sock, self.id))
+                        logger.info("Watcher {} leave session {}".format(sock, self.id))
 
     def set_size(self, width, height):
         self.server.resize_pty(width=width, height=height)
 
-    def add_recorder(self, recorder):
-        self.recorder.append(recorder)
-
-    def remove_recorder(self, recorder):
-        self.recorder.remove(recorder)
-
-    def record(self):
-        """
-        Record the session
-        :return:
-        """
-        for recorder in self.recorder:
-            recorder.record(self)
+    def record_async(self):
+        def func():
+            parent, child = socket.socketpair()
+            for recorder in self.recorders:
+                recorder.start()
+            while not self.stop_evt.is_set():
+                start_t = time.time()
+                data = child.recv(BUF_SIZE)
+                end_t = time.time()
+                size = len(data)
+                now = datetime.datetime.now()
+                timedelta = '{.4f}'.format(end_t - start_t)
+                if size == 0:
+                    break
+                for recorder in self.recorders:
+                    recorder.record_replay(now, timedelta, size, data)
+            for recorder in self.recorders:
+                recorder.done()
+        thread = threading.Thread(target=func)
+        thread.start()
 
     def close(self):
         self.stop_evt.set()

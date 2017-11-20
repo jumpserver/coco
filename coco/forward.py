@@ -1,5 +1,4 @@
 # coding: utf-8
-
 import socket
 import threading
 import logging
@@ -9,11 +8,13 @@ import paramiko
 
 from .session import Session
 from .models import Server
+from .record import FileRecorder
 from .utils import wrap_with_line_feed as wr
 
 
 logger = logging.getLogger(__file__)
 TIMEOUT = 8
+BUF_SIZE = 4096
 
 
 class ProxyServer:
@@ -32,7 +33,11 @@ class ProxyServer:
         session = Session(self.client, self.server)
         self.app.add_session(session)
         self.watch_win_size_change_async()
-        session.add_recorder()
+        recorder = FileRecorder(self.app, session)
+        session.add_recorder(recorder)
+        session.record_async()
+        self.server.add_recorder(recorder)
+        self.server.record_command_async()
         session.bridge()
         session.stop_evt.set()
 
@@ -55,7 +60,7 @@ class ProxyServer:
             self.app.service.get_system_user_auth_info(system_user)
 
     def get_server_conn(self, asset, system_user):
-        logger.info("Connect to %s" % asset.hostname)
+        logger.info("Connect to {}".format(asset.hostname))
         if not self.validate_permission(asset, system_user):
             self.client.send(_('No permission'))
             return None

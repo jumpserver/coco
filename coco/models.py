@@ -2,11 +2,13 @@ import json
 import queue
 import threading
 import datetime
+import logging
 
 from . import char
 from . import utils
 
 BUF_SIZE = 4096
+logger = logging.getLogger(__file__)
 
 
 class Request:
@@ -66,6 +68,7 @@ class Server:
         self.system_user = system_user
         self.send_bytes = 0
         self.recv_bytes = 0
+        self.stop_evt = threading.Event()
 
         self.input_data = []
         self.output_data = []
@@ -74,7 +77,10 @@ class Server:
         self._in_vim_state = False
 
         self.recorders = []
-        self.queue = queue.Queue()
+        self.filters = []
+        self._input = ""
+        self._output = ""
+        self.command_queue = queue.Queue()
 
     def add_recorder(self, recorder):
         self.recorders.append(recorder)
@@ -82,13 +88,21 @@ class Server:
     def remove_recorder(self, recorder):
         self.recorders.remove(recorder)
 
-    def record_command(self, _input, _output):
-        while True:
-            _input, _output = self.queue.get()
-            for recorder in self.recorders:
-                t = threading.Thread(target=recorder.record_command,
-                                     args=(_input, _output))
-                t.start()
+    def add_filter(self, _filter):
+        self.filters.append(_filter)
+
+    def remove_filter(self, _filter):
+        self.filters.remove(_filter)
+
+    def record_command_async(self):
+        def func():
+            while not self.stop_evt.is_set():
+                _input, _output = self.command_queue.get()
+                logger.debug("Record command: ({},{})".format(_input, _output))
+                for recorder in self.recorders:
+                    recorder.record_command(datetime.datetime.now(), _input, _output)
+        thread = threading.Thread(target=func)
+        thread.start()
 
     def fileno(self):
         return self.chan.fileno()
@@ -101,14 +115,18 @@ class Server:
 
         if self._have_enter_char(b):
             self._in_input_state = False
+            self._input = self._parse_input()
         else:
             if not self._in_input_state:
                 print("#" * 30 + " 新周期 " + "#" * 30)
-                _input = self._parse_input()
-                _output = self._parse_output()
-                self.record_command(_input, _output)
+                self._output = self._parse_output()
+                print(self._input)
+                print(self._output)
+                self.command_queue.put((self._input, self._output))
                 del self.input_data[:]
                 del self.output_data[:]
+                self._input = ""
+                self._output = ""
             self._in_input_state = True
         return self.chan.send(b)
 

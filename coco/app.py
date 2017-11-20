@@ -49,18 +49,27 @@ class Coco:
         self.clients = []
         self.lock = threading.Lock()
         self.stop_evt = threading.Event()
+        self._service = None
+        self._sshd = None
+        self._httpd = None
 
     @property
     def service(self):
-        return AppService(self)
+        if self._service is None:
+            self._service = AppService(self)
+        return self._service
 
     @property
     def sshd(self):
-        return SSHServer(self)
+        if self._sshd is None:
+            self._sshd = SSHServer(self)
+        return self._sshd
 
     @property
     def httpd(self):
-        return HttpServer(self)
+        if self._httpd is None:
+            self._httpd = HttpServer(self)
+        return self._httpd
 
     def make_logger(self):
         create_logger(self)
@@ -73,10 +82,10 @@ class Coco:
         self.make_logger()
         self.service.initial()
         self.load_extra_conf_from_server()
-        self.heartbeat()
+        self.keep_heartbeat()
         self.monitor_sessions()
 
-    def heartbeat(self):
+    def keep_heartbeat(self):
         def func():
             while not self.stop_evt.is_set():
                 _sessions = [s.to_json() for s in self.sessions]
@@ -95,7 +104,7 @@ class Coco:
         def func():
             while not self.stop_evt.is_set():
                 for s in self.sessions:
-                    if not s.is_finished:
+                    if not s.stop_evt.is_set():
                         continue
                     if s.date_finished is None:
                         self.remove_session(s)
