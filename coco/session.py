@@ -113,9 +113,10 @@ class Session:
     def set_size(self, width, height):
         self.server.resize_pty(width=width, height=height)
 
-    def record_async(self):
+    def record_replay_async(self):
         def func():
             parent, child = socket.socketpair()
+            self.add_watcher(parent)
             for recorder in self.recorders:
                 recorder.start()
             while not self.stop_evt.is_set():
@@ -124,7 +125,7 @@ class Session:
                 end_t = time.time()
                 size = len(data)
                 now = datetime.datetime.now()
-                timedelta = '{.4f}'.format(end_t - start_t)
+                timedelta = '{:.4f}'.format(end_t - start_t)
                 if size == 0:
                     break
                 for recorder in self.recorders:

@@ -162,7 +162,7 @@ class TtyIOParser(object):
             if line.strip():
                 output.append(line)
         self.screen.reset()
-        return sep.join(output[0:-1])
+        return sep.join(output[0:-1]).strip()
 
     def parse_input(self, data):
         """
@@ -184,7 +184,7 @@ class TtyIOParser(object):
             command = ''
         self.screen.reset()
         command = self.clean_ps1_etc(command)
-        return command
+        return command.strip()
 
 
 def is_obj_attr_has(obj, val, attrs=("hostname", "ip", "comment")):

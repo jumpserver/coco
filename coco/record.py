@@ -36,60 +36,53 @@ class Recorder(metaclass=abc.ABCMeta):
 
 class FileRecorder(Recorder):
 
-    @property
-    def session_dir(self):
+    def __init__(self, app, session):
+        super().__init__(app, session)
+        self.data_f = None
+        self.time_f = None
+        self.cmd_f = None
+        self.prepare_file()
+
+    def prepare_file(self):
         session_dir = os.path.join(
             self.app.config["SESSION_DIR"],
             self.session.date_created.strftime("%Y-%m-%d")
         )
         if not os.path.isdir(session_dir):
             os.mkdir(session_dir)
-        return session_dir
 
-    @property
-    def data_f(self):
-        filename = os.path.join(self.session_dir, str(self.session.id) + ".rec")
-        try:
-            f = open(filename, 'wb')
-        except IOError:
-            logger.error("Failed open file {} in recorder".format(filename))
-            raise
-        return f
+        filename = os.path.join(session_dir, str(self.session.id))
+        data_filename = filename + ".rec"
+        time_filename = filename + ".time"
+        cmd_filename = filename + ".cmd"
 
-    @property
-    def time_f(self):
-        filename = os.path.join(self.session_dir, str(self.session.id) + ".time")
         try:
-            f = open(filename, 'w')
-        except IOError:
-            logger.error("Failed open file {} in recorder".format(filename))
-            raise
-        return f
-
-    @property
-    def cmd_f(self):
-        filename = os.path.join(self.session_dir, str(self.session.id) + ".cmd")
-        try:
-            f = open(filename, "w")
-        except IOError:
-            logger.error("Failed open file {} in recorder".format(filename))
-            raise
-        return f
+            self.data_f = open(data_filename, "wb")
+            self.time_f = open(time_filename, "w")
+            self.cmd_f = open(cmd_filename, "w")
+        except IOError as e:
+            logger.debug(e)
+            self.done()
 
     def record_replay(self, now, timedelta, size, data):
-        self.time_f.write("%.4f %s\n" % (timedelta, size))
+        logger.debug("File recorder replay: ({},{},{})".format(timedelta, size, data))
+        self.time_f.write("{} {}\n".format(timedelta, size))
         self.data_f.write(data)
 
     def record_command(self, now, _input, _output):
+        logger.debug("File recorder command: ({},{})".format(_input, _output))
         self.cmd_f.write("{}\n".format(now.strftime("%Y-%m-%d %H:%M:%S")))
         self.cmd_f.write("$ {}\n".format(_input))
         self.cmd_f.write("{}\n\n".format(_output))
+        self.cmd_f.flush()
 
     def start(self):
-        self.data_f.write("Session started on {}\n".format(time.asctime()).encode("utf-8"))
+        logger.debug("Session {} start".format(self.session.id))
+        self.data_f.write("Session {} started on {}\n".format(self.session.id, time.asctime()).encode("utf-8"))
 
     def done(self):
-        self.data_f.write("Session done on {}\n".format(time.asctime()).encode("utf-8"))
+        logger.debug("Session {} record done".format(self.session.id))
+        self.data_f.write("Session {} done on {}\n".format(self.session.id, time.asctime()).encode("utf-8"))
         for f in [self.data_f, self.time_f, self.cmd_f]:
             try:
                 f.close()
@@ -97,44 +90,5 @@ class FileRecorder(Recorder):
                 pass
 
 
-# class FileSessionReplay(SessionReplay):
-#
-#     def __init__(self, dataf, metaf):
-#         self.dataf = dataf
-#         self.metaf = metaf
-#         self.playing = True
-#
-#     def write_data(self, data):
-#         self.dataf.write(data)
-#
-#     def write_meta(self, meta):
-#         self.metaf.write(meta)
-#
-#     def replay(self, sock):
-#         sock.send(self.dataf.readline())
-#         for l in self.metaf:
-#             if not self.playing:
-#                 break
-#             t, size = float(l.split()[0]), int(l.split()[1])
-#             data = self.dataf.read(size)
-#             time.sleep(t)
-#             sock.send(data)
-#         sock.send("Replay session end")
-#
-#     def done(self):
-#         pass
-#
-#
-# class FileSessionCommand(SessionCommand):
-#
-#     def __init__(self, f):
-#         self.f = f
-#
-#     def write(self, cmd, output):
-#         self.f.write("{}\n".format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-#         self.f.write("$ {}\n".format(cmd))
-#         self.f.write("{}\n\n".format(output))
-#
-#     def done(self):
-#         pass
+
 

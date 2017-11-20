@@ -35,7 +35,7 @@ class ProxyServer:
         self.watch_win_size_change_async()
         recorder = FileRecorder(self.app, session)
         session.add_recorder(recorder)
-        session.record_async()
+        session.record_replay_async()
         self.server.add_recorder(recorder)
         self.server.record_command_async()
         session.bridge()

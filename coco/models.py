@@ -98,7 +98,6 @@ class Server:
         def func():
             while not self.stop_evt.is_set():
                 _input, _output = self.command_queue.get()
-                logger.debug("Record command: ({},{})".format(_input, _output))
                 for recorder in self.recorders:
                     recorder.record_command(datetime.datetime.now(), _input, _output)
         thread = threading.Thread(target=func)
@@ -122,6 +121,7 @@ class Server:
                 self._output = self._parse_output()
                 print(self._input)
                 print(self._output)
+                print("#" * 30 + " End " + "#" * 30)
                 self.command_queue.put((self._input, self._output))
                 del self.input_data[:]
                 del self.output_data[:]
