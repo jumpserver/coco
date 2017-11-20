@@ -4,7 +4,7 @@ import socket
 import threading
 
 # Todo remove
-from jms.models import Asset, SystemUser, AssetGroup
+from jms.models import Asset, AssetGroup
 
 from . import char
 from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
@@ -48,7 +48,7 @@ class InteractiveServer:
         )
         self.client.send(banner)
 
-    def get_choice(self, prompt='Opt> '):
+    def get_option(self, prompt='Opt> '):
         """实现了一个ssh input, 提示用户输入, 获取并返回
 
         :return user input string
@@ -218,7 +218,7 @@ class InteractiveServer:
         while True:
             self.client.send(wr(_("Choose one to login: "), after=1))
             self.display_system_users(system_users)
-            opt = self.get_choice("ID> ")
+            opt = self.get_option("ID> ")
             if opt.isdigit() and len(system_users) > int(opt):
                 return system_users[int(opt)]
             elif opt in ['q', 'Q']:
@@ -247,15 +247,13 @@ class InteractiveServer:
         forwarder.proxy(asset, system_user)
 
     def replay_session(self, session_id):
-        session = Session(self.client, None)
-        session.id = "5a5dbfbe-093f-4bc1-810f-e8401b9e6045"
-        session.replay()
+        pass
 
-    def activate(self):
+    def interact(self):
         self.display_banner()
         while True:
             try:
-                opt = self.get_choice()
+                opt = self.get_option()
                 self.dispatch(opt)
             except socket.error as e:
                 logger.error("Socket error %s" % e)
@@ -263,7 +261,7 @@ class InteractiveServer:
         self.close()
 
     def activate_async(self):
-        thread = threading.Thread(target=self.activate)
+        thread = threading.Thread(target=self.interact)
         thread.daemon = True
         thread.start()
 

@@ -3,9 +3,9 @@
 import socket
 import threading
 import logging
+import time
 
 import paramiko
-import time
 
 from .session import Session
 from .models import Server
@@ -29,10 +29,10 @@ class ProxyServer:
         self.server = self.get_server_conn(asset, system_user)
         if self.server is None:
             return
-        session = Session(self.client, self.server, self.app.config["SESSION_DIR"])
-        self.app.sessions.append(session)
+        session = Session(self.client, self.server)
+        self.app.add_session(session)
         self.watch_win_size_change_async()
-        session.record_async()
+        session.add_recorder()
         session.bridge()
         session.stop_evt.set()
 
@@ -59,11 +59,22 @@ class ProxyServer:
         if not self.validate_permission(asset, system_user):
             self.client.send(_('No permission'))
             return None
-
         self.get_system_user_auth(system_user)
+        if True:
+            server = self.get_ssh_server_conn(asset, system_user)
+        else:
+            server = self.get_ssh_server_conn(asset, system_user)
+        return server
+
+    # Todo: Support telnet
+    def get_telnet_server_conn(self, asset, system_user):
+        pass
+
+    def get_ssh_server_conn(self, asset, system_user):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        print(asset.ip, asset.port, system_user.username, system_user.password, system_user.private_key)
+        print(asset.ip, asset.port, system_user.username, system_user.password,
+              system_user.private_key)
         try:
             ssh.connect(asset.ip, port=asset.port,
                         username=system_user.username,
@@ -109,4 +120,5 @@ class ProxyServer:
                 delay += 0.1
         thread = threading.Thread(target=func)
         thread.start()
+
 

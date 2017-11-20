@@ -1,4 +1,5 @@
 import json
+import queue
 import threading
 import datetime
 
@@ -57,9 +58,8 @@ class Server:
     Server object like client, a wrapper object, a connection to the asset,
     Because we don't want to using python dynamic feature, such asset
     have the chan and system_user attr.
-
     """
-    # Todo: Server name is not very proper
+    # Todo: Server name is not very suitable
     def __init__(self, chan, asset, system_user):
         self.chan = chan
         self.asset = asset
@@ -69,11 +69,26 @@ class Server:
 
         self.input_data = []
         self.output_data = []
-        self.input = ''
-        self.output = ''
         self._in_input_state = True
         self._input_initial = False
         self._in_vim_state = False
+
+        self.recorders = []
+        self.queue = queue.Queue()
+
+    def add_recorder(self, recorder):
+        self.recorders.append(recorder)
+
+    def remove_recorder(self, recorder):
+        self.recorders.remove(recorder)
+
+    def record_command(self, _input, _output):
+        while True:
+            _input, _output = self.queue.get()
+            for recorder in self.recorders:
+                t = threading.Thread(target=recorder.record_command,
+                                     args=(_input, _output))
+                t.start()
 
     def fileno(self):
         return self.chan.fileno()
@@ -89,24 +104,21 @@ class Server:
         else:
             if not self._in_input_state:
                 print("#" * 30 + " 新周期 " + "#" * 30)
-                self._parse_input()
-                self._parse_output()
+                _input = self._parse_input()
+                _output = self._parse_output()
+                self.record_command(_input, _output)
                 del self.input_data[:]
                 del self.output_data[:]
             self._in_input_state = True
-
-        print("Send: %s" % b)
         return self.chan.send(b)
 
     def recv(self, size):
         data = self.chan.recv(size)
-        print("Recv: %s" % data)
         if self._input_initial:
             if self._in_input_state:
                 self.input_data.append(data)
             else:
                 self.output_data.append(data)
-
         return data
 
     def close(self):
@@ -122,18 +134,19 @@ class Server:
 
     def _parse_output(self):
         parser = utils.TtyIOParser()
-        print("\tOutput: %s" % parser.parse_output(self.output_data))
+        return parser.parse_output(self.output_data)
 
     def _parse_input(self):
         parser = utils.TtyIOParser()
-        print("\tInput: %s" % parser.parse_input(self.input_data))
+        return parser.parse_input(self.input_data)
 
     def __getattr__(self, item):
         return getattr(self.chan, item)
 
     def __str__(self):
         return "<%s@%s:%s>" % (self.system_user.username,
-                               self.asset.hostname, self.asset.port)
+                               self.asset.hostname,
+                               self.asset.port)
 
 
 class WSProxy:

@@ -17,9 +17,9 @@ BACKLOG = 5
 
 
 class SSHServer:
-    def __init__(self, app=None):
+    def __init__(self, app):
         self.app = app
-        self.stop_event = threading.Event()
+        self.stop_evt = threading.Event()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.host_key_path = os.path.join(self.app.root_path, 'keys', 'host_rsa_key')
 
@@ -37,12 +37,11 @@ class SSHServer:
     def run(self):
         host = self.app.config["BIND_HOST"]
         port = self.app.config["SSHD_PORT"]
-        print('Starting ssh server at %(host)s:%(port)s' %
-              {"host": host, "port": port})
+        print('Starting ssh server at {}:{}'.format(host, port))
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((host, port))
         self.sock.listen(BACKLOG)
-        while not self.stop_event.is_set():
+        while not self.stop_evt.is_set():
             try:
                 sock, addr = self.sock.accept()
                 logger.info("Get ssh request from %s: %s" % (addr[0], addr[1]))
@@ -65,7 +64,7 @@ class SSHServer:
         try:
             transport.start_server(server=server)
         except paramiko.SSHException:
-            logger.warning("SSH negotiation failed.")
+            logger.warning("SSH negotiation failed")
             sys.exit(1)
         except EOFError:
             logger.warning("EOF Error")
@@ -88,7 +87,7 @@ class SSHServer:
     def dispatch(self, client):
         request_type = client.request.type
         if request_type == 'pty':
-            InteractiveServer(self.app, client).activate()
+            InteractiveServer(self.app, client).interact()
         elif request_type == 'exec':
             pass
         elif request_type == 'subsystem':
@@ -97,4 +96,4 @@ class SSHServer:
             client.send("Not support request type: %s" % request_type)
 
     def shutdown(self):
-        self.stop_event.set()
+        self.stop_evt.set()

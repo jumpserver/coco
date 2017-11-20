@@ -104,3 +104,6 @@ class HttpServer:
         ws = tornado.web.Application(self.routers, **self.settings)
         ws.listen(port=port, address=host)
         tornado.ioloop.IOLoop.current().start()
+
+    def shutdown(self):
+        pass
