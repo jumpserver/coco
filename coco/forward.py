@@ -8,7 +8,7 @@ import paramiko
 
 from .session import Session
 from .models import Server
-from .record import LocalFileReplayRecorder, LocalFileCommandRecorder
+from .record import LocalFileReplayRecorder, LocalFileCommandRecorder, ServerReplayRecorder
 from .utils import wrap_with_line_feed as wr
 
 
@@ -33,7 +33,10 @@ class ProxyServer:
         session = Session(self.client, self.server)
         self.app.add_session(session)
         self.watch_win_size_change_async()
-        replay_recorder = LocalFileReplayRecorder(self.app, session)
+        if self.app.config["REPLAY_STORE_ENGINE"].lower() == "server":
+            replay_recorder = ServerReplayRecorder(self.app, session)
+        else:
+            replay_recorder = LocalFileReplayRecorder(self.app, session)
         session.add_recorder(replay_recorder)
         session.record_replay_async()
         cmd_recorder = LocalFileCommandRecorder(self.app, session)
@@ -79,8 +82,6 @@ class ProxyServer:
     def get_ssh_server_conn(self, asset, system_user):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        print(asset.ip, asset.port, system_user.username, system_user.password,
-              system_user.private_key)
         try:
             ssh.connect(asset.ip, port=asset.port,
                         username=system_user.username,

@@ -81,7 +81,7 @@ class Session:
         Bridge clients with server
         :return:
         """
-        logger.info("Start bridge session %s" % self.id)
+        logger.info("Start bridge session {}".format(self.id))
         self.sel.register(self.client, selectors.EVENT_READ)
         self.sel.register(self.server, selectors.EVENT_READ)
         while not self.stop_evt.is_set():
@@ -109,8 +109,10 @@ class Session:
                 elif sock in self.watchers:
                     if len(data) == 0:
                         logger.info("Watcher {} leave session {}".format(sock, self.id))
+        logger.info("End session {} bride".format(self.id))
 
     def set_size(self, width, height):
+        logger.debug("Resize server chan size {}*{}".format(width, height))
         self.server.resize_pty(width=width, height=height)
 
     def record_replay_async(self):
@@ -130,14 +132,18 @@ class Session:
                     break
                 for recorder in self.recorders:
                     recorder.record_replay(now, timedelta, size, data)
+            logger.debug("Stop event set, exit record replay")
             for recorder in self.recorders:
                 recorder.done()
         thread = threading.Thread(target=func)
         thread.start()
 
     def close(self):
+        logger.debug("Session {} closing".format(self.id))
         self.stop_evt.set()
         self.date_finished = datetime.datetime.now()
+        for c in self.watchers + self.sharers:
+            c.close()
         self.server.close()
 
     def to_json(self):
