@@ -155,7 +155,7 @@ class ServerReplayRecorder(LocalFileReplayRecorder):
 
     def push_replay_record(self, archive):
         logger.debug("Start push replay record to server")
-        return self.app.service.push_session_replay(archive)
+        return self.app.service.push_session_replay(archive, str(self.session.id))
 
     def push_records(self):
         def func():

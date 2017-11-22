@@ -117,11 +117,12 @@ class Server:
             self._input = self._parse_input()
         else:
             if not self._in_input_state:
-                print("#" * 30 + " 新周期 " + "#" * 30)
                 self._output = self._parse_output()
-                print(self._input)
-                print(self._output)
-                print("#" * 30 + " End " + "#" * 30)
+                logger.debug("\n{}\nInput: {}\nOutput: {}\n{}".format(
+                    "#" * 30 + " Command " + "#" * 30,
+                    self._input, self._output,
+                    "#" * 30 + " End " + "#" * 30,
+                ))
                 self.command_queue.put((self._input, self._output))
                 del self.input_data[:]
                 del self.output_data[:]

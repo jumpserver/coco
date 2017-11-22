@@ -87,13 +87,16 @@ class Coco:
         self.keep_heartbeat()
         self.monitor_sessions()
 
+    def heartbeat(self):
+        _sessions = [s.to_json() for s in self.sessions]
+        tasks = self.service.terminal_heartbeat(_sessions)
+        if tasks:
+            self.handle_task(tasks)
+
     def keep_heartbeat(self):
         def func():
             while not self.stop_evt.is_set():
-                _sessions = [s.to_json() for s in self.sessions]
-                tasks = self.service.terminal_heartbeat(_sessions)
-                if tasks:
-                    self.handle_task(tasks)
+                self.heartbeat()
                 time.sleep(self.config["HEARTBEAT_INTERVAL"])
 
         thread = threading.Thread(target=func)
@@ -176,9 +179,11 @@ class Coco:
     def add_session(self, session):
         with self.lock:
             self.sessions.append(session)
+            self.heartbeat()
 
     def remove_session(self, session):
         with self.lock:
             self.sessions.remove(session)
+            self.heartbeat()
 
 
