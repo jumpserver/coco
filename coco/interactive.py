@@ -3,6 +3,7 @@ import logging
 import socket
 import threading
 
+import os
 from jms.models import Asset, AssetGroup
 
 from . import char
@@ -29,6 +30,13 @@ class InteractiveServer:
 
     def display_banner(self):
         self.client.send(char.CLEAR_CHAR)
+        logo_path = os.path.join(self.app.root_path, "logo.txt")
+        if os.path.isfile(logo_path):
+            with open(logo_path, 'rb') as f:
+                for i in f:
+                    if i.decode('utf-8').startswith('#'):
+                        continue
+                    self.client.send(i.decode('utf-8').replace('\n', '\r\n'))
 
         banner = _("""\n {title}   {user}, 欢迎使用Jumpserver开源跳板机系统  {end}\r\n\r
     1) 输入 {green}ID{end} 直接登录 或 输入{green}部分 IP,主机名,备注{end} 进行搜索登录(如果唯一).\r
