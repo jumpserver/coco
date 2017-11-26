@@ -8,8 +8,9 @@ import paramiko
 
 from .session import Session
 from .models import Server
-from .record import LocalFileReplayRecorder, LocalFileCommandRecorder, ServerReplayRecorder
-from .utils import wrap_with_line_feed as wr
+from .record import LocalFileReplayRecorder, LocalFileCommandRecorder, \
+    ServerReplayRecorder, ServerCommandRecorder
+from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning
 
 
 logger = logging.getLogger(__file__)
@@ -24,31 +25,42 @@ class ProxyServer:
         self.request = client.request
         self.server = None
         self.connecting = True
+        self.session = None
 
     def proxy(self, asset, system_user):
         self.send_connecting_message(asset, system_user)
         self.server = self.get_server_conn(asset, system_user)
         if self.server is None:
             return
-        session = Session(self.client, self.server)
-        self.app.add_session(session)
+        self.session = Session(self.client, self.server)
+        self.app.add_session(self.session)
         self.watch_win_size_change_async()
+        self.add_recorder()
+        self.session.bridge()
+
+    def add_recorder(self):
+        """
+        上传记录，如果配置的是server，就上传到服务器端，实例化对应的recorder,
+        将来有计划直接上传到 es和oss
+        :return:
+        """
         if self.app.config["REPLAY_STORE_ENGINE"].lower() == "server":
-            replay_recorder = ServerReplayRecorder(self.app, session)
+            replay_recorder = ServerReplayRecorder(self.app, self.session)
         else:
-            replay_recorder = LocalFileReplayRecorder(self.app, session)
-        session.add_recorder(replay_recorder)
-        session.record_replay_async()
-        cmd_recorder = LocalFileCommandRecorder(self.app, session)
-        self.server.add_recorder(cmd_recorder)
+            replay_recorder = LocalFileReplayRecorder(self.app, self.session)
+        if self.app.config["COMMAND_STORE_ENGINE"].lower() == "server":
+            command_recorder = ServerCommandRecorder(self.app, self.session)
+        else:
+            command_recorder = LocalFileCommandRecorder(self.app, self.session)
+
+        self.session.add_recorder(replay_recorder)
+        self.session.record_replay_async()
+        self.server.add_recorder(command_recorder)
         self.server.record_command_async()
-        session.bridge()
-        session.stop_evt.set()
 
     def validate_permission(self, asset, system_user):
         """
-        Validate use is have the permission to connect this asset using that
-        system user
+        验证用户是否有连接改资产的权限
         :return: True or False
         """
         return self.app.service.validate_user_asset_permission(
@@ -57,7 +69,7 @@ class ProxyServer:
 
     def get_system_user_auth(self, system_user):
         """
-        Get the system user auth ..., using this to connect asset
+        获取系统用户的认证信息，密码或秘钥
         :return: system user have full info
         """
         system_user.password, system_user.private_key = \
@@ -66,7 +78,7 @@ class ProxyServer:
     def get_server_conn(self, asset, system_user):
         logger.info("Connect to {}".format(asset.hostname))
         if not self.validate_permission(asset, system_user):
-            self.client.send(_('No permission'))
+            self.client.send(warning(_('No permission')))
             return None
         self.get_system_user_auth(system_user)
         if True:
@@ -83,13 +95,23 @@ class ProxyServer:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
-            ssh.connect(asset.ip, port=asset.port,
-                        username=system_user.username,
-                        password=system_user.password,
-                        pkey=system_user.private_key,
-                        timeout=TIMEOUT)
-        except paramiko.AuthenticationException as e:
-            self.client.send(wr("[Errno 66] {}".format(e)))
+            ssh.connect(
+                asset.ip, port=asset.port, username=system_user.username,
+                password=system_user.password, pkey=system_user.private_key,
+                timeout=TIMEOUT, compress=True, auth_timeout=10,
+                look_for_keys=False
+            )
+        except paramiko.AuthenticationException:
+            admins = self.app.config['ADMINS'] or 'administrator'
+            self.client.send(warning(wr(
+                "Authenticate with server failed, contact {}".format(admins),
+                before=1, after=0
+            )))
+            key_fingerprint = system_user.private_key.get_hex() if system_user.private_key else None
+            logger.error("Connect {}@{}:{} auth failed, password: {}, key: {}".format(
+                system_user.username, asset.ip, asset.port,
+                system_user.password, key_fingerprint,
+            ))
             return None
         except socket.error as e:
             self.client.send(wr(" {}".format(e)))

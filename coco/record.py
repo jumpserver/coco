@@ -7,6 +7,7 @@ import threading
 import time
 import os
 import logging
+import base64
 
 
 logger = logging.getLogger(__file__)
@@ -86,12 +87,12 @@ class LocalFileReplayRecorder(ReplayRecorder):
         self.data_f.write(data)
 
     def start(self):
-        logger.debug("Session {} start".format(self.session.id))
-        self.data_f.write("Session {} started on {}\n".format(self.session.id, time.asctime()).encode("utf-8"))
+        logger.info("Session record start: {}".format(self.session))
+        self.data_f.write("Session {} started on {}\n".format(self.session, time.asctime()).encode("utf-8"))
 
     def done(self):
-        logger.debug("Session {} record done".format(self.session.id))
-        self.data_f.write("Session {} done on {}\n".format(self.session.id, time.asctime()).encode("utf-8"))
+        logger.debug("Session record done: {}".format(self.session))
+        self.data_f.write("Session {} done on {}\n".format(self.session, time.asctime()).encode("utf-8"))
         for f in (self.data_f, self.time_f):
             try:
                 f.close()
@@ -102,21 +103,23 @@ class LocalFileReplayRecorder(ReplayRecorder):
 class LocalFileCommandRecorder(CommandRecorder):
     def __init__(self, app, session):
         super().__init__(app, session)
+        self.cmd_filename = ""
         self.cmd_f = None
+        self.session_dir = ""
         self.prepare_file()
 
     def prepare_file(self):
-        session_dir = os.path.join(
+        self.session_dir = os.path.join(
             self.app.config["SESSION_DIR"],
             self.session.date_created.strftime("%Y-%m-%d"),
             str(self.session.id)
         )
-        if not os.path.isdir(session_dir):
-            os.makedirs(session_dir)
+        if not os.path.isdir(self.session_dir):
+            os.makedirs(self.session_dir)
 
-        cmd_filename = os.path.join(session_dir, "cmd.txt")
+        self.cmd_filename = os.path.join(self.session_dir, "command.txt")
         try:
-            self.cmd_f = open(cmd_filename, "w")
+            self.cmd_f = open(self.cmd_filename, "wb")
         except IOError as e:
             logger.debug(e)
             self.done()
@@ -132,17 +135,20 @@ class LocalFileCommandRecorder(CommandRecorder):
         pass
 
     def done(self):
-        pass
+        try:
+            self.cmd_f.close()
+        except:
+            pass
 
 
 class ServerReplayRecorder(LocalFileReplayRecorder):
 
     def done(self):
         super().done()
-        self.push_records()
+        self.push_record()
 
-    def archive_replay(self):
-        filename = os.path.join(self.session_dir, "archive.tar.bz2")
+    def archive_record(self):
+        filename = os.path.join(self.session_dir, "replay.tar.bz2")
         logger.debug("Start archive log: {}".format(filename))
         tar = tarfile.open(filename, "w:bz2")
         os.chdir(self.session_dir)
@@ -153,16 +159,72 @@ class ServerReplayRecorder(LocalFileReplayRecorder):
         tar.close()
         return filename
 
-    def push_replay_record(self, archive):
+    def push_archive_record(self, archive):
         logger.debug("Start push replay record to server")
         return self.app.service.push_session_replay(archive, str(self.session.id))
 
-    def push_records(self):
+    def push_record(self):
+        logger.info("Start push replay record to server")
+
         def func():
-            archive = self.archive_replay()
-            result = self.push_replay_record(archive)
-            if not result:
-                logger.error("Push replay error")
+            archive = self.archive_record()
+            for i in range(1, 5):
+                result = self.push_archive_record(archive)
+                if not result:
+                    logger.error("Push replay error, try again")
+                    time.sleep(5)
+                    continue
+                else:
+                    break
+
+        thread = threading.Thread(target=func)
+        thread.start()
+
+
+class ServerCommandRecorder(LocalFileCommandRecorder):
+
+    def record_command(self, now, _input, _output):
+        logger.debug("File recorder command: ({},{})".format(_input, _output))
+        self.cmd_f.write("{} {} {}\n".format(
+            int(now.timestamp()),
+            base64.b64encode(_input.encode("utf-8")).decode('utf-8'),
+            base64.b64encode(_output.encode("utf-8")).decode('utf-8'),
+        ).encode('utf-8'))
+
+    def start(self):
+        pass
+
+    def done(self):
+        super().done()
+        self.push_record()
+
+    def archive_record(self):
+        filename = os.path.join(self.session_dir, "command.tar.bz2")
+        logger.debug("Start archive command record: {}".format(filename))
+        tar = tarfile.open(filename, "w:bz2")
+        os.chdir(self.session_dir)
+        cmd_filename = os.path.basename(self.cmd_filename)
+        tar.add(cmd_filename)
+        tar.close()
+        return filename
+
+    def push_archive_record(self, archive):
+        logger.debug("Start push command record to server")
+        return self.app.service.push_session_replay(archive, str(self.session.id))
+
+    def push_record(self):
+        logger.info("Start push command record to server")
+
+        def func():
+            archive = self.archive_record()
+            for i in range(1, 5):
+                result = self.push_archive_record(archive)
+                if not result:
+                    logger.error("Push command record error, try again")
+                    time.sleep(5)
+                    continue
+                else:
+                    break
 
         thread = threading.Thread(target=func)
         thread.start()

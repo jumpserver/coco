@@ -48,11 +48,18 @@ class Client:
     def recv(self, size):
         return self.chan.recv(size)
 
+    def close(self):
+        logger.info("Client {} close".format(self))
+        return self.chan.close()
+
     def __getattr__(self, item):
         return getattr(self.chan, item)
 
     def __str__(self):
         return "<%s from %s:%s>" % (self.user, self.addr[0], self.addr[1])
+
+    def __del__(self):
+        logger.info("GC client object: {}".format(self))
 
 
 class Server:
@@ -96,10 +103,18 @@ class Server:
 
     def record_command_async(self):
         def func():
+            logger.info("Start server command record thread: {}".format(self))
+            for recorder in self.recorders:
+                recorder.start()
             while not self.stop_evt.is_set():
                 _input, _output = self.command_queue.get()
+                if _input is None:
+                    break
                 for recorder in self.recorders:
                     recorder.record_command(datetime.datetime.now(), _input, _output)
+            logger.info("Exit server command record thread: {}".format(self))
+            for recorder in self.recorders:
+                recorder.done()
         thread = threading.Thread(target=func)
         thread.start()
 
@@ -126,8 +141,8 @@ class Server:
                 self.command_queue.put((self._input, self._output))
                 del self.input_data[:]
                 del self.output_data[:]
-                self._input = ""
-                self._output = ""
+                # self._input = ""
+                # self._output = ""
             self._in_input_state = True
         return self.chan.send(b)
 
@@ -141,8 +156,11 @@ class Server:
         return data
 
     def close(self):
+        logger.info("Closed server {}".format(self))
         self.chan.close()
-        return self.chan.transport.close()
+        self.stop_evt.set()
+        self.chan.transport.close()
+        self.command_queue.put((None, None))
 
     @staticmethod
     def _have_enter_char(s):
@@ -163,9 +181,10 @@ class Server:
         return getattr(self.chan, item)
 
     def __str__(self):
-        return "<%s@%s:%s>" % (self.system_user.username,
-                               self.asset.hostname,
-                               self.asset.port)
+        return "<To: {}>".format(str(self.asset))
+
+    def __del__(self):
+        logger.info("GC server object: {}".format(self))
 
 
 class WSProxy:

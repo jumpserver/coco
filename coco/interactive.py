@@ -17,6 +17,7 @@ logger = logging.getLogger(__file__)
 
 
 class InteractiveServer:
+    _sentinel = object()
 
     def __init__(self, app, client):
         self.app = app
@@ -103,7 +104,7 @@ class InteractiveServer:
 
     def dispatch(self, opt):
         if opt is None:
-            return
+            return self._sentinel
         elif opt.startswith("/"):
             self.search_and_display(opt.lstrip("/"))
         elif opt in ['p', 'P', '3']:
@@ -113,7 +114,7 @@ class InteractiveServer:
         elif opt.startswith("g") and opt.lstrip("g").isdigit():
             self.display_group_assets(int(opt.lstrip("g")))
         elif opt in ['q', 'Q', '0']:
-            self.app.remove_client(self.client)
+            return self._sentinel
         elif opt in ['h', 'H', '9']:
             self.display_banner()
         else:
@@ -122,7 +123,6 @@ class InteractiveServer:
     def search_assets(self, q):
         if self.assets is None:
             self.get_user_assets()
-
         result = []
 
         # 所有的
@@ -178,11 +178,6 @@ class InteractiveServer:
         self.display_search_result()
 
     def display_search_result(self):
-        # if len(self.search_result) == 0:
-        #     self.client.send(warning("Nothing match"))
-        #     return
-        print("Total assets: ".format(len(self.assets)))
-
         self.search_result = sort_assets(self.search_result, self.app.config["ASSET_LIST_SORT_BY"])
         fake_asset = Asset(hostname=_("Hostname"), ip=_("IP"), system_users_join=_("LoginAs"), comment=_("Comment"))
         id_max_length = max(len(str(len(self.search_result))), 3)
@@ -264,9 +259,10 @@ class InteractiveServer:
         while True:
             try:
                 opt = self.get_option()
-                self.dispatch(opt)
-            except socket.error as e:
-                logger.error("Socket error %s" % e)
+                rv = self.dispatch(opt)
+                if rv is self._sentinel:
+                    break
+            except socket.error:
                 break
         self.close()
 
@@ -276,4 +272,5 @@ class InteractiveServer:
         thread.start()
 
     def close(self):
-        pass
+        self.app.remove_client(self.client)
+        logger.info("Exit interactive server")

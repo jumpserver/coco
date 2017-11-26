@@ -17,6 +17,7 @@ BACKLOG = 5
 
 
 class SSHServer:
+
     def __init__(self, app):
         self.app = app
         self.stop_evt = threading.Event()
@@ -44,12 +45,12 @@ class SSHServer:
         while not self.stop_evt.is_set():
             try:
                 sock, addr = self.sock.accept()
-                logger.info("Get ssh request from %s: %s" % (addr[0], addr[1]))
+                logger.info("Get ssh request from {}: {}".format(addr[0], addr[1]))
                 thread = threading.Thread(target=self.handle, args=(sock, addr))
                 thread.daemon = True
                 thread.start()
             except Exception as e:
-                logger.error("SSH server error: %s" % e)
+                logger.error("Start SSH server error: {}".format(e))
 
     def handle(self, sock, addr):
         transport = paramiko.Transport(sock, gss_kex=False)
@@ -65,20 +66,20 @@ class SSHServer:
             transport.start_server(server=server)
         except paramiko.SSHException:
             logger.warning("SSH negotiation failed")
-            sys.exit(1)
+            return
         except EOFError:
-            logger.warning("EOF Error")
-            sys.exit(1)
+            logger.warning("Handle EOF Error")
+            return
 
         chan = transport.accept(10)
         if chan is None:
             logger.warning("No ssh channel get")
-            sys.exit(1)
+            return
 
         server.event.wait(5)
         if not server.event.is_set():
-            logger.warning("Client not request a valid request")
-            sys.exit(2)
+            logger.warning("Client not request a valid request, exiting")
+            return
 
         client = Client(chan, request)
         self.app.add_client(client)
@@ -87,6 +88,7 @@ class SSHServer:
     def dispatch(self, client):
         request_type = client.request.type
         if request_type == 'pty':
+            logger.info("Request type `pty`, dispatch to interactive mode")
             InteractiveServer(self.app, client).interact()
         elif request_type == 'exec':
             pass

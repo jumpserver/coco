@@ -20,6 +20,7 @@ class SSHInterface(paramiko.ServerInterface):
         self.app = app
         self.request = request
         self.event = threading.Event()
+        self.auth_valid = False
 
     def check_auth_interactive(self, username, submethods):
         logger.info("Check auth interactive: %s %s" % (username, submethods))
@@ -46,11 +47,23 @@ class SSHInterface(paramiko.ServerInterface):
         return paramiko.AUTH_FAILED
 
     def check_auth_password(self, username, password):
-        return self.validate_auth(username, password=password)
+        valid = self.validate_auth(username, password=password)
+        if not valid:
+            logger.warning("Password and public key auth <%s> failed, reject it" % username)
+            return paramiko.AUTH_FAILED
+        else:
+            logger.info("Password auth <%s> success" % username)
+            return paramiko.AUTH_SUCCESSFUL
 
     def check_auth_publickey(self, username, key):
         key = key.get_base64()
-        return self.validate_auth(username, key=key)
+        valid = self.validate_auth(username, key=key)
+        if not valid:
+            logger.debug("Public key auth <%s> failed, try to password" % username)
+            return paramiko.AUTH_FAILED
+        else:
+            logger.debug("Public key auth <%s> success" % username)
+            return paramiko.AUTH_SUCCESSFUL
 
     def validate_auth(self, username, password="", key=""):
         user, _ = self.app.service.authenticate(
@@ -60,13 +73,13 @@ class SSHInterface(paramiko.ServerInterface):
 
         if user:
             self.request.user = user
-            return paramiko.AUTH_SUCCESSFUL
+            return True
         else:
-            return paramiko.AUTH_FAILED
+            return False
 
     def check_channel_direct_tcpip_request(self, chanid, origin, destination):
         logger.debug("Check channel direct tcpip request: %d %s %s" %
-                    (chanid, origin, destination))
+                     (chanid, origin, destination))
         self.request.type = 'direct-tcpip'
         self.request.meta = {
             'chanid': chanid, 'origin': origin,

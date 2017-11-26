@@ -220,7 +220,7 @@ def wrap_with_line_feed(s, before=0, after=1):
 def wrap_with_color(text, color='white', background=None,
                     bolder=False, underline=False):
     bolder_ = '1'
-    underline_ = '4'
+    _underline = '4'
     color_map = {
         'black': '30',
         'red': '31',
@@ -246,7 +246,7 @@ def wrap_with_color(text, color='white', background=None,
     if bolder:
         wrap_with.append(bolder_)
     if underline:
-        wrap_with.append(underline_)
+        wrap_with.append(_underline)
     if background:
         wrap_with.append(background_map.get(background, ''))
     wrap_with.append(color_map.get(color, ''))

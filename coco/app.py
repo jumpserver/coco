@@ -40,6 +40,7 @@ class Coco:
         'SSH_PUBLIC_KEY_AUTH': True,
         'HEARTBEAT_INTERVAL': 5,
         'MAX_CONNECTIONS': 500,
+        'ADMINS': '',
         # 'MAX_RECORD_OUTPUT_LENGTH': 4096,
     }
 
@@ -100,7 +101,6 @@ class Coco:
                 time.sleep(self.config["HEARTBEAT_INTERVAL"])
 
         thread = threading.Thread(target=func)
-        thread.daemon = True
         thread.start()
 
     def monitor_sessions(self):
@@ -164,15 +164,15 @@ class Coco:
     def add_client(self, client):
         with self.lock:
             self.clients.append(client)
-            logger.info("New client %s join, total %d now" % (client, len(self.clients)))
+            logger.info("New client {} join, total {} now".format(client, len(self.clients)))
 
     def remove_client(self, client):
         with self.lock:
             try:
                 self.clients.remove(client)
-                logger.info("Client %s leave, total %d now" % (client, len(self.clients)))
-                client.send("Closed by server")
+                logger.info("Client {} leave, total {} now".format(client, len(self.clients)))
                 client.close()
+                del client
             except:
                 pass
 
@@ -183,7 +183,11 @@ class Coco:
 
     def remove_session(self, session):
         with self.lock:
+            logger.info("Remove session: {}".format(session))
             self.sessions.remove(session)
+            del session.server
+            del session.client
+            del session
             self.heartbeat()
 
 
