@@ -185,7 +185,7 @@ class ServerCommandRecorder(LocalFileCommandRecorder):
 
     def record_command(self, now, _input, _output):
         logger.debug("File recorder command: ({},{})".format(_input, _output))
-        self.cmd_f.write("{} {} {}\n".format(
+        self.cmd_f.write("{}|{}|{}\n".format(
             int(now.timestamp()),
             base64.b64encode(_input.encode("utf-8")).decode('utf-8'),
             base64.b64encode(_output.encode("utf-8")).decode('utf-8'),
@@ -210,7 +210,7 @@ class ServerCommandRecorder(LocalFileCommandRecorder):
 
     def push_archive_record(self, archive):
         logger.debug("Start push command record to server")
-        return self.app.service.push_session_replay(archive, str(self.session.id))
+        return self.app.service.push_session_command(archive, str(self.session.id))
 
     def push_record(self):
         logger.info("Start push command record to server")

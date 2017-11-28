@@ -53,3 +53,6 @@ APP_NAME = "coco"
 
 # 异步上报统计命令
 # COMMAND_PUSH_ASYNC = True
+
+# Admin的名字，出问题会提示给用户
+# ADMINS = ''
