@@ -3,7 +3,6 @@ import os
 import time
 import threading
 import logging
-import multiprocessing
 
 from jms.service import AppService
 
@@ -11,9 +10,8 @@ from .config import Config
 from .sshd import SSHServer
 from .httpd import HttpServer
 from .logging import create_logger
-from .queue import MemoryQueue
-from .record import ServerCommandRecorder, ServerReplayRecorder, \
-    START_SENTINEL, DONE_SENTINEL
+from .queue import get_queue
+from .record import get_recorder, START_SENTINEL, END_SENTINEL
 
 
 __version__ = '0.4.0'
@@ -38,18 +36,19 @@ class Coco:
         'LOG_LEVEL': 'INFO',
         'LOG_DIR': os.path.join(BASE_DIR, 'logs'),
         'SESSION_DIR': os.path.join(BASE_DIR, 'sessions'),
-        'REPLAY_STORE_ENGINE': 'server',   # local, server
-        'COMMAND_STORE_ENGINE': 'server',  # local, server, elasticsearch(not yet)
         'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
         'SSH_PASSWORD_AUTH': True,
         'SSH_PUBLIC_KEY_AUTH': True,
         'HEARTBEAT_INTERVAL': 5,
         'MAX_CONNECTIONS': 500,
         'ADMINS': '',
+        'REPLAY_RECORD_ENGINE': 'server',   # local, server
+        'COMMAND_RECORD_ENGINE': 'server',  # local, server, elasticsearch(not yet)
         'QUEUE_ENGINE': 'memory',
         'QUEUE_MAX_SIZE': 0,
         'MAX_PUSH_THREADS': 5,
-        # 'MAX_RECORD_OUTPUT_LENGTH': 4096,
+        'MAX_RECORD_INPUT_LENGTH': 128,
+        'MAX_RECORD_OUTPUT_LENGTH': 1024,
     }
 
     def __init__(self, name=None, root_path=None):
@@ -63,10 +62,10 @@ class Coco:
         self._service = None
         self._sshd = None
         self._httpd = None
-        self._command_queue = None
         self._replay_queue = None
-        self._command_recorder = None
+        self._command_queue = None
         self._replay_recorder = None
+        self._command_recorder = None
 
     @property
     def service(self):
@@ -94,26 +93,39 @@ class Coco:
         pass
 
     def initial_queue(self):
-        logger.debug("Initial app queue")
-        queue_size = int(self.config['QUEUE_MAX_SIZE'])
-        # Todo: For other queue
-        if self.config['QUEUE_ENGINE'] == 'memory':
-            self._command_queue = MemoryQueue(queue_size)
-            self._replay_queue = MemoryQueue(queue_size)
-        else:
-            self._command_queue = MemoryQueue(queue_size)
-            self._replay_queue = MemoryQueue(queue_size)
+        self._replay_queue, self._command_queue = get_queue(self.config)
 
     def initial_recorder(self):
-        if self.config['REPLAY_STORE_ENGINE'] == 'server':
-            self._replay_recorder = ServerReplayRecorder(self)
-        else:
-            self._replay_recorder = ServerReplayRecorder(self)
+        self._replay_recorder, self._command_recorder = get_recorder(self)
 
-        if self.config['COMMAND_STORE_ENGINE'] == 'server':
-            self._command_recorder = ServerCommandRecorder(self)
+    def bootstrap(self):
+        self.make_logger()
+        self.service.initial()
+        self.load_extra_conf_from_server()
+        self.initial_queue()
+        self.initial_recorder()
+        self.keep_heartbeat()
+        self.keep_push_record()
+        self.monitor_sessions()
+
+    def heartbeat(self):
+        _sessions = [s.to_json() for s in self.sessions]
+        tasks = self.service.terminal_heartbeat(_sessions)
+        if tasks:
+            self.handle_task(tasks)
+        if tasks is False:
+            return False
         else:
-            self._command_recorder = ServerCommandRecorder(self)
+            return True
+
+    def keep_heartbeat(self):
+        def func():
+            while not self.stop_evt.is_set():
+                self.heartbeat()
+                time.sleep(self.config["HEARTBEAT_INTERVAL"])
+
+        thread = threading.Thread(target=func)
+        thread.start()
 
     def keep_push_record(self):
         threads = []
@@ -121,12 +133,14 @@ class Coco:
         def push_command(q, callback, size=10):
             while not self.stop_evt.is_set():
                 data_set = q.mget(size)
-                callback(data_set)
+                if data_set and not callback(data_set):
+                    q.mput(data_set)
 
         def push_replay(q, callback, size=10):
             while not self.stop_evt.is_set():
                 data_set = q.mget(size)
-                callback(data_set)
+                if data_set and not callback(data_set):
+                    q.mput(data_set)
 
         for i in range(self.config['MAX_PUSH_THREADS']):
             t = threading.Thread(target=push_command, args=(
@@ -141,33 +155,6 @@ class Coco:
         for t in threads:
             t.start()
             logger.info("Start push record process: {}".format(t))
-
-    def bootstrap(self):
-        self.make_logger()
-        self.initial_queue()
-        self.initial_recorder()
-        self.service.initial()
-        self.load_extra_conf_from_server()
-        self.keep_push_record()
-        self.keep_heartbeat()
-        self.monitor_sessions()
-
-    def heartbeat(self):
-        _sessions = [s.to_json() for s in self.sessions]
-        tasks = self.service.terminal_heartbeat(_sessions)
-        if tasks:
-            self.handle_task(tasks)
-        logger.info("Command queue size: {}".format(self._command_queue.qsize()))
-        logger.info("Replay queue size: {}".format(self._replay_queue.qsize()))
-
-    def keep_heartbeat(self):
-        def func():
-            while not self.stop_evt.is_set():
-                self.heartbeat()
-                time.sleep(self.config["HEARTBEAT_INTERVAL"])
-
-        thread = threading.Thread(target=func)
-        thread.start()
 
     def monitor_sessions(self):
         interval = self.config["HEARTBEAT_INTERVAL"]
@@ -246,57 +233,73 @@ class Coco:
     def add_session(self, session):
         with self.lock:
             self.sessions.append(session)
-            self.put_command_start_queue(session)
-            self.put_replay_done_queue(session)
             self.heartbeat()
+            self.put_command_start_queue(session)
+            self.put_replay_start_queue(session)
 
     def remove_session(self, session):
         with self.lock:
             logger.info("Remove session: {}".format(session))
-            self.sessions.remove(session)
-            self.put_command_done_queue(session)
-            self.put_replay_done_queue(session)
-            self.heartbeat()
+            for i in range(10):
+                if self.heartbeat():
+                    self.sessions.remove(session)
+                    self.put_command_done_queue(session)
+                    self.put_replay_done_queue(session)
+                else:
+                    time.sleep(1)
 
     def put_replay_queue(self, session, data):
         logger.debug("Put replay data: {} {}".format(session, data))
-        self._replay_queue.put((
-            session.id, data, time.time()
-        ))
+        self._replay_queue.put({
+            "session": session.id,
+            "data": data,
+            "timestamp": time.time()
+        })
 
     def put_replay_start_queue(self, session):
-        self._replay_queue.put((
-            session.id, START_SENTINEL, time.time()
-        ))
+        self._replay_queue.put({
+            "session": session.id,
+            "data": START_SENTINEL,
+            "timestamp": time.time()
+        })
 
     def put_replay_done_queue(self, session):
-        self._replay_queue.put((
-            session.id, DONE_SENTINEL, time.time()
-        ))
+        self._replay_queue.put({
+            "session": session.id,
+            "data": END_SENTINEL,
+            "timestamp": time.time()
+        })
 
     def put_command_queue(self, session, _input, _output):
         logger.debug("Put command data: {} {} {}".format(session, _input, _output))
-        self._command_queue.put((
-            session.id, _input[:128], _output[:1024], session.client.user.username,
-            session.server.asset.hostname, session.server.system_user.username,
-            time.time()
-        ))
+        self._command_queue.put({
+            "session": session.id,
+            "input": _input[:128],
+            "output": _output[:1024],
+            "user": session.client.user.username,
+            "asset": session.server.asset.hostname,
+            "system_user": session.server.system_user.username,
+            "timestamp": int(time.time())
+        })
 
     def put_command_start_queue(self, session):
-        self._command_queue.put((
-            session.id, START_SENTINEL, START_SENTINEL,
-            session.client.user.username,
-            session.server.asset.hostname,
-            session.server.system_user.username,
-            time.time()
-        ))
+        self._command_queue.put({
+            "session": session.id,
+            "input": START_SENTINEL,
+            "output": START_SENTINEL,
+            "user": session.client.user.username,
+            "asset": session.server.asset.hostname,
+            "system_user": session.server.system_user.username,
+            "timestamp": int(time.time())
+        })
 
     def put_command_done_queue(self, session):
-        self._command_queue.put((
-            session.id, DONE_SENTINEL, DONE_SENTINEL,
-            session.client.user.username,
-            session.server.asset.hostname,
-            session.server.system_user.username,
-            time.time()
-        ))
-
+        self._command_queue.put({
+            "session": session.id,
+            "input": END_SENTINEL,
+            "output": END_SENTINEL,
+            "user": session.client.user.username,
+            "asset": session.server.asset.hostname,
+            "system_user": session.server.system_user.username,
+            "timestamp": int(time.time())
+        })

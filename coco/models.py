@@ -6,7 +6,7 @@ import weakref
 
 from . import char
 from . import utils
-from .record import START_SENTINEL, DONE_SENTINEL
+from .record import START_SENTINEL, END_SENTINEL
 
 BUF_SIZE = 4096
 logger = logging.getLogger(__file__)

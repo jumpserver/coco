@@ -1,12 +1,9 @@
 #!coding: utf-8
 
-import os
 import threading
 import uuid
-import socket
 import logging
 import datetime
-import time
 import selectors
 import weakref
 
@@ -30,6 +27,10 @@ class Session:
         self.stop_evt = threading.Event()
         self.sel = selectors.DefaultSelector()
         self.server.set_session(self)
+        self._replay_queue = None
+        self._command_queue = None
+        self._replay_recorder = None
+        self._command_recorder = None
 
     @property
     def app(self):
@@ -133,8 +134,6 @@ class Session:
         self.stop_evt.set()
         self.date_finished = datetime.datetime.now()
         self.server.close()
-        for c in self._watchers + self._sharers:
-            c.close()
 
     def to_json(self):
         return {
