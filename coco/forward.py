@@ -3,13 +3,12 @@ import socket
 import threading
 import logging
 import time
+import weakref
 
 import paramiko
 
 from .session import Session
 from .models import Server
-from .record import LocalFileReplayRecorder, LocalFileCommandRecorder, \
-    ServerReplayRecorder, ServerCommandRecorder
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning
 
 
@@ -20,43 +19,26 @@ BUF_SIZE = 4096
 
 class ProxyServer:
     def __init__(self, app, client):
-        self.app = app
+        self._app = weakref.ref(app)
         self.client = client
         self.request = client.request
         self.server = None
         self.connecting = True
         self.session = None
 
+    @property
+    def app(self):
+        return self._app()
+
     def proxy(self, asset, system_user):
         self.send_connecting_message(asset, system_user)
         self.server = self.get_server_conn(asset, system_user)
         if self.server is None:
             return
-        self.session = Session(self.client, self.server)
+        self.session = Session(self.app, self.client, self.server)
         self.app.add_session(self.session)
         self.watch_win_size_change_async()
-        self.add_recorder()
         self.session.bridge()
-
-    def add_recorder(self):
-        """
-        上传记录，如果配置的是server，就上传到服务器端，实例化对应的recorder,
-        将来有计划直接上传到 es和oss
-        :return:
-        """
-        if self.app.config["REPLAY_STORE_ENGINE"].lower() == "server":
-            replay_recorder = ServerReplayRecorder(self.app, self.session)
-        else:
-            replay_recorder = LocalFileReplayRecorder(self.app, self.session)
-        if self.app.config["COMMAND_STORE_ENGINE"].lower() == "server":
-            command_recorder = ServerCommandRecorder(self.app, self.session)
-        else:
-            command_recorder = LocalFileCommandRecorder(self.app, self.session)
-
-        self.session.add_recorder(replay_recorder)
-        self.session.record_replay_async()
-        self.server.add_recorder(command_recorder)
-        self.server.record_command_async()
 
     def validate_permission(self, asset, system_user):
         """

@@ -5,4 +5,5 @@ class PermissionFailed(Exception):
     pass
 
 
-
+class NoAppException(Exception):
+    pass

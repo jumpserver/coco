@@ -8,6 +8,7 @@ import logging
 import datetime
 import time
 import selectors
+import weakref
 
 
 BUF_SIZE = 1024
@@ -16,18 +17,23 @@ logger = logging.getLogger(__file__)
 
 class Session:
 
-    def __init__(self, client, server):
+    def __init__(self, app, client, server):
         self.id = str(uuid.uuid4())
+        self._app = weakref.ref(app)
         self.client = client  # Master of the session, it's a client sock
         self.server = server  # Server channel
-        self.watchers = []  # Only watch session
-        self.sharers = []   # Join to the session, read and write
+        self._watchers = []  # Only watch session
+        self._sharers = []   # Join to the session, read and write
         self.replaying = True
         self.date_created = datetime.datetime.now()
         self.date_finished = None
-        self.recorders = []
         self.stop_evt = threading.Event()
         self.sel = selectors.DefaultSelector()
+        self.server.set_session(self)
+
+    @property
+    def app(self):
+        return self._app()
 
     def add_watcher(self, watcher, silent=False):
         """
@@ -41,12 +47,12 @@ class Session:
         if not silent:
             watcher.send("Welcome to watch session {}\r\n".format(self.id).encode("utf-8"))
         self.sel.register(watcher, selectors.EVENT_READ)
-        self.watchers.append(watcher)
+        self._watchers.append(watcher)
 
     def remove_watcher(self, watcher):
         logger.info("Session %s remove watcher %s" % (self.id, watcher))
         self.sel.unregister(watcher)
-        self.watchers.remove(watcher)
+        self._watchers.remove(watcher)
 
     def add_sharer(self, sharer, silent=False):
         """
@@ -60,7 +66,7 @@ class Session:
             sharer.send("Welcome to join session: {}\r\n"
                         .format(self.id).encode("utf-8"))
         self.sel.register(sharer, selectors.EVENT_READ)
-        self.sharers.append(sharer)
+        self._sharers.append(sharer)
 
     def remove_sharer(self, sharer):
         logger.info("Session %s remove sharer %s" % (self.id, sharer))
@@ -68,13 +74,7 @@ class Session:
                     .format(self.id, datetime.datetime.now())
                     .encode("utf-8"))
         self.sel.unregister(sharer)
-        self.sharers.remove(sharer)
-
-    def add_recorder(self, recorder):
-        self.recorders.append(recorder)
-
-    def remove_recorder(self, recorder):
-        self.recorders.remove(recorder)
+        self._sharers.remove(sharer)
 
     def bridge(self):
         """
@@ -90,31 +90,31 @@ class Session:
                 data = sock.recv(BUF_SIZE)
                 if sock == self.server:
                     if len(data) == 0:
-                        msg = "Server close the connection: {}".format(self.server)
+                        msg = "Server close the connection"
                         logger.info(msg)
-                        for watcher in [self.client] + self.watchers + self.sharers:
+                        for watcher in [self.client] + self._watchers + self._sharers:
                             watcher.send(msg.encode('utf-8'))
                         self.close()
                         break
-                    for watcher in [self.client] + self.watchers + self.sharers:
+                    for watcher in [self.client] + self._watchers + self._sharers:
                         watcher.send(data)
                 elif sock == self.client:
                     if len(data) == 0:
                         msg = "Client close the connection: {}".format(self.client)
                         logger.info(msg)
-                        for watcher in self.watchers + self.sharers:
+                        for watcher in self._watchers + self._sharers:
                             watcher.send(msg.encode("utf-8"))
                         self.close()
                         break
                     self.server.send(data)
-                elif sock in self.sharers:
+                elif sock in self._sharers:
                     if len(data) == 0:
                         logger.info("Sharer {} leave the session {}".format(sock, self.id))
                         self.remove_sharer(sock)
                     self.server.send(data)
-                elif sock in self.watchers:
+                elif sock in self._watchers:
                     if len(data) == 0:
-                        self.watchers.remove(sock)
+                        self._watchers.remove(sock)
                         logger.info("Watcher {} leave the session {}".format(sock, self.id))
         logger.info("Session stop event set: {}".format(self.id))
 
@@ -122,36 +122,18 @@ class Session:
         logger.debug("Resize server chan size {}*{}".format(width, height))
         self.server.resize_pty(width=width, height=height)
 
-    def record_replay_async(self):
-        def func():
-            parent, child = socket.socketpair()
-            self.add_watcher(parent)
-            logger.info("Start record replay thread: {}".format(self.id))
-            for recorder in self.recorders:
-                recorder.start()
-            while not self.stop_evt.is_set():
-                start_t = time.time()
-                data = child.recv(BUF_SIZE)
-                end_t = time.time()
-                size = len(data)
-                now = datetime.datetime.now()
-                timedelta = '{:.4f}'.format(end_t - start_t)
-                if size == 0:
-                    break
-                for recorder in self.recorders:
-                    recorder.record_replay(now, timedelta, size, data)
-            logger.info("Exit record replay thread: {}".format(self.id))
-            for recorder in self.recorders:
-                recorder.done()
-        thread = threading.Thread(target=func)
-        thread.start()
+    def put_command(self, _input, _output):
+        self.app.put_command_queue(self, _input, _output)
+
+    def put_replay(self, data):
+        self.app.put_replay_queue(self, data)
 
     def close(self):
         logger.info("Close the session: {} ".format(self.id))
         self.stop_evt.set()
         self.date_finished = datetime.datetime.now()
         self.server.close()
-        for c in self.watchers + self.sharers:
+        for c in self._watchers + self._sharers:
             c.close()
 
     def to_json(self):

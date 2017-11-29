@@ -19,6 +19,8 @@ import pytz
 from email.utils import formatdate
 from queue import Queue, Empty
 
+from .exception import NoAppException
+
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 
@@ -359,6 +361,7 @@ def make_message():
 
 def compile_message():
     pass
+
 
 
 ugettext = _gettext()

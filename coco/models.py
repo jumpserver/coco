@@ -1,11 +1,12 @@
 import json
-import queue
 import threading
 import datetime
 import logging
+import weakref
 
 from . import char
 from . import utils
+from .record import START_SENTINEL, DONE_SENTINEL
 
 BUF_SIZE = 4096
 logger = logging.getLogger(__file__)
@@ -83,43 +84,23 @@ class Server:
         self._input_initial = False
         self._in_vim_state = False
 
-        self.recorders = []
         self.filters = []
         self._input = ""
         self._output = ""
-        self.command_queue = queue.Queue()
+        self._session_ref = None
 
-    def add_recorder(self, recorder):
-        self.recorders.append(recorder)
-
-    def remove_recorder(self, recorder):
-        self.recorders.remove(recorder)
+    @property
+    def session(self):
+        return self._session_ref() if self._session_ref is not None else None
 
     def add_filter(self, _filter):
         self.filters.append(_filter)
 
-    def remove_filter(self, _filter):
-        self.filters.remove(_filter)
-
-    def record_command_async(self):
-        def func():
-            logger.info("Start server command record thread: {}".format(self))
-            for recorder in self.recorders:
-                recorder.start()
-            while not self.stop_evt.is_set():
-                _input, _output = self.command_queue.get()
-                if _input is None:
-                    break
-                for recorder in self.recorders:
-                    recorder.record_command(datetime.datetime.now(), _input, _output)
-            logger.info("Exit server command record thread: {}".format(self))
-            for recorder in self.recorders:
-                recorder.done()
-        thread = threading.Thread(target=func)
-        thread.start()
-
     def fileno(self):
         return self.chan.fileno()
+
+    def set_session(self, session):
+        self._session_ref = weakref.ref(session)
 
     def send(self, b):
         if isinstance(b, str):
@@ -138,7 +119,7 @@ class Server:
                     self._input, self._output,
                     "#" * 30 + " End " + "#" * 30,
                 ))
-                self.command_queue.put((self._input, self._output))
+                self.session.put_command(self._input, self._output)
                 del self.input_data[:]
                 del self.output_data[:]
                 # self._input = ""
@@ -148,6 +129,7 @@ class Server:
 
     def recv(self, size):
         data = self.chan.recv(size)
+        self.session.put_replay(data)
         if self._input_initial:
             if self._in_input_state:
                 self.input_data.append(data)
@@ -160,7 +142,6 @@ class Server:
         self.chan.close()
         self.stop_evt.set()
         self.chan.transport.close()
-        self.command_queue.put((None, None))
 
     @staticmethod
     def _have_enter_char(s):

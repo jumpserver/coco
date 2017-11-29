@@ -2,6 +2,7 @@
 import logging
 import socket
 import threading
+import weakref
 
 import os
 from jms.models import Asset, AssetGroup
@@ -20,7 +21,7 @@ class InteractiveServer:
     _sentinel = object()
 
     def __init__(self, app, client):
-        self.app = app
+        self._app = weakref.ref(app)
         self.client = client
         self.request = client.request
         self.assets = None
@@ -28,6 +29,10 @@ class InteractiveServer:
         self.asset_groups = None
         self.get_user_assets_async()
         self.get_user_asset_groups_async()
+
+    @property
+    def app(self):
+        return self._app()
 
     def display_banner(self):
         self.client.send(char.CLEAR_CHAR)

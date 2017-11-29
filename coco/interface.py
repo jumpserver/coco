@@ -3,6 +3,7 @@
 import logging
 import paramiko
 import threading
+import weakref
 
 
 logger = logging.getLogger(__file__)
@@ -17,10 +18,14 @@ class SSHInterface(paramiko.ServerInterface):
     """
 
     def __init__(self, app, request):
-        self.app = app
+        self._app = weakref.ref(app)
         self.request = request
         self.event = threading.Event()
         self.auth_valid = False
+
+    @property
+    def app(self):
+        return self._app()
 
     def check_auth_interactive(self, username, submethods):
         logger.info("Check auth interactive: %s %s" % (username, submethods))
