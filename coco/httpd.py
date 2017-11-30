@@ -1,4 +1,7 @@
-# coding: utf-8
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+
 import socket
 import json
 import logging
@@ -13,7 +16,6 @@ import tornado.gen
 from jms.models import User
 from .models import Request, Client, WSProxy
 from .interactive import InteractiveServer
-
 
 logger = logging.getLogger(__file__)
 

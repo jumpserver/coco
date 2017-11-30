@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 
@@ -80,7 +81,7 @@ class ServerReplayRecorder(ReplayRecorder):
         :return:
         """
         # Todo: <liuzheng712@gmail.com>
-        super().record_replay(data_set)
+        # super().record_replay(data_set)
 
     def session_start(self, session_id):
         print("When session {} start exec".format(session_id))
@@ -94,7 +95,7 @@ class ServerCommandRecorder(CommandRecorder):
     def record_command(self, data_set):
         if not data_set:
             return True
-        super().record_command(data_set)
+        # super().record_command(data_set)
         return self.app.service.push_session_command(data_set)
 
     def session_start(self, session_id):
