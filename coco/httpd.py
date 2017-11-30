@@ -20,7 +20,7 @@ from .interactive import InteractiveServer
 logger = logging.getLogger(__file__)
 
 
-class BaseWehSocketHandler:
+class BaseWebSocketHandler:
     def prepare(self):
         self.app = self.settings["app"]
         child, parent = socket.socketpair()
@@ -38,7 +38,7 @@ class BaseWehSocketHandler:
         return True
 
 
-class InteractiveWehSocketHandler(BaseWehSocketHandler, tornado.websocket.WebSocketHandler):
+class InteractiveWebSocketHandler(BaseWebSocketHandler, tornado.websocket.WebSocketHandler):
     @tornado.web.authenticated
     def open(self):
         InteractiveServer(self.app, self.client).interact_async()
@@ -68,19 +68,19 @@ class InteractiveWehSocketHandler(BaseWehSocketHandler, tornado.websocket.WebSoc
                 pass
 
 
-class ProxyWehSocketHandler(BaseWehSocketHandler):
+class ProxyWebSocketHandler(BaseWebSocketHandler):
     pass
 
 
-class MonitorWehSocketHandler(BaseWehSocketHandler):
+class MonitorWebSocketHandler(BaseWebSocketHandler):
     pass
 
 
 class HttpServer:
     routers = [
-        (r'/ws/interactive/', InteractiveWehSocketHandler),
-        (r'/ws/proxy/(?P<asset_id>[0-9]+)/(?P<system_user_id>[0-9]+)/', ProxyWehSocketHandler),
-        (r'/ws/session/(?P<session_id>[0-9]+)/monitor/', MonitorWehSocketHandler),
+        (r'/ws/interactive/', InteractiveWebSocketHandler),
+        (r'/ws/proxy/(?P<asset_id>[0-9]+)/(?P<system_user_id>[0-9]+)/', ProxyWebSocketHandler),
+        (r'/ws/session/(?P<session_id>[0-9]+)/monitor/', MonitorWebSocketHandler),
     ]
 
     # prepare may be rewrite it
