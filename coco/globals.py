@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ~*~ coding: utf-8 ~*~
 
 # from flask.globals import request, g, _app_ctx_stack, \
