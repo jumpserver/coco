@@ -250,4 +250,4 @@ class ProxyServer(object):
 
         def close(self):
             self.backend_channel.close()
-            sef.sel.close()
+            self.sel.close()
