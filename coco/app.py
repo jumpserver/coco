@@ -146,24 +146,18 @@ class Coco:
     def keep_push_record(self):
         threads = []
 
-        def push_command(q, callback, size=10):
-            while not self.stop_evt.is_set():
-                data_set = q.mget(size)
-                if data_set and not callback(data_set):
-                    q.mput(data_set)
-
-        def push_replay(q, callback, size=10):
+        def worker(q, callback, size=10):
             while not self.stop_evt.is_set():
                 data_set = q.mget(size)
                 if data_set and not callback(data_set):
                     q.mput(data_set)
 
         for i in range(self.config['MAX_PUSH_THREADS']):
-            t = threading.Thread(target=push_command, args=(
+            t = threading.Thread(target=worker, args=(
                 self._command_queue, self._command_recorder.record_command,
             ))
             threads.append(t)
-            t = threading.Thread(target=push_replay, args=(
+            t = threading.Thread(target=worker, args=(
                 self._replay_queue, self._replay_recorder.record_replay,
             ))
             threads.append(t)
