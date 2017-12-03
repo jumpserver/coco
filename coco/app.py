@@ -12,6 +12,7 @@ from .httpd import HttpServer
 from .logging import create_logger
 from .queue import get_queue
 from .record import get_recorder, START_SENTINEL, END_SENTINEL
+from .tasks import TaskHandler
 
 
 __version__ = '0.4.0'
@@ -66,6 +67,7 @@ class Coco:
         self._command_queue = None
         self._replay_recorder = None
         self._command_recorder = None
+        self._task_handler = None
 
     @property
     def service(self):
@@ -84,6 +86,12 @@ class Coco:
         if self._httpd is None:
             self._httpd = HttpServer(self)
         return self._httpd
+
+    @property
+    def task_handler(self):
+        if self._task_handler is None:
+            self._task_handler = TaskHandler(self)
+        return self._task_handler
 
     def make_logger(self):
         create_logger(self)
@@ -117,6 +125,10 @@ class Coco:
             return False
         else:
             return True
+
+    def handle_task(self, tasks):
+        for task in tasks:
+            self.task_handler.handle(task)
 
     def keep_heartbeat(self):
         def func():
@@ -174,9 +186,6 @@ class Coco:
 
         thread = threading.Thread(target=func)
         thread.start()
-
-    def handle_task(self, tasks):
-        pass
 
     def run_forever(self):
         self.bootstrap()
@@ -245,6 +254,7 @@ class Coco:
                     self.sessions.remove(session)
                     self.put_command_done_queue(session)
                     self.put_replay_done_queue(session)
+                    break
                 else:
                     time.sleep(1)
 

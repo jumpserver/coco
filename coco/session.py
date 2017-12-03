@@ -137,7 +137,7 @@ class Session:
 
     def to_json(self):
         return {
-            "id": self.id,
+            "uuid": self.id,
             "user": self.client.user.username,
             "asset": self.server.asset.hostname,
             "system_user": self.server.system_user.username,
