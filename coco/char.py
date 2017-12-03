@@ -1,4 +1,6 @@
-#!coding: utf-8
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
 
 BACKSPACE_CHAR = {b'\x08': b'\x08\x1b[K', b'\x7f': b'\x08\x1b[K'}
 ENTER_CHAR = [b'\r', b'\n', b'\r\n']
