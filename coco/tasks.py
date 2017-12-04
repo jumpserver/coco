@@ -24,7 +24,7 @@ class TaskHandler:
                 break
 
         if session:
-            session.close()
+            session.terminate()
         self.app.service.finish_task(task.id)
 
     def handle(self, task):

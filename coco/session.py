@@ -79,6 +79,11 @@ class Session:
         self.sel.unregister(sharer)
         self._sharers.remove(sharer)
 
+    def terminate(self):
+        msg = b"Terminate by administrator\r\n"
+        self.client.send(msg)
+        self.close()
+
     def bridge(self):
         """
         Bridge clients with server
