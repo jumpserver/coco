@@ -13,8 +13,8 @@ from jms.service import AppService
 from .config import Config
 from .sshd import SSHServer
 from .httpd import HttpServer
-from .logging import create_logger
-from .queue import get_queue
+from .logger import create_logger
+from .alignment import get_queue
 from .record import get_recorder, START_SENTINEL, END_SENTINEL
 from .tasks import TaskHandler
 
