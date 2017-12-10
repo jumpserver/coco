@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-
-import socket
-import json
+import io
+import os
+import paramiko
 import logging
-
-import tornado.web
-import tornado.websocket
-import tornado.httpclient
-import tornado.ioloop
-import tornado.gen
+from flask_socketio import SocketIO, Namespace, emit
+from flask import Flask, send_from_directory, render_template, request, jsonify
 
 # Todo: Remove for future
 from jms.models import User
 from .models import Request, Client, WSProxy
 from .interactive import InteractiveServer
+
+__version__ = '0.4.0'
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 logger = logging.getLogger(__file__)
 
@@ -37,52 +36,57 @@ class BaseWebSocketHandler:
     def check_origin(self, origin):
         return True
 
+    def write_message(self, data):
+        self.emit('data', data['data'])
 
-class InteractiveWebSocketHandler(BaseWebSocketHandler, tornado.websocket.WebSocketHandler):
-    @tornado.web.authenticated
-    def open(self):
+
+class SSHws(Namespace, BaseWebSocketHandler):
+    def ssh_with_password(self):
+        self.ssh = paramiko.SSHClient()
+        self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.ssh.connect("127.0.0.1", 22, "liuzheng", "liuzheng")
+        self.chan = self.ssh.invoke_shell(term='xterm', width=self.cols, height=self.raws)
+        self.socketio.start_background_task(self.send_data)
+        # self.chan.settimeout(0.1)
+
+    def send_data(self):
+        while True:
+            data = self.chan.recv(2048).decode('utf-8', 'replace')
+            print(data)
+            self.emit('data', data)
+
+    def on_connect(self):
+        self.cols = int(request.cookies.get('cols', 80))
+        self.raws = int(request.cookies.get('raws', 24))
         InteractiveServer(self.app, self.client).interact_async()
 
-    def on_message(self, message):
-        try:
-            message = json.loads(message)
-        except json.JSONDecodeError:
-            logger.info("Loads websocket json message failed")
-            return
+    def on_data(self, message):
+        # self.chan.send(message)
+        # while not self.chan.recv_ready():
+        self.proxy.send(message)
+        # emit('data', self.chan.recv(2048).decode('utf-8', 'replace'))
 
-        if message.get('event'):
-            self.evt_handle(message)
-        elif message.get('data'):
-            self.proxy.send(message)
+    # def on_event(self, message):
+    #     self.evt_handle(message)
 
-    def on_close(self):
+    def on_host(self, message):
+        print(message)
+
+    def on_resize(self, message):
+        # self.cols = message.get('cols', 80)
+        # self.raws = message.get('raws', 24)
+        # self.chan.resize_pty(width=self.cols, height=self.raws)
+        self.request.meta['width'] = message.get('cols', 80)
+        self.request.meta['height'] = message.get('raws', 24)
+        self.request.change_size_event.set()
+
+    def on_disconnect(self):
         self.proxy.close()
-
-    def evt_handle(self, data):
-        if data['event'] == 'change_size':
-            try:
-                self.request.meta['width'] = data['meta']['width']
-                self.request.meta['height'] = data['meta']['height']
-                self.request.change_size_event.set()
-            except KeyError:
-                pass
-
-
-class ProxyWebSocketHandler(BaseWebSocketHandler):
-    pass
-
-
-class MonitorWebSocketHandler(BaseWebSocketHandler):
-    pass
+        # self.ssh.close()
+        pass
 
 
 class HttpServer:
-    routers = [
-        (r'/ws/interactive/', InteractiveWebSocketHandler),
-        (r'/ws/proxy/(?P<asset_id>[0-9]+)/(?P<system_user_id>[0-9]+)/', ProxyWebSocketHandler),
-        (r'/ws/session/(?P<session_id>[0-9]+)/monitor/', MonitorWebSocketHandler),
-    ]
-
     # prepare may be rewrite it
     settings = {
         'cookie_secret': '',
@@ -92,19 +96,174 @@ class HttpServer:
 
     def __init__(self, app):
         self.app = app
-        self._prepare()
-
-    def _prepare(self):
         self.settings['cookie_secret'] = self.app.config['SECRET_KEY']
         self.settings['app'] = self.app
+
+        self.flask = Flask(__name__, template_folder='dist')
+        self.flask.config['SECRET_KEY'] = self.app.config['SECRET_KEY']
+        self.socketio = SocketIO()
 
     def run(self):
         host = self.app.config["BIND_HOST"]
         port = self.app.config["HTTPD_PORT"]
         print('Starting websocket server at {}:{}'.format(host, port))
-        ws = tornado.web.Application(self.routers, **self.settings)
-        ws.listen(port=port, address=host)
-        tornado.ioloop.IOLoop.current().start()
+        self.socketio.on_namespace(SSHws('/ssh').prepare())
+        self.socketio.init_app(self.flask)
+        self.socketio.run(self.flask, port=port, address=host)
 
     def shutdown(self):
         pass
+
+
+if __name__ == "__main__":
+    app = Flask(__name__, template_folder='/Users/liuzheng/gitproject/Jumpserver/webterminal/dist')
+
+
+    @app.route('/luna/<path:path>')
+    def send_js(path):
+        return send_from_directory('/Users/liuzheng/gitproject/Jumpserver/webterminal/dist', path)
+
+
+    @app.route('/')
+    @app.route('/luna/')
+    def index():
+        return render_template('index.html')
+
+
+    @app.route('/api/perms/v1/user/my/asset-groups-assets/')
+    def asset_groups_assets():
+        assets = [
+            {
+                "id": 0,
+                "name": "ungrouped",
+                "assets": []
+            },
+            {
+                "id": 1,
+                "name": "Default",
+                "comment": "Default asset group",
+                "assets": [
+                    {
+                        "id": 2,
+                        "hostname": "192.168.1.6",
+                        "ip": "192.168.2.6",
+                        "port": 22,
+                        "system": "windows",
+                        "uuid": "xxxxxx",
+                        "system_users": [
+                            {
+                                "id": 1,
+                                "name": "web",
+                                "username": "web",
+                                "protocol": "ssh",
+                                "auth_method": "P",
+                                "auto_push": True
+                            }
+                        ]
+                    },
+                    {
+                        "id": 4,
+                        "hostname": "testserver123",
+                        "ip": "123.57.183.135",
+                        "port": 8022,
+                        "system": "linux",
+                        "uuid": "linux-xxlkjadf",
+                        "system_users": [
+                            {
+                                "id": 1,
+                                "name": "web",
+                                "username": "web",
+                                "protocol": "ssh",
+                                "auth_method": "P",
+                                "auto_push": True
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": 4,
+                "name": "java",
+                "comment": "",
+                "assets": [
+                    {
+                        "id": 2,
+                        "hostname": "192.168.1.6",
+                        "ip": "192.168.2.6",
+                        "uuid": "sadcascas",
+                        "system": "linux",
+                        "port": 22,
+                        "system_users": [
+                            {
+                                "id": 1,
+                                "name": "web",
+                                "username": "web",
+                                "protocol": "ssh",
+                                "auth_method": "P",
+                                "auto_push": True
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": 3,
+                "name": "数据库",
+                "comment": "",
+                "assets": [
+                    {
+                        "id": 2,
+                        "hostname": "192.168.1.6",
+                        "ip": "192.168.2.6",
+                        "port": 22,
+                        "uuid": "sadcascascasdcas",
+                        "system": "linux",
+                        "system_users": [
+                            {
+                                "id": 1,
+                                "name": "web",
+                                "username": "web",
+                                "protocol": "ssh",
+                                "auth_method": "P",
+                                "auto_push": True
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": 2,
+                "name": "运维组",
+                "comment": "",
+                "assets": [
+                    {
+                        "id": 2,
+                        "hostname": "192.168.1.6",
+                        "ip": "192.168.2.6",
+                        "port": 22,
+                        "uuid": "zxcasd",
+                        "system": "linux",
+                        "system_users": [
+                            {
+                                "id": 1,
+                                "name": "web",
+                                "username": "web",
+                                "protocol": "ssh",
+                                "auth_method": "P",
+                                "auto_push": True
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+        return jsonify(assets)
+
+
+    print('socketio')
+
+    socketio = SocketIO()
+    socketio.init_app(app)
+    socketio.on_namespace(SSHws('/ssh'))
+
+    socketio.run(app)
