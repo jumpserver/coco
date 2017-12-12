@@ -280,6 +280,8 @@ class Coco:
 
     def put_command_queue(self, session, _input, _output):
         logger.debug("Put command data: {} {} {}".format(session, _input, _output))
+        if not _input:
+            return
         self._command_queue.put({
             "session": session.id,
             "input": _input[:128],
