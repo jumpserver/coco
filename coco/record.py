@@ -5,7 +5,6 @@
 import abc
 import logging
 
-
 logger = logging.getLogger(__file__)
 BUF_SIZE = 1024
 
@@ -14,7 +13,6 @@ END_SENTINEL = object()
 
 
 class ReplayRecorder(metaclass=abc.ABCMeta):
-
     def __init__(self, app):
         self.app = app
 
@@ -35,11 +33,12 @@ class ReplayRecorder(metaclass=abc.ABCMeta):
                 self.session_end(data["session"])
 
     @abc.abstractmethod
-    def session_end(self, session_id):
+    def session_start(self, session_id):
+        print("Session start")
         pass
 
     @abc.abstractmethod
-    def session_start(self, session_id):
+    def session_end(self, session_id):
         pass
 
 
@@ -74,7 +73,6 @@ class CommandRecorder(metaclass=abc.ABCMeta):
 
 
 class ServerReplayRecorder(ReplayRecorder):
-
     def record_replay(self, data_set):
         """
         :param data_set:
@@ -91,7 +89,6 @@ class ServerReplayRecorder(ReplayRecorder):
 
 
 class ServerCommandRecorder(CommandRecorder):
-
     def record_command(self, data_set):
         if not data_set:
             return True
