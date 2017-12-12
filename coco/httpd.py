@@ -5,6 +5,7 @@ import io
 import os
 import paramiko
 import logging
+import socket
 from flask_socketio import SocketIO, Namespace, emit
 from flask import Flask, send_from_directory, render_template, request, jsonify
 
@@ -20,24 +21,33 @@ logger = logging.getLogger(__file__)
 
 
 class BaseWebSocketHandler:
-    def prepare(self):
-        self.app = self.settings["app"]
+    def app(self, app):
+        self.app = app
+        return self
+
+    def prepare(self, request):
+        # self.app = self.settings["app"]
         child, parent = socket.socketpair()
-        request = Request((self.request.remote_ip, 0))
-        request.user = self.current_user
-        self.request.__dict__.update(request.__dict__)
+        if request.headers.getlist("X-Forwarded-For"):
+            remote_ip = request.headers.getlist("X-Forwarded-For")[0]
+        else:
+            remote_ip = request.remote_addr
+        self.request = Request((remote_ip, 0))
+        self.request.user = self.get_current_user()
+        self.request.meta = {"width": self.cols, "height": self.rows}
+        # self.request.__dict__.update(request.__dict__)
         self.client = Client(parent, self.request)
         self.proxy = WSProxy(self, child)
         self.app.clients.append(self.client)
 
     def get_current_user(self):
-        return User(id=1, username="guanghongwei", name="广宏伟")
+        return User(id='bb318c484f50483ea16589d7f18e9e95', username="admin", name="admin")
 
     def check_origin(self, origin):
         return True
 
-    def write_message(self, data):
-        self.emit('data', data['data'])
+    def close(self):
+        pass
 
 
 class SSHws(Namespace, BaseWebSocketHandler):
@@ -52,32 +62,30 @@ class SSHws(Namespace, BaseWebSocketHandler):
     def send_data(self):
         while True:
             data = self.chan.recv(2048).decode('utf-8', 'replace')
-            print(data)
             self.emit('data', data)
 
     def on_connect(self):
         self.cols = int(request.cookies.get('cols', 80))
-        self.raws = int(request.cookies.get('raws', 24))
+        self.rows = int(request.cookies.get('rows', 24))
+        self.prepare(request)
         InteractiveServer(self.app, self.client).interact_async()
 
     def on_data(self, message):
         # self.chan.send(message)
         # while not self.chan.recv_ready():
-        self.proxy.send(message)
+        self.proxy.send({"data": message})
         # emit('data', self.chan.recv(2048).decode('utf-8', 'replace'))
 
     # def on_event(self, message):
     #     self.evt_handle(message)
 
     def on_host(self, message):
+        # 此处获取主机的信息
         print(message)
 
     def on_resize(self, message):
-        # self.cols = message.get('cols', 80)
-        # self.raws = message.get('raws', 24)
-        # self.chan.resize_pty(width=self.cols, height=self.raws)
         self.request.meta['width'] = message.get('cols', 80)
-        self.request.meta['height'] = message.get('raws', 24)
+        self.request.meta['height'] = message.get('rows', 24)
         self.request.change_size_event.set()
 
     def on_disconnect(self):
@@ -96,8 +104,8 @@ class HttpServer:
 
     def __init__(self, app):
         self.app = app
-        self.settings['cookie_secret'] = self.app.config['SECRET_KEY']
-        self.settings['app'] = self.app
+        # self.settings['cookie_secret'] = self.app.config['SECRET_KEY']
+        # self.settings['app'] = self.app
 
         self.flask = Flask(__name__, template_folder='dist')
         self.flask.config['SECRET_KEY'] = self.app.config['SECRET_KEY']
@@ -107,9 +115,9 @@ class HttpServer:
         host = self.app.config["BIND_HOST"]
         port = self.app.config["HTTPD_PORT"]
         print('Starting websocket server at {}:{}'.format(host, port))
-        self.socketio.on_namespace(SSHws('/ssh').prepare())
+        self.socketio.on_namespace(SSHws('/ssh').app(self.app))
         self.socketio.init_app(self.flask)
-        self.socketio.run(self.flask, port=port, address=host)
+        self.socketio.run(self.flask, port=port, host=host)
 
     def shutdown(self):
         pass

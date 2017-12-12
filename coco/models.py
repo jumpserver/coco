@@ -71,6 +71,7 @@ class Server:
     Because we don't want to using python dynamic feature, such asset
     have the chan and system_user attr.
     """
+
     # Todo: Server name is not very suitable
     def __init__(self, chan, asset, system_user):
         self.chan = chan
@@ -219,7 +220,7 @@ class WSProxy:
             data = self.child.recv(BUF_SIZE)
             if len(data) == 0:
                 self.close()
-            self.ws.write_message(json.dumps({"data": data.decode("utf-8")}))
+            self.ws.emit("data", data.decode("utf-8"))
 
     def auto_forward(self):
         thread = threading.Thread(target=self.forward, args=())
