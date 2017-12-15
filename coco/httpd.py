@@ -12,7 +12,7 @@ from flask import Flask, send_from_directory, render_template, request, jsonify
 # Todo: Remove for future
 from jms.models import User
 from .models import Request, Client, WSProxy
-from .interactive import InteractiveServer
+from .forward import ProxyServer
 
 __version__ = '0.4.0'
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -55,7 +55,7 @@ class SSHws(Namespace, BaseWebSocketHandler):
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.ssh.connect("127.0.0.1", 22, "liuzheng", "liuzheng")
-        self.chan = self.ssh.invoke_shell(term='xterm', width=self.cols, height=self.raws)
+        self.chan = self.ssh.invoke_shell(term='xterm', width=self.cols, height=self.rows)
         self.socketio.start_background_task(self.send_data)
         # self.chan.settimeout(0.1)
 
@@ -68,7 +68,9 @@ class SSHws(Namespace, BaseWebSocketHandler):
         self.cols = int(request.cookies.get('cols', 80))
         self.rows = int(request.cookies.get('rows', 24))
         self.prepare(request)
-        InteractiveServer(self.app, self.client).interact_async()
+        self.forwarder = ProxyServer(self.app, self.client)
+
+        # InteractiveServer(self.app, self.client).interact_async()
 
     def on_data(self, message):
         # self.chan.send(message)
@@ -82,6 +84,17 @@ class SSHws(Namespace, BaseWebSocketHandler):
     def on_host(self, message):
         # 此处获取主机的信息
         print(message)
+        uuid = message.get('uuid', None)
+        username = message.get('username', None)
+        system_user = None
+
+        if uuid and username:
+            self.asset = self.app.service.get_asset(uuid)
+            for i in self.asset.system_users_granted:
+                if i.username == username:
+                    system_user = username
+            if system_user:
+                self.forwarder.proxy(self.asset, system_user)
 
     def on_resize(self, message):
         self.request.meta['width'] = message.get('cols', 80)
