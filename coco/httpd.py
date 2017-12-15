@@ -47,12 +47,17 @@ class BaseWebSocketHandler:
         return True
 
     def close(self):
+        try:
+            self.ssh.close()
+        except:
+            pass
         pass
 
 
 class SSHws(Namespace, BaseWebSocketHandler):
     def ssh_with_password(self):
         self.ssh = paramiko.SSHClient()
+
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.ssh.connect("127.0.0.1", 22, "liuzheng", "liuzheng")
         self.chan = self.ssh.invoke_shell(term='xterm', width=self.cols, height=self.rows)
@@ -95,6 +100,10 @@ class SSHws(Namespace, BaseWebSocketHandler):
                     system_user = username
             if system_user:
                 self.forwarder.proxy(self.asset, system_user)
+            else:
+                self.close()
+        else:
+            self.close()
 
     def on_resize(self, message):
         self.request.meta['width'] = message.get('cols', 80)
