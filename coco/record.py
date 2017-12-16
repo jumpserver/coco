@@ -73,7 +73,7 @@ class CommandRecorder(metaclass=abc.ABCMeta):
 
 
 class ServerReplayRecorder(ReplayRecorder):
-    filelist = {}
+    filelist = dict()
 
     def record_replay(self, data_set):
         """
@@ -89,16 +89,16 @@ class ServerReplayRecorder(ReplayRecorder):
         super().record_replay(data_set)
         for data in data_set:
             try:
-                self.filelist[data["session"]].write(data)
-            except IndexError:
+                ServerReplayRecorder.filelist[data["session"]].write(str(data))
+            except KeyError:
                 logger.error("session ({})file does not exist!".format(data["session"]))
 
     def session_start(self, session_id):
-        self.filelist[session_id] = open(session_id + '.log', 'a')
+        ServerReplayRecorder.filelist[session_id] = open(session_id + '.log', 'a')
         print("When session {} start exec".format(session_id))
 
     def session_end(self, session_id):
-        self.filelist[session_id].close()
+        ServerReplayRecorder.filelist[session_id].close()
         # Todo: upload the file
         print("When session {} end start".format(session_id))
 

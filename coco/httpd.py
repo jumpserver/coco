@@ -8,11 +8,13 @@ import logging
 import socket
 from flask_socketio import SocketIO, Namespace, emit
 from flask import Flask, send_from_directory, render_template, request, jsonify
+from urllib.parse import urlparse
 
 # Todo: Remove for future
 from jms.models import User
 from .models import Request, Client, WSProxy
 from .forward import ProxyServer
+import http.client
 
 __version__ = '0.4.0'
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -62,7 +64,6 @@ class SSHws(Namespace, BaseWebSocketHandler):
         self.ssh.connect("127.0.0.1", 22, "liuzheng", "liuzheng")
         self.chan = self.ssh.invoke_shell(term='xterm', width=self.cols, height=self.rows)
         self.socketio.start_background_task(self.send_data)
-        # self.chan.settimeout(0.1)
 
     def send_data(self):
         while True:
@@ -75,32 +76,21 @@ class SSHws(Namespace, BaseWebSocketHandler):
         self.prepare(request)
         self.forwarder = ProxyServer(self.app, self.client)
 
-        # InteractiveServer(self.app, self.client).interact_async()
-
     def on_data(self, message):
-        # self.chan.send(message)
-        # while not self.chan.recv_ready():
         self.proxy.send({"data": message})
-        # emit('data', self.chan.recv(2048).decode('utf-8', 'replace'))
-
-    # def on_event(self, message):
-    #     self.evt_handle(message)
 
     def on_host(self, message):
         # 此处获取主机的信息
         print(message)
-        asset = message.get('uuid', None)
-        username = message.get('username', None)
-        system_user = None
-
-        if self.asset and username:
-            # self.asset = self.app.service.get_asset(uuid)
-            # print(self.asset)
-            for i in self.asset['system_users_granted']:
-                if i.username == username:
-                    system_user = username
+        uuid = message.get('uuid', None)
+        userid = message.get('userid', None)
+        if uuid and userid:
+            self.asset = self.app.service.get_asset(uuid)
+            system_user = self.app.service.get_system_user(userid)
+            print(system_user)
             if system_user:
-                self.forwarder.proxy(self.asset, system_user)
+                self.socketio.start_background_task(self.forwarder.proxy, self.asset, system_user)
+                # self.forwarder.proxy(self.asset, system_user)
             else:
                 self.close()
         else:
