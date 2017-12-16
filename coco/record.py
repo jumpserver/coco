@@ -73,18 +73,33 @@ class CommandRecorder(metaclass=abc.ABCMeta):
 
 
 class ServerReplayRecorder(ReplayRecorder):
+    filelist = {}
+
     def record_replay(self, data_set):
         """
         :param data_set:
+        [{
+            "session": session.id,
+            "data": data,
+            "timestamp": time.time()
+        },...]
         :return:
         """
         # Todo: <liuzheng712@gmail.com>
         super().record_replay(data_set)
+        for data in data_set:
+            try:
+                self.filelist[data["session"]].write(data)
+            except IndexError:
+                logger.error("session ({})file does not exist!".format(data["session"]))
 
     def session_start(self, session_id):
+        self.filelist[session_id] = open(session_id + '.log', 'a')
         print("When session {} start exec".format(session_id))
 
     def session_end(self, session_id):
+        self.filelist[session_id].close()
+        # Todo: upload the file
         print("When session {} end start".format(session_id))
 
 

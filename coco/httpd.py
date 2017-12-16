@@ -41,7 +41,7 @@ class BaseWebSocketHandler:
         self.app.clients.append(self.client)
 
     def get_current_user(self):
-        return User(id='bb318c484f50483ea16589d7f18e9e95', username="admin", name="admin")
+        return User(id='61c39c1f5b5742688180b6dda235aadd', username="admin", name="admin")
 
     def check_origin(self, origin):
         return True
@@ -89,13 +89,14 @@ class SSHws(Namespace, BaseWebSocketHandler):
     def on_host(self, message):
         # 此处获取主机的信息
         print(message)
-        uuid = message.get('uuid', None)
+        asset = message.get('uuid', None)
         username = message.get('username', None)
         system_user = None
 
-        if uuid and username:
-            self.asset = self.app.service.get_asset(uuid)
-            for i in self.asset.system_users_granted:
+        if self.asset and username:
+            # self.asset = self.app.service.get_asset(uuid)
+            # print(self.asset)
+            for i in self.asset['system_users_granted']:
                 if i.username == username:
                     system_user = username
             if system_user:
