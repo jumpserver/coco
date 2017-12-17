@@ -90,9 +90,11 @@ class ServerReplayRecorder(ReplayRecorder):
         for data in data_set:
             try:
                 ServerReplayRecorder.filelist[data["session"]].write(str(data) + '\n')
-                return True
             except KeyError:
                 logger.error("session ({})file does not exist!".format(data["session"]))
+            except ValueError:
+                logger.error("session ({}) file cloesd!".format(data["session"]))
+        return True
 
     def session_start(self, session_id):
         ServerReplayRecorder.filelist[session_id] = open('logs/' + session_id + '.log', 'a')
