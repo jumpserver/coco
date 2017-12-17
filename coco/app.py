@@ -257,7 +257,7 @@ class Coco:
                     time.sleep(1)
 
     def put_replay_queue(self, session, data):
-        logger.debug("Put replay data: {} {}".format(session, data))
+        logger.info("Put replay data: {} {}".format(session, data))
         self._replay_queue.put({
             "session": session.id,
             "data": data,
