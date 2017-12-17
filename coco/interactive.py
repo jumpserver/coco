@@ -187,11 +187,11 @@ class InteractiveServer:
 
     def display_search_result(self):
         self.search_result = sort_assets(self.search_result, self.app.config["ASSET_LIST_SORT_BY"])
-        fake_asset = Asset(hostname=_("Hostname"), ip=_("IP"), system_users_join=_("LoginAs"), comment=_("Comment"))
+        fake_asset = Asset(hostname=_("Hostname"), ip=_("IP"), _system_users_name_list=_("LoginAs"), comment=_("Comment"))
         id_max_length = max(len(str(len(self.search_result))), 3)
         hostname_max_length = max(max([len(asset.hostname) for asset in self.search_result + [fake_asset]]), 15)
-        sysuser_max_length = max([len(asset.system_users_join) for asset in self.search_result + [fake_asset]])
-        header = '{1:>%d} {0.hostname:%d} {0.ip:15} {0.system_users_join:%d} ' % \
+        sysuser_max_length = max([len(asset.system_users_name_list) for asset in self.search_result + [fake_asset]])
+        header = '{1:>%d} {0.hostname:%d} {0.ip:15} {0.system_users_name_list:%d} ' % \
                  (id_max_length, hostname_max_length, sysuser_max_length)
         comment_length = self.request.meta["width"] - len(header.format(fake_asset, id_max_length))
         line = header + '{0.comment:.%d}' % (comment_length // 2)  # comment中可能有中文
@@ -214,8 +214,18 @@ class InteractiveServer:
         thread = threading.Thread(target=self.get_user_asset_groups)
         thread.start()
 
+    @staticmethod
+    def filter_system_users(assets):
+        for asset in assets:
+            system_users_granted = asset.system_users_granted
+            high_priority = max([s.priority for s in system_users_granted])
+            system_users_cleaned = [s for s in system_users_granted if s.priority == high_priority]
+            asset.system_users_granted = system_users_cleaned
+        return assets
+
     def get_user_assets(self):
-        self.assets = self.app.service.get_user_assets(self.client.user)
+        assets = self.app.service.get_user_assets(self.client.user)
+        self.assets = self.filter_system_users(assets)
         logger.debug("Get user {} assets total: {}".format(self.client.user, len(self.assets)))
 
     def get_user_assets_async(self):
@@ -223,6 +233,9 @@ class InteractiveServer:
         thread.start()
 
     def choose_system_user(self, system_users):
+        # highest_priority = max([s.priority for s in system_users])
+        # system_users = [s for s in system_users if s == highest_priority]
+
         if len(system_users) == 1:
             return system_users[0]
         elif len(system_users) == 0:
@@ -235,15 +248,15 @@ class InteractiveServer:
             if opt.isdigit() and len(system_users) > int(opt):
                 return system_users[int(opt)]
             elif opt in ['q', 'Q']:
-                break
+                return None
             else:
                 for system_user in system_users:
-                    if system_user.username == opt:
+                    if system_user.name == opt:
                         return system_user
 
     def display_system_users(self, system_users):
         for index, system_user in enumerate(system_users):
-            self.client.send(wr("{} {}".format(index, system_user.username)))
+            self.client.send(wr("{} {}".format(index, system_user.name)))
 
     def search_and_proxy(self, opt):
         self.search_assets(opt)
@@ -256,6 +269,7 @@ class InteractiveServer:
         system_user = self.choose_system_user(asset.system_users_granted)
         if system_user is None:
             self.client.send(_("No user"))
+            return
         forwarder = ProxyServer(self.app, self.client)
         forwarder.proxy(asset, system_user)
 
