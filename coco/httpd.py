@@ -101,7 +101,11 @@ class SSHws(Namespace, BaseWebSocketHandler):
         self.clients[request.sid]["request"].change_size_event.set()
 
     def on_disconnect(self):
-        self.clients[request.sid]["proxy"].close()
+        try:
+            # todo: there maybe have bug
+            self.clients[request.sid]["proxy"].close()
+        except:
+            pass
         # self.ssh.close()
         pass
 

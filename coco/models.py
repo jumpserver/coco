@@ -229,5 +229,5 @@ class WSProxy:
 
     def close(self):
         self.stop_event.set()
-        self.ws.close()
         self.child.close()
+        self.ws.on_disconnect()
