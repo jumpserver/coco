@@ -191,7 +191,7 @@ class WSProxy:
     ```
     """
 
-    def __init__(self, ws, child):
+    def __init__(self, ws, child, room):
         """
         :param ws: websocket instance or handler, have write_message method
         :param child: sock child pair
@@ -199,7 +199,7 @@ class WSProxy:
         self.ws = ws
         self.child = child
         self.stop_event = threading.Event()
-
+        self.room = room
         self.auto_forward()
 
     def send(self, msg):
@@ -220,7 +220,7 @@ class WSProxy:
             data = self.child.recv(BUF_SIZE)
             if len(data) == 0:
                 self.close()
-            self.ws.emit("data", data.decode("utf-8"))
+            self.ws.emit("data", data.decode("utf-8"), room=self.room)
 
     def auto_forward(self):
         thread = threading.Thread(target=self.forward, args=())

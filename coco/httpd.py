@@ -6,15 +6,14 @@ import os
 import paramiko
 import logging
 import socket
-from flask_socketio import SocketIO, Namespace, emit
+from flask_socketio import SocketIO, Namespace, emit, join_room, leave_room
 from flask import Flask, send_from_directory, render_template, request, jsonify
-from urllib.parse import urlparse
+import uuid
 
 # Todo: Remove for future
 from jms.models import User
 from .models import Request, Client, WSProxy
 from .forward import ProxyServer
-import http.client
 
 __version__ = '0.4.0'
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -23,6 +22,10 @@ logger = logging.getLogger(__file__)
 
 
 class BaseWebSocketHandler:
+    def __init__(self, *args, **kwargs):
+        self.clients = dict()
+        super().__init__(*args, **kwargs)
+
     def app(self, app):
         self.app = app
         return self
@@ -34,13 +37,15 @@ class BaseWebSocketHandler:
             remote_ip = request.headers.getlist("X-Forwarded-For")[0]
         else:
             remote_ip = request.remote_addr
-        self.request = Request((remote_ip, 0))
-        self.request.user = self.get_current_user()
-        self.request.meta = {"width": self.cols, "height": self.rows}
+        self.clients[request.sid]["request"] = Request((remote_ip, 0))
+        self.clients[request.sid]["request"].user = self.get_current_user()
+        self.clients[request.sid]["request"].meta = {"width": self.clients[request.sid]["cols"],
+                                                     "height": self.clients[request.sid]["rows"]}
         # self.request.__dict__.update(request.__dict__)
-        self.client = Client(parent, self.request)
-        self.proxy = WSProxy(self, child)
-        self.app.clients.append(self.client)
+        self.clients[request.sid]["client"] = Client(parent, self.clients[request.sid]["request"])
+        self.clients[request.sid]["proxy"] = WSProxy(self, child, self.clients[request.sid]["room"])
+        self.app.clients.append(self.clients[request.sid]["client"])
+        self.clients[request.sid]["forwarder"] = ProxyServer(self.app, self.clients[request.sid]["client"])
 
     def get_current_user(self):
         return User(id='61c39c1f5b5742688180b6dda235aadd', username="admin", name="admin")
@@ -50,34 +55,29 @@ class BaseWebSocketHandler:
 
     def close(self):
         try:
-            self.ssh.close()
+            self.clients[request.sid]["client"].close()
         except:
             pass
         pass
 
 
 class SSHws(Namespace, BaseWebSocketHandler):
-    def ssh_with_password(self):
-        self.ssh = paramiko.SSHClient()
-
-        self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.ssh.connect("127.0.0.1", 22, "liuzheng", "liuzheng")
-        self.chan = self.ssh.invoke_shell(term='xterm', width=self.cols, height=self.rows)
-        self.socketio.start_background_task(self.send_data)
-
-    def send_data(self):
-        while True:
-            data = self.chan.recv(2048).decode('utf-8', 'replace')
-            self.emit('data', data)
-
     def on_connect(self):
-        self.cols = int(request.cookies.get('cols', 80))
-        self.rows = int(request.cookies.get('rows', 24))
+        self.clients[request.sid] = {
+            "cols": int(request.cookies.get('cols', 80)),
+            "rows": int(request.cookies.get('rows', 24)),
+            "room": str(uuid.uuid4()),
+            "chan": None,
+            "proxy": None,
+            "client": None,
+        }
+        join_room(self.clients[request.sid]["room"])
+
         self.prepare(request)
-        self.forwarder = ProxyServer(self.app, self.client)
 
     def on_data(self, message):
-        self.proxy.send({"data": message})
+        if self.clients[request.sid]["proxy"]:
+            self.clients[request.sid]["proxy"].send({"data": message})
 
     def on_host(self, message):
         # 此处获取主机的信息
@@ -85,11 +85,10 @@ class SSHws(Namespace, BaseWebSocketHandler):
         uuid = message.get('uuid', None)
         userid = message.get('userid', None)
         if uuid and userid:
-            self.asset = self.app.service.get_asset(uuid)
+            asset = self.app.service.get_asset(uuid)
             system_user = self.app.service.get_system_user(userid)
-            print(system_user)
             if system_user:
-                self.socketio.start_background_task(self.forwarder.proxy, self.asset, system_user)
+                self.socketio.start_background_task(self.clients[request.sid]["forwarder"].proxy, asset, system_user)
                 # self.forwarder.proxy(self.asset, system_user)
             else:
                 self.close()
@@ -97,12 +96,12 @@ class SSHws(Namespace, BaseWebSocketHandler):
             self.close()
 
     def on_resize(self, message):
-        self.request.meta['width'] = message.get('cols', 80)
-        self.request.meta['height'] = message.get('rows', 24)
-        self.request.change_size_event.set()
+        self.clients[request.sid]["request"].meta['width'] = message.get('cols', 80)
+        self.clients[request.sid]["request"].meta['height'] = message.get('rows', 24)
+        self.clients[request.sid]["request"].change_size_event.set()
 
     def on_disconnect(self):
-        self.proxy.close()
+        self.clients[request.sid]["proxy"].close()
         # self.ssh.close()
         pass
 
