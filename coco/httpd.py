@@ -22,10 +22,6 @@ logger = logging.getLogger(__file__)
 
 
 class BaseWebSocketHandler:
-    def __init__(self, *args, **kwargs):
-        self.clients = dict()
-        super().__init__(*args, **kwargs)
-
     def app(self, app):
         self.app = app
         return self
@@ -62,6 +58,10 @@ class BaseWebSocketHandler:
 
 
 class SSHws(Namespace, BaseWebSocketHandler):
+    def __init__(self, *args, **kwargs):
+        self.clients = dict()
+        super().__init__(*args, **kwargs)
+
     def on_connect(self):
         self.clients[request.sid] = {
             "cols": int(request.cookies.get('cols', 80)),
