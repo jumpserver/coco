@@ -60,18 +60,25 @@ class BaseWebSocketHandler:
 class SSHws(Namespace, BaseWebSocketHandler):
     def __init__(self, *args, **kwargs):
         self.clients = dict()
+        self.rooms = dict()
         super().__init__(*args, **kwargs)
 
     def on_connect(self):
+        room = str(uuid.uuid4())
         self.clients[request.sid] = {
             "cols": int(request.cookies.get('cols', 80)),
             "rows": int(request.cookies.get('rows', 24)),
-            "room": str(uuid.uuid4()),
+            "room": room,
             "chan": None,
             "proxy": None,
             "client": None,
         }
-        join_room(self.clients[request.sid]["room"])
+        self.rooms[room] = {
+            "admin": request.sid,
+            "member": [],
+            "rw": []
+        }
+        join_room(room)
 
         self.prepare(request)
 
@@ -100,7 +107,25 @@ class SSHws(Namespace, BaseWebSocketHandler):
         self.clients[request.sid]["request"].meta['height'] = message.get('rows', 24)
         self.clients[request.sid]["request"].change_size_event.set()
 
+    def on_room(self, message):
+        if message == 'get':
+            self.emit('room', self.clients[request.sid]["room"], room=self.clients[request.sid]["room"])
+        elif message == 'join':
+            pass
+
+    def on_join(self, room):
+        self.clients[request.sid]["room"] = room
+        self.rooms[room]["member"].append(request.sid)
+        join_room(room=room)
+
+    def on_leave(self, room):
+        if self.rooms[room]["admin"] == request.sid:
+            self.emit("data", "\nAdmin leave", room=room)
+            self.rooms.remove(room)
+        leave_room(room=room)
+
     def on_disconnect(self):
+        self.on_leave(self.clients[request.sid]["room"])
         try:
             # todo: there maybe have bug
             self.clients[request.sid]["proxy"].close()
