@@ -8,7 +8,6 @@ import weakref
 
 from . import char
 from . import utils
-from .record import START_SENTINEL, END_SENTINEL
 
 BUF_SIZE = 4096
 logger = logging.getLogger(__file__)
@@ -87,23 +86,22 @@ class Server:
         self._input_initial = False
         self._in_vim_state = False
 
-        self.filters = []
         self._input = ""
         self._output = ""
         self._session_ref = None
-
-    @property
-    def session(self):
-        return self._session_ref() if self._session_ref is not None else None
-
-    def add_filter(self, _filter):
-        self.filters.append(_filter)
 
     def fileno(self):
         return self.chan.fileno()
 
     def set_session(self, session):
         self._session_ref = weakref.ref(session)
+
+    @property
+    def session(self):
+        if self._session_ref:
+            return self._session_ref()
+        else:
+            return None
 
     def send(self, b):
         if isinstance(b, str):
@@ -125,14 +123,11 @@ class Server:
                 self.session.put_command(self._input, self._output)
                 del self.input_data[:]
                 del self.output_data[:]
-                # self._input = ""
-                # self._output = ""
             self._in_input_state = True
         return self.chan.send(b)
 
     def recv(self, size):
         data = self.chan.recv(size)
-        self.session.put_replay(data)
         if self._input_initial:
             if self._in_input_state:
                 self.input_data.append(data)

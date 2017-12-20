@@ -27,7 +27,6 @@ class ProxyServer:
         self.request = client.request
         self.server = None
         self.connecting = True
-        self.session = None
 
     @property
     def app(self):
@@ -38,11 +37,17 @@ class ProxyServer:
         self.server = self.get_server_conn(asset, system_user)
         if self.server is None:
             return
-        self.session = Session(self.app, self.client, self.server)
-        self.app.add_session(self.session)
+        command_recorder = self.app.new_command_recorder()
+        replay_recorder = self.app.new_replay_recorder()
+        session = Session(
+            self.client, self.server,
+            command_recorder=command_recorder,
+            replay_recorder=replay_recorder,
+        )
+        self.app.add_session(session)
         self.watch_win_size_change_async()
-        self.session.bridge()
-        self.app.remove_session(self.session)
+        session.bridge()
+        self.app.remove_session(session)
 
     def validate_permission(self, asset, system_user):
         """

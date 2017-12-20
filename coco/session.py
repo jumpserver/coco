@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-
 import threading
 import uuid
 import logging
 import datetime
 import selectors
-import weakref
+import time
 
 
 BUF_SIZE = 1024
@@ -16,9 +15,8 @@ logger = logging.getLogger(__file__)
 
 class Session:
 
-    def __init__(self, app, client, server):
+    def __init__(self, client, server, command_recorder=None, replay_recorder=None):
         self.id = str(uuid.uuid4())
-        self._app = weakref.ref(app)
         self.client = client  # Master of the session, it's a client sock
         self.server = server  # Server channel
         self._watchers = []  # Only watch session
@@ -28,15 +26,9 @@ class Session:
         self.date_finished = None
         self.stop_evt = threading.Event()
         self.sel = selectors.DefaultSelector()
+        self._command_recorder = command_recorder
+        self._replay_recorder = replay_recorder
         self.server.set_session(self)
-        self._replay_queue = None
-        self._command_queue = None
-        self._replay_recorder = None
-        self._command_recorder = None
-
-    @property
-    def app(self):
-        return self._app()
 
     def add_watcher(self, watcher, silent=False):
         """
@@ -79,6 +71,40 @@ class Session:
         self.sel.unregister(sharer)
         self._sharers.remove(sharer)
 
+    def set_command_recorder(self, recorder):
+        self._command_recorder = recorder
+
+    def set_replay_recorder(self, recorder):
+        self._replay_recorder = recorder
+
+    def put_command(self, _input, _output):
+        if not _input:
+            return
+        self._command_recorder.record({
+            "session": self.id,
+            "input": _input,
+            "output": _output,
+            "user": self.client.user.username,
+            "asset": self.server.asset.hostname,
+            "system_user": self.server.system_user.username,
+            "timestamp": time.time(),
+        })
+
+    def put_replay(self, data):
+        self._replay_recorder.record({
+            "session": self.id,
+            "data": data,
+            "timestamp": time.time(),
+        })
+
+    def pre_bridge(self):
+        self._replay_recorder.session_start(self.id)
+        self._command_recorder.session_start(self.id)
+
+    def post_bridge(self):
+        self._replay_recorder.session_end(self.id)
+        self._command_recorder.session_end(self.id)
+
     def terminate(self):
         msg = b"Terminate by administrator\r\n"
         self.client.send(msg)
@@ -90,6 +116,7 @@ class Session:
         :return:
         """
         logger.info("Start bridge session: {}".format(self.id))
+        self.pre_bridge()
         self.sel.register(self.client, selectors.EVENT_READ)
         self.sel.register(self.server, selectors.EVENT_READ)
         while not self.stop_evt.is_set():
@@ -130,15 +157,10 @@ class Session:
         logger.debug("Resize server chan size {}*{}".format(width, height))
         self.server.resize_pty(width=width, height=height)
 
-    def put_command(self, _input, _output):
-        self.app.put_command_queue(self, _input, _output)
-
-    def put_replay(self, data):
-        self.app.put_replay_queue(self, data)
-
     def close(self):
         logger.info("Close the session: {} ".format(self.id))
         self.stop_evt.set()
+        self.post_bridge()
         self.date_finished = datetime.datetime.now()
         self.server.close()
 
