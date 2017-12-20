@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-import io
 import os
-import paramiko
 import logging
 import socket
 from flask_socketio import SocketIO, Namespace, emit, join_room, leave_room
@@ -13,7 +11,7 @@ import uuid
 # Todo: Remove for future
 from jms.models import User
 from .models import Request, Client, WSProxy
-from .forward import ProxyServer
+from .proxy import ProxyServer
 
 __version__ = '0.4.0'
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))

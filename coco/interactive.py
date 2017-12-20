@@ -15,7 +15,7 @@ from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
     wrap_with_primary as primary, wrap_with_warning as warning, \
     is_obj_attr_has, is_obj_attr_eq, sort_assets, TtyIOParser, \
     ugettext as _
-from .forward import ProxyServer
+from .proxy import ProxyServer
 
 logger = logging.getLogger(__file__)
 
@@ -115,15 +115,15 @@ class InteractiveServer:
             return self._sentinel
         elif opt.startswith("/"):
             self.search_and_display(opt.lstrip("/"))
-        elif opt in ['p', 'P', '3']:
+        elif opt in ['p', 'P']:
             self.display_assets()
-        elif opt in ['g', 'G', '4']:
+        elif opt in ['g', 'G']:
             self.display_asset_groups()
         elif opt.startswith("g") and opt.lstrip("g").isdigit():
             self.display_group_assets(int(opt.lstrip("g")))
-        elif opt in ['q', 'Q', '0']:
+        elif opt in ['q', 'Q']:
             return self._sentinel
-        elif opt in ['h', 'H', '9']:
+        elif opt in ['h', 'H']:
             self.display_banner()
         else:
             self.search_and_proxy(opt)
