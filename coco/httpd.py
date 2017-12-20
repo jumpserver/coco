@@ -72,6 +72,7 @@ class SSHws(Namespace, BaseWebSocketHandler):
             "chan": None,
             "proxy": None,
             "client": None,
+            "request": None,
         }
         self.rooms[room] = {
             "admin": request.sid,
@@ -88,7 +89,6 @@ class SSHws(Namespace, BaseWebSocketHandler):
 
     def on_host(self, message):
         # 此处获取主机的信息
-        print(message)
         uuid = message.get('uuid', None)
         userid = message.get('userid', None)
         if uuid and userid:
@@ -98,14 +98,15 @@ class SSHws(Namespace, BaseWebSocketHandler):
                 self.socketio.start_background_task(self.clients[request.sid]["forwarder"].proxy, asset, system_user)
                 # self.forwarder.proxy(self.asset, system_user)
             else:
-                self.close()
+                self.on_disconnect()
         else:
-            self.close()
+            self.on_disconnect()
 
     def on_resize(self, message):
-        self.clients[request.sid]["request"].meta['width'] = message.get('cols', 80)
-        self.clients[request.sid]["request"].meta['height'] = message.get('rows', 24)
-        self.clients[request.sid]["request"].change_size_event.set()
+        if self.clients[request.sid]["request"]:
+            self.clients[request.sid]["request"].meta['width'] = message.get('cols', 80)
+            self.clients[request.sid]["request"].meta['height'] = message.get('rows', 24)
+            self.clients[request.sid]["request"].change_size_event.set()
 
     def on_room(self, message):
         if message == 'get':
