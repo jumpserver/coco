@@ -129,6 +129,31 @@ class Coco(object):
             logger.warning('No ssh channel get.')
             sys.exit(1)
 
+        # 开始扫行 otp token 检测
+        if ssh_interface.user_service.is_enable_otp():
+            otp_try_count = 0
+            while True:
+                client_channel.send('otp token: ')
+                f = client_channel.makefile('rU')
+                otp_token = f.readline().strip('\r\n')
+                client_channel.send('\r\n')
+
+                result, reason = ssh_interface.user_service.verify_token(otp_token)
+                if result:
+                    break
+                else:
+                    client_channel.send(reason)
+                    client_channel.send('\r\n')
+                    otp_try_count+=1
+                    if otp_try_count == 5:
+                        client_channel.send('otp token error to much')
+                        client_channel.close()
+                        sys.exit(2)
+        elif ssh_interface.user_service.is_enable_otp() == None:
+            client_channel.send(wr(warning('Connect to jumpserver error')))
+            client_channel.close()
+            sys.exit(2)
+
         if request.method == 'shell':
             logger.info('Client asked for a shell.')
             InteractiveServer(self, ssh_interface.user_service, client_channel).run()
