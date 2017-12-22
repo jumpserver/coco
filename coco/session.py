@@ -121,7 +121,7 @@ class Session:
             events = self.sel.select()
             for sock in [key.fileobj for key, _ in events]:
                 data = sock.recv(BUF_SIZE)
-                self.put_replay(data)
+                # self.put_replay(data)
                 if sock == self.server:
                     if len(data) == 0:
                         msg = "Server close the connection"

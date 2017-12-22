@@ -99,18 +99,19 @@ class ServerReplayRecorder(ReplayRecorder):
         :return:
         """
         # Todo: <liuzheng712@gmail.com>
-        self.file.write(str({'data': data['data'], 't': data['timestamp'] - self.starttime}))
-        self.file.write(',')
+        if len(data['data']) > 0:
+            self.file.write(
+                '"' + str(data['timestamp'] - self.starttime) + '":"' + data['data'].decode('utf-8', 'replace') + '",')
 
     def session_start(self, session_id):
         self.starttime = time.time()
         self.file = open(os.path.join(
             self.app.config['LOG_DIR'], session_id + '.replay'
         ), 'a')
-        self.file.write('[')
+        self.file.write('{')
 
     def session_end(self, session_id):
-        self.file.write(']')
+        self.file.write('}')
         self.file.close()
 
     def push_to_server(self):
