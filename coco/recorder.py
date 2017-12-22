@@ -98,7 +98,7 @@ class ServerReplayRecorder(ReplayRecorder):
         :return:
         """
         # Todo: <liuzheng712@gmail.com>
-        self.file.write(data)
+        self.file.write(str(data))
 
     def session_start(self, session_id):
         self.file = open(os.path.join(

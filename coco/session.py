@@ -8,19 +8,17 @@ import datetime
 import selectors
 import time
 
-
 BUF_SIZE = 1024
 logger = logging.getLogger(__file__)
 
 
 class Session:
-
     def __init__(self, client, server, command_recorder=None, replay_recorder=None):
         self.id = str(uuid.uuid4())
         self.client = client  # Master of the session, it's a client sock
         self.server = server  # Server channel
         self._watchers = []  # Only watch session
-        self._sharers = []   # Join to the session, read and write
+        self._sharers = []  # Join to the session, read and write
         self.replaying = True
         self.date_created = datetime.datetime.now()
         self.date_finished = None
@@ -123,6 +121,7 @@ class Session:
             events = self.sel.select()
             for sock in [key.fileobj for key, _ in events]:
                 data = sock.recv(BUF_SIZE)
+                self.put_replay(data)
                 if sock == self.server:
                     if len(data) == 0:
                         msg = "Server close the connection"
@@ -184,8 +183,3 @@ class Session:
 
     def __del__(self):
         logger.info("Session {} object has been GC")
-
-
-
-
-
