@@ -124,7 +124,7 @@ class ServerReplayRecorder(ReplayRecorder):
             logger.error("Failed to push {}'s {}".format(session_id, "record"))
 
     def push_to_server(self, session_id):
-        return self.app.service.push_session_replay(os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
+        return self.app.service.push_session_replay(os.path.join(self.app.config['LOG_DIR'], session_id + '.replay'),
                                                     session_id)
 
     def __del__(self):
