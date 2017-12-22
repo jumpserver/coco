@@ -128,6 +128,7 @@ class Server:
 
     def recv(self, size):
         data = self.chan.recv(size)
+        self.session.put_replay(data)
         if self._input_initial:
             if self._in_input_state:
                 self.input_data.append(data)
