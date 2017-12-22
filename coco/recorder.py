@@ -7,6 +7,8 @@ import logging
 import threading
 import time
 import os
+import gzip
+import shutil
 
 from .alignment import MemoryQueue
 
@@ -113,9 +115,17 @@ class ServerReplayRecorder(ReplayRecorder):
     def session_end(self, session_id):
         self.file.write('}')
         self.file.close()
+        with open(os.path.join(self.app.config['LOG_DIR'], session_id + '.replay'), 'rb') as f_in, \
+                gzip.open(os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'), 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
+        if self.push_to_server(session_id):
+            logger.info("Succeed to push {}'s {}".format(session_id, "record"))
+        else:
+            logger.error("Failed to push {}'s {}".format(session_id, "record"))
 
-    def push_to_server(self):
-        pass
+    def push_to_server(self, session_id):
+        return self.app.service.push_session_replay(os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
+                                                    session_id)
 
     def __del__(self):
         print("{} has been gc".format(self))
