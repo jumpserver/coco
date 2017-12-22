@@ -5,6 +5,7 @@
 import abc
 import logging
 import threading
+import time
 import os
 
 from .alignment import MemoryQueue
@@ -98,14 +99,18 @@ class ServerReplayRecorder(ReplayRecorder):
         :return:
         """
         # Todo: <liuzheng712@gmail.com>
-        self.file.write(str(data))
+        self.file.write(str({'data': data['data'], 't': data['timestamp'] - self.starttime}))
+        self.file.write(',')
 
     def session_start(self, session_id):
+        self.starttime = time.time()
         self.file = open(os.path.join(
             self.app.config['LOG_DIR'], session_id + '.replay'
         ), 'a')
+        self.file.write('[')
 
     def session_end(self, session_id):
+        self.file.write(']')
         self.file.close()
 
     def push_to_server(self):
