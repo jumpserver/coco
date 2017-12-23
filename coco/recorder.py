@@ -8,6 +8,7 @@ import threading
 import time
 import os
 import gzip
+import json
 import shutil
 
 from .alignment import MemoryQueue
@@ -102,8 +103,11 @@ class ServerReplayRecorder(ReplayRecorder):
         """
         # Todo: <liuzheng712@gmail.com>
         if len(data['data']) > 0:
+            # print(json.dumps(
+            #     data['data'].decode('utf-8', 'replace')))
             self.file.write(
-                '"' + str(data['timestamp'] - self.starttime) + '":"' + data['data'].decode('utf-8', 'replace') + '",')
+                '"' + str(data['timestamp'] - self.starttime) + '":' + json.dumps(
+                    data['data'].decode('utf-8', 'replace')) + ',')
 
     def session_start(self, session_id):
         self.starttime = time.time()
@@ -113,7 +117,7 @@ class ServerReplayRecorder(ReplayRecorder):
         self.file.write('{')
 
     def session_end(self, session_id):
-        self.file.write('}')
+        self.file.write('"0":""}')
         self.file.close()
         with open(os.path.join(self.app.config['LOG_DIR'], session_id + '.replay'), 'rb') as f_in, \
                 gzip.open(os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'), 'wb') as f_out:
