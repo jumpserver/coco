@@ -5,12 +5,12 @@ COPY . /opt/coco
 WORKDIR /opt/coco
 
 RUN cd requirements && yum -y install $(cat rpm_requirements.txt) && \
-   pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+   pip install -r requirements.txt
 
 VOLUME /opt/coco/logs
 VOLUME /opt/coco/keys
 
-RUN cp config_docker.py config.py
+RUN cp conf_docker.py conf.py
 
 EXPOSE 2222
 CMD python run_server.py

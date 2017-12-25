@@ -106,13 +106,14 @@ class SSHws(Namespace, BaseWebSocketHandler):
             self.clients[request.sid]["request"].meta['height'] = message.get('rows', 24)
             self.clients[request.sid]["request"].change_size_event.set()
 
-    def on_room(self, message):
-        if message == 'get':
-            self.emit('room', self.clients[request.sid]["room"], room=self.clients[request.sid]["room"])
-        elif message == 'join':
-            pass
+    def on_room(self, sessionid):
+        if sessionid not in self.clients.keys():
+            self.emit('error', "no such session", room=self.clients[request.sid]["room"])
+        else:
+            self.emit('room', self.clients[sessionid]["room"], room=self.clients[request.sid]["room"])
 
     def on_join(self, room):
+        self.on_leave(self.clients[request.id]["room"])
         self.clients[request.sid]["room"] = room
         self.rooms[room]["member"].append(request.sid)
         join_room(room=room)
@@ -162,156 +163,3 @@ class HttpServer:
     def shutdown(self):
         pass
 
-
-if __name__ == "__main__":
-    app = Flask(__name__, template_folder='/Users/liuzheng/gitproject/Jumpserver/webterminal/dist')
-
-
-    @app.route('/luna/<path:path>')
-    def send_js(path):
-        return send_from_directory('/Users/liuzheng/gitproject/Jumpserver/webterminal/dist', path)
-
-
-    @app.route('/')
-    @app.route('/luna/')
-    def index():
-        return render_template('index.html')
-
-
-    @app.route('/api/perms/v1/user/my/asset-groups-assets/')
-    def asset_groups_assets():
-        assets = [
-            {
-                "id": 0,
-                "name": "ungrouped",
-                "assets": []
-            },
-            {
-                "id": 1,
-                "name": "Default",
-                "comment": "Default asset group",
-                "assets": [
-                    {
-                        "id": 2,
-                        "hostname": "192.168.1.6",
-                        "ip": "192.168.2.6",
-                        "port": 22,
-                        "system": "windows",
-                        "uuid": "xxxxxx",
-                        "system_users": [
-                            {
-                                "id": 1,
-                                "name": "web",
-                                "username": "web",
-                                "protocol": "ssh",
-                                "auth_method": "P",
-                                "auto_push": True
-                            }
-                        ]
-                    },
-                    {
-                        "id": 4,
-                        "hostname": "testserver123",
-                        "ip": "123.57.183.135",
-                        "port": 8022,
-                        "system": "linux",
-                        "uuid": "linux-xxlkjadf",
-                        "system_users": [
-                            {
-                                "id": 1,
-                                "name": "web",
-                                "username": "web",
-                                "protocol": "ssh",
-                                "auth_method": "P",
-                                "auto_push": True
-                            }
-                        ]
-                    }
-                ]
-            },
-            {
-                "id": 4,
-                "name": "java",
-                "comment": "",
-                "assets": [
-                    {
-                        "id": 2,
-                        "hostname": "192.168.1.6",
-                        "ip": "192.168.2.6",
-                        "uuid": "sadcascas",
-                        "system": "linux",
-                        "port": 22,
-                        "system_users": [
-                            {
-                                "id": 1,
-                                "name": "web",
-                                "username": "web",
-                                "protocol": "ssh",
-                                "auth_method": "P",
-                                "auto_push": True
-                            }
-                        ]
-                    }
-                ]
-            },
-            {
-                "id": 3,
-                "name": "数据库",
-                "comment": "",
-                "assets": [
-                    {
-                        "id": 2,
-                        "hostname": "192.168.1.6",
-                        "ip": "192.168.2.6",
-                        "port": 22,
-                        "uuid": "sadcascascasdcas",
-                        "system": "linux",
-                        "system_users": [
-                            {
-                                "id": 1,
-                                "name": "web",
-                                "username": "web",
-                                "protocol": "ssh",
-                                "auth_method": "P",
-                                "auto_push": True
-                            }
-                        ]
-                    }
-                ]
-            },
-            {
-                "id": 2,
-                "name": "运维组",
-                "comment": "",
-                "assets": [
-                    {
-                        "id": 2,
-                        "hostname": "192.168.1.6",
-                        "ip": "192.168.2.6",
-                        "port": 22,
-                        "uuid": "zxcasd",
-                        "system": "linux",
-                        "system_users": [
-                            {
-                                "id": 1,
-                                "name": "web",
-                                "username": "web",
-                                "protocol": "ssh",
-                                "auth_method": "P",
-                                "auto_push": True
-                            }
-                        ]
-                    }
-                ]
-            }
-        ]
-        return jsonify(assets)
-
-
-    print('socketio')
-
-    socketio = SocketIO()
-    socketio.init_app(app)
-    socketio.on_namespace(SSHws('/ssh'))
-
-    socketio.run(app)
