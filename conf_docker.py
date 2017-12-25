@@ -12,7 +12,7 @@ class Config:
     APP_NAME = "coco"
 
     # Jumpserver项目的url, api请求注册会使用
-    # CORE_HOST = os.environ.get("CORE_HOST") or 'http://127.0.0.1:8080'
+    CORE_HOST = os.environ.get("CORE_HOST") or 'http://127.0.0.1:8080'
 
     # 启动时绑定的ip, 默认 0.0.0.0
     # BIND_HOST = '0.0.0.0'
@@ -56,6 +56,3 @@ class Config:
 
     # Admin的名字，出问题会提示给用户
     # ADMINS = ''
-
-
-config = Config()
