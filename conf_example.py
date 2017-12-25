@@ -7,7 +7,7 @@ import os
 BASE_DIR = os.path.dirname(__file__)
 
 # 项目名称, 会用来向Jumpserver注册, 识别而已, 不能重复
-APP_NAME = "coco"
+# APP_NAME = "localhost"
 
 # Jumpserver项目的url, api请求注册会使用
 # CORE_HOST = 'http://127.0.0.1:8080'
@@ -51,9 +51,6 @@ APP_NAME = "coco"
 
 # 和Jumpserver 保持心跳时间间隔
 # HEARTBEAT_INTERVAL = 5
-
-# 异步上报统计命令
-# COMMAND_PUSH_ASYNC = True
 
 # Admin的名字，出问题会提示给用户
 # ADMINS = ''

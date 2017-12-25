@@ -7,6 +7,7 @@ import os
 import time
 import threading
 import logging
+import socket
 
 from jms.service import AppService
 
@@ -27,7 +28,7 @@ logger = logging.getLogger(__file__)
 class Coco:
     config_class = Config
     default_config = {
-        'NAME': 'coco',
+        'NAME': socket.gethostname(),
         'CORE_HOST': 'http://127.0.0.1:8080',
         'DEBUG': True,
         'BIND_HOST': '0.0.0.0',
@@ -53,7 +54,7 @@ class Coco:
     def __init__(self, name=None, root_path=None):
         self.root_path = root_path if root_path else BASE_DIR
         self.config = self.config_class(self.root_path, defaults=self.default_config)
-        self.name = name if name else self.config['NAME']
+        self.name = name if name else self.config["NAME"]
         self.sessions = []
         self.clients = []
         self.lock = threading.Lock()
