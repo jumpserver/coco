@@ -120,7 +120,7 @@ class SSHws(Namespace, BaseWebSocketHandler):
     def on_leave(self, room):
         if self.rooms[room]["admin"] == request.sid:
             self.emit("data", "\nAdmin leave", room=room)
-            self.rooms.remove(room)
+            del self.rooms[room]
         leave_room(room=room)
 
     def on_disconnect(self):
