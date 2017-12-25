@@ -8,11 +8,14 @@ BASE_DIR = os.path.dirname(__file__)
 
 
 class Config:
-    # 项目名称, 会用来向Jumpserver注册, 识别而已, 不能重复
-    APP_NAME = "coco"
+    """
+    Coco config file
+    """
+    # 默认的名字
+    # APP_NAME = "localhost"
 
     # Jumpserver项目的url, api请求注册会使用
-    CORE_HOST = os.environ.get("CORE_HOST") or 'http://127.0.0.1:8080'
+    CORE_HOST = os.environ.get("CORE_HOST") or 'http://jumpserver:8080'
 
     # 启动时绑定的ip, 默认 0.0.0.0
     # BIND_HOST = '0.0.0.0'
@@ -56,3 +59,10 @@ class Config:
 
     # Admin的名字，出问题会提示给用户
     # ADMINS = ''
+
+
+class ConfigDocker(Config):
+    pass
+
+
+config = ConfigDocker()
