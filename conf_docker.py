@@ -15,7 +15,7 @@ class Config:
     # APP_NAME = "localhost"
 
     # Jumpserver项目的url, api请求注册会使用
-    CORE_HOST = os.environ.get("CORE_HOST") or 'http://jumpserver:8080'
+    CORE_HOST = os.environ.get("CORE_HOST") or 'http://core:8080'
 
     # 启动时绑定的ip, 默认 0.0.0.0
     # BIND_HOST = '0.0.0.0'
