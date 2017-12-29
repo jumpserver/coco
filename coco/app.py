@@ -130,7 +130,7 @@ class Coco(object):
             sys.exit(1)
 
         # 开始扫行 otp token 检测
-        if ssh_interface.user_service.is_enable_otp():
+        if ssh_interface.user_service.is_check_otp(addr[0]):
             otp_try_count = 0
             while True:
                 client_channel.send('otp token: ')
@@ -138,7 +138,7 @@ class Coco(object):
                 otp_token = f.readline().strip('\r\n')
                 client_channel.send('\r\n')
 
-                result, reason = ssh_interface.user_service.verify_token(otp_token)
+                result, reason = ssh_interface.user_service.verify_token(otp_token, addr[0])
                 if result:
                     break
                 else:
@@ -149,7 +149,7 @@ class Coco(object):
                         client_channel.send('otp token error to much')
                         client_channel.close()
                         sys.exit(2)
-        elif ssh_interface.user_service.is_enable_otp() == None:
+        elif ssh_interface.user_service.is_check_otp(addr[0]) == None:
             client_channel.send(wr(warning('Connect to jumpserver error')))
             client_channel.close()
             sys.exit(2)
