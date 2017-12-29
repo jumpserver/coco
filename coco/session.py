@@ -182,4 +182,4 @@ class Session:
         return self.id
 
     def __del__(self):
-        logger.info("Session {} object has been GC")
+        logger.info("Session {} object has been GC".format(self.id))

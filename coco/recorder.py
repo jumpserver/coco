@@ -174,11 +174,10 @@ class ServerCommandRecorder(CommandRecorder, metaclass=Singleton):
         thread.start()
 
     def session_start(self, session_id):
-        print("When session {} start exec".format(session_id))
+        pass
 
     def session_end(self, session_id):
-        self.stop_evt.set()
-        print("When session {} end start".format(session_id))
+        pass
 
     def __del__(self):
         print("{} has been gc".format(self))
