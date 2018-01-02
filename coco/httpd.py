@@ -42,7 +42,7 @@ class BaseWebSocketHandler:
         self.clients[request.sid]["forwarder"] = ProxyServer(self.app, self.clients[request.sid]["client"])
 
     def get_current_user(self):
-        return User(id='61c39c1f5b5742688180b6dda235aadd', username="admin", name="admin")
+        return self.app.service.get_profile()
 
     def check_origin(self, origin):
         return True
