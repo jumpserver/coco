@@ -32,7 +32,7 @@ class BaseWebSocketHandler:
         else:
             remote_ip = request.remote_addr
         self.clients[request.sid]["request"] = Request((remote_ip, 0))
-        self.clients[request.sid]["request"].user = self.get_current_user()
+        self.clients[request.sid]["request"].user = self.current_user
         self.clients[request.sid]["request"].meta = {"width": self.clients[request.sid]["cols"],
                                                      "height": self.clients[request.sid]["rows"]}
         # self.request.__dict__.update(request.__dict__)
@@ -40,9 +40,6 @@ class BaseWebSocketHandler:
         self.clients[request.sid]["proxy"] = WSProxy(self, child, self.clients[request.sid]["room"])
         self.app.clients.append(self.clients[request.sid]["client"])
         self.clients[request.sid]["forwarder"] = ProxyServer(self.app, self.clients[request.sid]["client"])
-
-    def get_current_user(self):
-        return User(id='61c39c1f5b5742688180b6dda235aadd', username="admin", name="admin")
 
     def check_origin(self, origin):
         return True
@@ -78,7 +75,8 @@ class SSHws(Namespace, BaseWebSocketHandler):
             "rw": []
         }
         join_room(room)
-
+        self.current_user = self.app.service.check_user_cookie(session_id=request.cookies.get('sessionid', ''),
+                                                               csrf_token=request.cookies.get('csrftoken', ''))
         self.prepare(request)
 
     def on_data(self, message):
@@ -162,4 +160,3 @@ class HttpServer:
 
     def shutdown(self):
         pass
-

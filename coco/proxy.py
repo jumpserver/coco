@@ -69,7 +69,8 @@ class ProxyServer:
     def get_server_conn(self, asset, system_user):
         logger.info("Connect to {}".format(asset.hostname))
         if not self.validate_permission(asset, system_user):
-            self.client.send(warning(_('No permission')))
+            # self.client.send(warning(_('No permission')))
+            self.client.send(warning('No permission'))
             return None
         self.get_system_user_auth(system_user)
         if True:
