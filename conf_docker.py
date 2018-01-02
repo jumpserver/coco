@@ -37,7 +37,7 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY") or 'SKdfm239LSKdfj())_23jK*^2'
 
     # 设置日志级别 ['DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL', 'CRITICAL']
-    LOG_LEVEL = os.environ.get("LOG_LEVEL") or 'INFO'
+    LOG_LEVEL = os.environ.get("LOG_LEVEL") or 'DEBUG'
 
     # 日志存放的目录
     LOG_DIR = os.environ.get("LOG_DIR") or os.path.join(BASE_DIR, 'logs')
