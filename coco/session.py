@@ -5,6 +5,7 @@ import threading
 import uuid
 import logging
 import datetime
+import time
 import selectors
 import time
 
@@ -20,7 +21,7 @@ class Session:
         self._watchers = []  # Only watch session
         self._sharers = []  # Join to the session, read and write
         self.replaying = True
-        self.date_created = datetime.datetime.now()
+        self.date_created = datetime.datetime.utcnow()
         self.date_end = None
         self.stop_evt = threading.Event()
         self.sel = selectors.DefaultSelector()
@@ -160,7 +161,7 @@ class Session:
         logger.info("Close the session: {} ".format(self.id))
         self.stop_evt.set()
         self.post_bridge()
-        self.date_end = datetime.datetime.now()
+        self.date_end = datetime.datetime.utcnow()
         self.server.close()
 
     def to_json(self):
@@ -171,8 +172,8 @@ class Session:
             "system_user": self.server.system_user.username,
             "login_from": "ST",
             "is_finished": True if self.stop_evt.is_set() else False,
-            "date_start": self.date_created.strftime("%Y-%m-%d %H:%M:%S"),
-            "date_end": self.date_end.strftime("%Y-%m-%d %H:%M:%S") if self.date_end else None
+            "date_start": self.date_created.strftime("%Y-%m-%d %H:%M:%S") + " +0000",
+            "date_end": self.date_end.strftime("%Y-%m-%d %H:%M:%S") + " +0000" if self.date_end else None
         }
 
     def __str__(self):
