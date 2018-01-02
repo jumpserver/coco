@@ -8,3 +8,5 @@ logs/*
 conf.py
 host_rsa_key
 sessions/*
+Dockerfile
+conf_docker.py
