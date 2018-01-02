@@ -21,7 +21,7 @@ class Session:
         self._sharers = []  # Join to the session, read and write
         self.replaying = True
         self.date_created = datetime.datetime.now()
-        self.date_finished = None
+        self.date_end = None
         self.stop_evt = threading.Event()
         self.sel = selectors.DefaultSelector()
         self._command_recorder = command_recorder
@@ -160,7 +160,7 @@ class Session:
         logger.info("Close the session: {} ".format(self.id))
         self.stop_evt.set()
         self.post_bridge()
-        self.date_finished = datetime.datetime.now()
+        self.date_end = datetime.datetime.now()
         self.server.close()
 
     def to_json(self):
@@ -172,7 +172,7 @@ class Session:
             "login_from": "ST",
             "is_finished": True if self.stop_evt.is_set() else False,
             "date_start": self.date_created.strftime("%Y-%m-%d %H:%M:%S"),
-            "date_finished": self.date_finished.strftime("%Y-%m-%d %H:%M:%S") if self.date_finished else None
+            "date_end": self.date_end.strftime("%Y-%m-%d %H:%M:%S") if self.date_end else None
         }
 
     def __str__(self):
@@ -182,4 +182,4 @@ class Session:
         return self.id
 
     def __del__(self):
-        logger.info("Session {} object has been GC")
+        logger.info("Session {} object has been GC".format(self.id))
