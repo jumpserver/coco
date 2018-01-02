@@ -53,10 +53,7 @@ class InteractiveServer:
     3) 输入 {green}P/p{end} 显示您有权限的主机.\r
     4) 输入 {green}G/g{end} 显示您有权限的主机组.\r
     5) 输入 {green}G/g{end} + {green}组ID{end} 显示该组下主机. 如: g1\r
-    6) 输入 {green}E/e{end} 批量执行命令.(未完成)\r
-    7) 输入 {green}U/u{end} 批量上传文件.(未完成)\r
-    8) 输入 {green}D/d{end} 批量下载文件.(未完成)\r
-    9) 输入 {green}H/h{end} 帮助.\r
+    6) 输入 {green}H/h{end} 帮助.\r
     0) 输入 {green}Q/q{end} 退出.\r\n""").format(
             title="\033[1;32m", green="\033[32m",
             end="\033[0m", user=self.client.user
