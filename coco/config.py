@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+#
+
 """
     coco.config
     ~~~~~~~~~~~~
@@ -261,3 +264,6 @@ class Config(dict):
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, dict.__repr__(self))
+
+
+

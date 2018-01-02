@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 #
 
 import os
@@ -7,7 +8,7 @@ import sys
 from coco import Coco
 
 try:
-    import conf
+    from conf import config
 except ImportError:
     print("Please prepare config file `cp conf_example.py conf.py`")
     sys.exit(1)
@@ -21,7 +22,7 @@ except:
 
 
 coco = Coco()
-coco.config.from_object(conf)
+coco.config.from_object(config)
 
 # Todo:
 # 0. argparser

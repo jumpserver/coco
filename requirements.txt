@@ -1,5 +1,0 @@
-paramiko>=2.1.2
-python-gssapi>=0.6.4
-requests>=2.11.1
-pyte>=0.5.2
-tornado>=4.5.2

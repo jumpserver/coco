@@ -1,8 +1,11 @@
-#!coding: utf-8
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
 
 import logging
 import paramiko
 import threading
+import weakref
 
 
 logger = logging.getLogger(__file__)
@@ -17,9 +20,14 @@ class SSHInterface(paramiko.ServerInterface):
     """
 
     def __init__(self, app, request):
-        self.app = app
+        self._app = weakref.ref(app)
         self.request = request
         self.event = threading.Event()
+        self.auth_valid = False
+
+    @property
+    def app(self):
+        return self._app()
 
     def check_auth_interactive(self, username, submethods):
         logger.info("Check auth interactive: %s %s" % (username, submethods))
@@ -34,26 +42,51 @@ class SSHInterface(paramiko.ServerInterface):
         return False
 
     def get_allowed_auths(self, username):
-        # Todo: Check with server settings or self config
-        return ",".join(["password", "publickkey"])
+        supported = []
+        if self.app.config["SSH_PASSWORD_AUTH"]:
+            supported.append("password")
+        if self.app.config["SSH_PUBLIC_KEY_AUTH"]:
+            supported.append("publickey")
+
+        return ",".join(supported)
 
     def check_auth_none(self, username):
         return paramiko.AUTH_FAILED
 
     def check_auth_password(self, username, password):
-        return self.validate_auth(username, password=password)
+        valid = self.validate_auth(username, password=password)
+        if not valid:
+            logger.warning("Password and public key auth <%s> failed, reject it" % username)
+            return paramiko.AUTH_FAILED
+        else:
+            logger.info("Password auth <%s> success" % username)
+            return paramiko.AUTH_SUCCESSFUL
 
     def check_auth_publickey(self, username, key):
-        return self.validate_auth(username, key=key)
+        key = key.get_base64()
+        valid = self.validate_auth(username, public_key=key)
+        if not valid:
+            logger.debug("Public key auth <%s> failed, try to password" % username)
+            return paramiko.AUTH_FAILED
+        else:
+            logger.debug("Public key auth <%s> success" % username)
+            return paramiko.AUTH_SUCCESSFUL
 
-    def validate_auth(self, username, password="", key=""):
-        # Todo: Implement it
-        self.request.user = "guang"
-        return paramiko.AUTH_SUCCESSFUL
+    def validate_auth(self, username, password="", public_key=""):
+        user, _ = self.app.service.authenticate(
+            username, password=password, public_key=public_key,
+            remote_addr=self.request.remote_ip,
+        )
+
+        if user:
+            self.request.user = user
+            return True
+        else:
+            return False
 
     def check_channel_direct_tcpip_request(self, chanid, origin, destination):
         logger.debug("Check channel direct tcpip request: %d %s %s" %
-                    (chanid, origin, destination))
+                     (chanid, origin, destination))
         self.request.type = 'direct-tcpip'
         self.request.meta = {
             'chanid': chanid, 'origin': origin,

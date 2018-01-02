@@ -1,17 +1,29 @@
-#!coding: utf-8
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+
+from __future__ import unicode_literals
+
+import hashlib
+import re
+import os
+import threading
 import base64
 import calendar
-import os
-import re
+import time
+import datetime
+import gettext
+from io import StringIO
 
 import paramiko
-from io import StringIO
-import hashlib
-import threading
-
-import time
-
 import pyte
+import pytz
+from email.utils import formatdate
+from queue import Queue, Empty
+
+from .exception import NoAppException
+
+BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 
 def ssh_key_string_to_obj(text):
@@ -80,7 +92,8 @@ def content_md5(data):
     """
     if isinstance(data, str):
         data = hashlib.md5(data.encode('utf-8'))
-    return base64.b64encode(data.digest())
+    value = base64.b64encode(data.digest())
+    return value.decode('utf-8')
 
 
 _STRPTIME_LOCK = threading.Lock()
@@ -115,7 +128,7 @@ def iso8601_to_unixtime(time_string):
 
 def make_signature(access_key_secret, date=None):
     if isinstance(date, bytes):
-        date = date.decode("utf-8")
+        date = bytes.decode(date)
     if isinstance(date, int):
         date_gmt = http_date(date)
     elif date is None:
@@ -153,7 +166,7 @@ class TtyIOParser(object):
             if line.strip():
                 output.append(line)
         self.screen.reset()
-        return sep.join(output[0:-1])
+        return sep.join(output[0:-1]).strip()
 
     def parse_input(self, data):
         """
@@ -175,7 +188,32 @@ class TtyIOParser(object):
             command = ''
         self.screen.reset()
         command = self.clean_ps1_etc(command)
-        return command
+        return command.strip()
+
+
+def is_obj_attr_has(obj, val, attrs=("hostname", "ip", "comment")):
+    if not attrs:
+        vals = [val for val in obj.__dict__.values() if isinstance(val, (str, int))]
+    else:
+        vals = [getattr(obj, attr) for attr in attrs if
+                hasattr(obj, attr) and isinstance(hasattr(obj, attr), (str, int))]
+
+    for v in vals:
+        if str(v).find(val) != -1:
+            return True
+    return False
+
+
+def is_obj_attr_eq(obj, val, attrs=("id", "hostname", "ip")):
+    if not attrs:
+        vals = [val for val in obj.__dict__.values() if isinstance(val, (str, int))]
+    else:
+        vals = [getattr(obj, attr) for attr in attrs if hasattr(obj, attr)]
+
+    for v in vals:
+        if str(v) == str(val):
+            return True
+    return False
 
 
 def wrap_with_line_feed(s, before=0, after=1):
@@ -187,7 +225,7 @@ def wrap_with_line_feed(s, before=0, after=1):
 def wrap_with_color(text, color='white', background=None,
                     bolder=False, underline=False):
     bolder_ = '1'
-    underline_ = '4'
+    _underline = '4'
     color_map = {
         'black': '30',
         'red': '31',
@@ -213,15 +251,20 @@ def wrap_with_color(text, color='white', background=None,
     if bolder:
         wrap_with.append(bolder_)
     if underline:
-        wrap_with.append(underline_)
+        wrap_with.append(_underline)
     if background:
         wrap_with.append(background_map.get(background, ''))
     wrap_with.append(color_map.get(color, ''))
 
+    is_bytes = True if isinstance(text, bytes) else False
+
+    if is_bytes:
+        text = text.decode("utf-8")
     data = '\033[' + ';'.join(wrap_with) + 'm' + text + '\033[0m'
-    if isinstance(text, bytes):
+    if is_bytes:
         return data.encode('utf-8')
-    return data
+    else:
+        return data
 
 
 def wrap_with_warning(text, bolder=False):
@@ -238,3 +281,89 @@ def wrap_with_primary(text, bolder=False):
 
 def wrap_with_title(text):
     return wrap_with_color(text, color='black', background='green')
+
+
+def b64encode_as_string(data):
+    return base64.b64encode(data).decode("utf-8")
+
+
+def split_string_int(s):
+    """Split string or int
+
+    example: test-01-02-db => ['test-', '01', '-', '02', 'db']
+    """
+    string_list = []
+    index = 0
+    pre_type = None
+    word = ''
+    for i in s:
+        if index == 0:
+            pre_type = int if i.isdigit() else str
+            word = i
+        else:
+            if pre_type is int and i.isdigit() or pre_type is str and not i.isdigit():
+                word += i
+            else:
+                string_list.append(word.lower() if not word.isdigit() else int(word))
+                word = i
+                pre_type = int if i.isdigit() else str
+        index += 1
+    string_list.append(word.lower() if not word.isdigit() else int(word))
+    return string_list
+
+
+def sort_assets(assets, order_by='hostname'):
+    if order_by == 'ip':
+        assets = sorted(assets, key=lambda asset: [int(d) for d in asset.ip.split('.') if d.isdigit()])
+    else:
+        assets = sorted(assets, key=lambda asset: getattr(asset, order_by))
+    return assets
+
+
+class PKey(object):
+    @classmethod
+    def from_string(cls, key_string):
+        try:
+            pkey = paramiko.RSAKey(file_obj=StringIO(key_string))
+            return pkey
+        except paramiko.SSHException:
+            try:
+                pkey = paramiko.DSSKey(file_obj=StringIO(key_string))
+                return pkey
+            except paramiko.SSHException:
+                return None
+
+
+def timestamp_to_datetime_str(ts):
+    datetime_format = '%Y-%m-%dT%H:%M:%S.%fZ'
+    dt = datetime.datetime.fromtimestamp(ts, tz=pytz.timezone('UTC'))
+    return dt.strftime(datetime_format)
+
+
+class MultiQueue(Queue):
+    def mget(self, size=1, block=True, timeout=5):
+        items = []
+        for i in range(size):
+            try:
+                items.append(self.get(block=block, timeout=timeout))
+            except Empty:
+                break
+        return items
+
+
+def _gettext():
+    gettext.bindtextdomain("coco", os.path.join(BASE_DIR, "locale"))
+    gettext.textdomain("coco")
+    return gettext.gettext
+
+
+def make_message():
+    os.makedirs(os.path.join(BASE_DIR, "locale", "zh_CN"))
+    pass
+
+
+def compile_message():
+    pass
+
+
+ugettext = _gettext()

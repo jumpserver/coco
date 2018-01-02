@@ -1,4 +1,6 @@
-#! coding: utf-8
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
 
 import os
 import logging
@@ -17,9 +19,10 @@ BACKLOG = 5
 
 
 class SSHServer:
-    def __init__(self, app=None):
+
+    def __init__(self, app):
         self.app = app
-        self.stop_event = threading.Event()
+        self.stop_evt = threading.Event()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.host_key_path = os.path.join(self.app.root_path, 'keys', 'host_rsa_key')
 
@@ -37,20 +40,19 @@ class SSHServer:
     def run(self):
         host = self.app.config["BIND_HOST"]
         port = self.app.config["SSHD_PORT"]
-        print('Starting ssh server at %(host)s:%(port)s' %
-              {"host": host, "port": port})
+        print('Starting ssh server at {}:{}'.format(host, port))
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((host, port))
         self.sock.listen(BACKLOG)
-        while not self.stop_event.is_set():
+        while not self.stop_evt.is_set():
             try:
                 sock, addr = self.sock.accept()
-                logger.info("Get ssh request from %s: %s" % (addr[0], addr[1]))
+                logger.info("Get ssh request from {}: {}".format(addr[0], addr[1]))
                 thread = threading.Thread(target=self.handle, args=(sock, addr))
                 thread.daemon = True
                 thread.start()
             except Exception as e:
-                logger.error("SSH server error: %s" % e)
+                logger.error("Start SSH server error: {}".format(e))
 
     def handle(self, sock, addr):
         transport = paramiko.Transport(sock, gss_kex=False)
@@ -65,21 +67,21 @@ class SSHServer:
         try:
             transport.start_server(server=server)
         except paramiko.SSHException:
-            logger.warning("SSH negotiation failed.")
-            sys.exit(1)
+            logger.warning("SSH negotiation failed")
+            return
         except EOFError:
-            logger.warning("EOF Error")
-            sys.exit(1)
+            logger.warning("Handle EOF Error")
+            return
 
         chan = transport.accept(10)
         if chan is None:
             logger.warning("No ssh channel get")
-            sys.exit(1)
+            return
 
         server.event.wait(5)
         if not server.event.is_set():
-            logger.warning("Client not request a valid request")
-            sys.exit(2)
+            logger.warning("Client not request a valid request, exiting")
+            return
 
         client = Client(chan, request)
         self.app.add_client(client)
@@ -88,7 +90,8 @@ class SSHServer:
     def dispatch(self, client):
         request_type = client.request.type
         if request_type == 'pty':
-            InteractiveServer(self.app, client).activate()
+            logger.info("Request type `pty`, dispatch to interactive mode")
+            InteractiveServer(self.app, client).interact()
         elif request_type == 'exec':
             pass
         elif request_type == 'subsystem':
@@ -97,4 +100,4 @@ class SSHServer:
             client.send("Not support request type: %s" % request_type)
 
     def shutdown(self):
-        self.stop_event.set()
+        self.stop_evt.set()

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 
@@ -26,17 +26,21 @@ def create_logger(app):
     log_path = os.path.join(log_dir, 'coco.log')
     logger = logging.getLogger()
 
-    # main_formatter = logging.Formatter(
-    #     fmt='%(asctime)s [%(module)s %(levelname)s] %(message)s',
-    #     datefmt='%Y-%m-%d %H:%M:%S')
     main_formatter = logging.Formatter(
-        fmt='%(asctime)s [%(levelname)s] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S')
+        fmt='%(asctime)s [%(module)s %(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    # main_formatter = logging.Formatter(
+    #     fmt='%(asctime)s [%(levelname)s] %(message)s',
+    #     datefmt='%Y-%m-%d %H:%M:%S'
+    # )
     console_handler = StreamHandler()
     file_handler = TimedRotatingFileHandler(
-        filename=log_path, when='D', backupCount=10)
+        filename=log_path, when='D', backupCount=10
+    )
 
     for handler in [console_handler, file_handler]:
         handler.setFormatter(main_formatter)
         logger.addHandler(handler)
     logger.setLevel(level)
+    logging.getLogger("requests").setLevel(logging.WARNING)
