@@ -5,7 +5,6 @@ import threading
 import uuid
 import logging
 import datetime
-import time
 import selectors
 import time
 
@@ -171,6 +170,7 @@ class Session:
             "asset": self.server.asset.hostname,
             "system_user": self.server.system_user.username,
             "login_from": "ST",
+            "remote_addr": self.client.addr[0],
             "is_finished": True if self.stop_evt.is_set() else False,
             "date_start": self.date_created.strftime("%Y-%m-%d %H:%M:%S") + " +0000",
             "date_end": self.date_end.strftime("%Y-%m-%d %H:%M:%S") + " +0000" if self.date_end else None
