@@ -125,6 +125,10 @@ class Coco:
         else:
             return True
 
+    def heartbeat_async(self):
+        t = threading.Thread(target=self.heartbeat)
+        t.start()
+
     def handle_task(self, tasks):
         for task in tasks:
             self.task_handler.handle(task)
@@ -212,15 +216,10 @@ class Coco:
     def add_session(self, session):
         with self.lock:
             self.sessions.append(session)
-            self.heartbeat()
+            self.heartbeat_async()
 
     def remove_session(self, session):
         with self.lock:
             logger.info("Remove session: {}".format(session))
-            for i in range(10):
-                if self.heartbeat():
-                    self.sessions.remove(session)
-                    break
-                else:
-                    time.sleep(1)
-
+            self.sessions.remove(session)
+            self.heartbeat_async()
