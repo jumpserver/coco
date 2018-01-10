@@ -134,9 +134,8 @@ class InteractiveServer:
         if q == '':
             result = self.assets
         # 用户输入的是数字，可能想使用id唯一键搜索
-        elif q.isdigit():
-            if len(self.search_result) >= int(q):
-                result = [self.search_result[int(q) - 1]]
+        elif q.isdigit() and self.search_result and len(self.search_result) >= int(q):
+            result = [self.search_result[int(q) - 1]]
 
         # 全匹配到则直接返回全匹配的
         if len(result) == 0:
