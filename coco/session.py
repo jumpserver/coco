@@ -126,8 +126,6 @@ class Session:
                     if len(data) == 0:
                         msg = "Server close the connection"
                         logger.info(msg)
-                        for watcher in [self.client] + self._watchers + self._sharers:
-                            watcher.send(msg.encode('utf-8'))
                         self.close()
                         break
                     for watcher in [self.client] + self._watchers + self._sharers:
