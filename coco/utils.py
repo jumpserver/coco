@@ -14,6 +14,7 @@ import time
 import datetime
 import gettext
 from io import StringIO
+from binascii import hexlify
 
 import paramiko
 import pyte
@@ -26,16 +27,15 @@ from .exception import NoAppException
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 
-def ssh_key_string_to_obj(text):
-    key_f = StringIO(text)
+def ssh_key_string_to_obj(text, password=None):
     key = None
     try:
-        key = paramiko.RSAKey.from_private_key(key_f)
+        key = paramiko.RSAKey.from_private_key(StringIO(text), password=password)
     except paramiko.SSHException:
         pass
 
     try:
-        key = paramiko.DSSKey.from_private_key(key_f)
+        key = paramiko.DSSKey.from_private_key(StringIO(text), password=password)
     except paramiko.SSHException:
         pass
     return key
@@ -355,6 +355,11 @@ def _gettext():
     gettext.bindtextdomain("coco", os.path.join(BASE_DIR, "locale"))
     gettext.textdomain("coco")
     return gettext.gettext
+
+
+def get_private_key_fingerprint(key):
+    line = hexlify(key.get_fingerprint())
+    return b':'.join([line[i:i+2] for i in range(0, len(line), 2)])
 
 
 def make_message():
