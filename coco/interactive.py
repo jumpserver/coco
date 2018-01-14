@@ -173,12 +173,17 @@ class InteractiveServer:
         line = header + '{0.comment:%s}' % (comment_length//2)  # comment中可能有中文
         header += "{0.comment:%s}" % comment_length
         self.client.send(title(header.format(fake_group, "ID")))
-        for index, group in enumerate(self.asset_groups):
+        for index, group in enumerate(self.asset_groups, 1):
             self.client.send(wr(line.format(group, index)))
         self.client.send(wr(_("Total: {}").format(len(self.asset_groups)), before=1))
 
     def display_group_assets(self, _id):
-        self.search_result = self.asset_groups[_id].assets_granted
+        if _id > len(self.asset_groups) or _id <= 0:
+            self.client.send(wr(warning("Not match group, select again")))
+            self.display_asset_groups()
+            return
+
+        self.search_result = self.asset_groups[_id-1].assets_granted
         self.display_search_result()
 
     def display_search_result(self):
