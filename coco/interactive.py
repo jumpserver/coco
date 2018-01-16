@@ -219,7 +219,7 @@ class InteractiveServer:
     def filter_system_users(assets):
         for asset in assets:
             system_users_granted = asset.system_users_granted
-            high_priority = max([s.priority for s in system_users_granted])
+            high_priority = max([s.priority for s in system_users_granted]) if system_users_granted else 1
             system_users_cleaned = [s for s in system_users_granted if s.priority == high_priority]
             asset.system_users_granted = system_users_cleaned
         return assets
