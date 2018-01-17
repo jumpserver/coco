@@ -7,8 +7,8 @@ import threading
 import logging
 import time
 import weakref
-
 import paramiko
+from paramiko.ssh_exception import SSHException
 
 from .session import Session
 from .models import Server
@@ -130,7 +130,10 @@ class ProxyServer:
             width = self.request.meta.get('width', 80)
             height = self.request.meta.get('height', 24)
             logger.debug("Change win size: %s - %s" % (width, height))
-            self.server.chan.resize_pty(width=width, height=height)
+            try:
+                self.server.chan.resize_pty(width=width, height=height)
+            except SSHException:
+                break
 
     def watch_win_size_change_async(self):
         thread = threading.Thread(target=self.watch_win_size_change)
