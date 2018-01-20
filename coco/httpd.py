@@ -172,7 +172,7 @@ class HttpServer:
         port = self.app.config["HTTPD_PORT"]
         print('Starting websocket server at {}:{}'.format(host, port))
         self.socketio.on_namespace(SSHws('/ssh').app(self.app))
-        self.socketio.init_app(self.flask)
+        self.socketio.init_app(self.flask, async_mode="threading")
         self.socketio.run(self.flask, port=port, host=host)
 
     def shutdown(self):
