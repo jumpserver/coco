@@ -28,7 +28,7 @@ class InteractiveServer:
         self.client = client
         self.request = client.request
         self.assets = None
-        self.search_result = None
+        self._search_result = None
         self.asset_groups = None
         self.get_user_assets_async()
         self.get_user_asset_groups_async()
@@ -36,6 +36,18 @@ class InteractiveServer:
     @property
     def app(self):
         return self._app()
+
+    @property
+    def search_result(self):
+        if self._search_result:
+            return self._search_result
+        else:
+            return None
+
+    @search_result.setter
+    def search_result(self, value):
+        value = self.filter_system_users(value)
+        self._search_result = value
 
     def display_banner(self):
         self.client.send(char.CLEAR_CHAR)
@@ -173,12 +185,17 @@ class InteractiveServer:
         line = header + '{0.comment:%s}' % (comment_length//2)  # comment中可能有中文
         header += "{0.comment:%s}" % comment_length
         self.client.send(title(header.format(fake_group, "ID")))
-        for index, group in enumerate(self.asset_groups):
+        for index, group in enumerate(self.asset_groups, 1):
             self.client.send(wr(line.format(group, index)))
         self.client.send(wr(_("Total: {}").format(len(self.asset_groups)), before=1))
 
     def display_group_assets(self, _id):
-        self.search_result = self.asset_groups[_id].assets_granted
+        if _id > len(self.asset_groups) or _id <= 0:
+            self.client.send(wr(warning("Not match group, select again")))
+            self.display_asset_groups()
+            return
+
+        self.search_result = self.asset_groups[_id-1].assets_granted
         self.display_search_result()
 
     def display_search_result(self):
@@ -214,14 +231,13 @@ class InteractiveServer:
     def filter_system_users(assets):
         for asset in assets:
             system_users_granted = asset.system_users_granted
-            high_priority = max([s.priority for s in system_users_granted])
+            high_priority = max([s.priority for s in system_users_granted]) if system_users_granted else 1
             system_users_cleaned = [s for s in system_users_granted if s.priority == high_priority]
             asset.system_users_granted = system_users_cleaned
         return assets
 
     def get_user_assets(self):
-        assets = self.app.service.get_user_assets(self.client.user)
-        self.assets = self.filter_system_users(assets)
+        self.assets = self.app.service.get_user_assets(self.client.user)
         logger.debug("Get user {} assets total: {}".format(self.client.user, len(self.assets)))
 
     def get_user_assets_async(self):

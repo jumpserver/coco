@@ -7,12 +7,13 @@ import threading
 import logging
 import time
 import weakref
-
 import paramiko
+from paramiko.ssh_exception import SSHException
 
 from .session import Session
 from .models import Server
-from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning
+from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
+    get_private_key_fingerprint
 
 
 logger = logging.getLogger(__file__)
@@ -69,7 +70,6 @@ class ProxyServer:
     def get_server_conn(self, asset, system_user):
         logger.info("Connect to {}".format(asset.hostname))
         if not self.validate_permission(asset, system_user):
-            # self.client.send(warning(_('No permission')))
             self.client.send(warning('No permission'))
             return None
         self.get_system_user_auth(system_user)
@@ -93,16 +93,22 @@ class ProxyServer:
                 timeout=TIMEOUT, compress=True, auth_timeout=10,
                 look_for_keys=False
             )
-        except paramiko.AuthenticationException:
+        except (paramiko.AuthenticationException, paramiko.BadAuthenticationType):
             admins = self.app.config['ADMINS'] or 'administrator'
             self.client.send(warning(wr(
                 "Authenticate with server failed, contact {}".format(admins),
                 before=1, after=0
             )))
-            key_fingerprint = system_user.private_key.get_hex() if system_user.private_key else None
+            password_short = "None"
+            key_fingerprint = "None"
+            if system_user.password:
+                password_short = system_user.password[:5] + (len(system_user.password)-5) * '*'
+            if system_user.private_key:
+                key_fingerprint = get_private_key_fingerprint(system_user.private_key)
+
             logger.error("Connect {}@{}:{} auth failed, password: {}, key: {}".format(
                 system_user.username, asset.ip, asset.port,
-                system_user.password, key_fingerprint,
+                password_short, key_fingerprint,
             ))
             return None
         except socket.error as e:
@@ -124,7 +130,10 @@ class ProxyServer:
             width = self.request.meta.get('width', 80)
             height = self.request.meta.get('height', 24)
             logger.debug("Change win size: %s - %s" % (width, height))
-            self.server.chan.resize_pty(width=width, height=height)
+            try:
+                self.server.chan.resize_pty(width=width, height=height)
+            except SSHException:
+                break
 
     def watch_win_size_change_async(self):
         thread = threading.Thread(target=self.watch_win_size_change)

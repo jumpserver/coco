@@ -150,10 +150,10 @@ class Coco:
                 for s in self.sessions:
                     if not s.stop_evt.is_set():
                         continue
-                    if s.date_finished is None:
+                    if s.date_end is None:
                         self.remove_session(s)
                         continue
-                    delta = datetime.datetime.now() - s.date_finished
+                    delta = datetime.datetime.now() - s.date_end
                     if delta > datetime.timedelta(seconds=interval*5):
                         self.remove_session(s)
                 time.sleep(interval)
