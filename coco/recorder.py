@@ -11,7 +11,7 @@ import gzip
 import json
 import shutil
 
-from jms_es_storage import ESStore
+from jms_es_sdk import ESStore
 
 from .alignment import MemoryQueue
 
@@ -237,17 +237,17 @@ class ESCommandRecorder(CommandRecorder, metaclass=Singleton):
         print("{} has been gc".format(self))
 
 
-def get_command_recorder_class(app):
-    command_engine = app.config["COMMAND_RECORD_ENGINE"]
+def get_command_recorder_class(config):
+    command_storage = config["COMMAND_STORAGE"]
 
-    if command_engine == "elasticsearch":
+    if command_storage['TYPE'] == "elasticsearch":
         return ESCommandRecorder
     else:
         return ServerCommandRecorder
 
 
-def get_replay_recorder_class(app):
-    replay_engine = app.config["REPLAY_RECORD_ENGINE"]
+def get_replay_recorder_class(config):
+    replay_engine = config["REPLAY_RECORD_ENGINE"]
     if replay_engine == "server":
         return ServerReplayRecorder
     else:
