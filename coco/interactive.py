@@ -28,7 +28,7 @@ class InteractiveServer:
         self.client = client
         self.request = client.request
         self.assets = None
-        self.search_result = None
+        self._search_result = None
         self.asset_groups = None
         self.get_user_assets_async()
         self.get_user_asset_groups_async()
@@ -36,6 +36,18 @@ class InteractiveServer:
     @property
     def app(self):
         return self._app()
+
+    @property
+    def search_result(self):
+        if self._search_result:
+            return self._search_result
+        else:
+            return None
+
+    @search_result.setter
+    def search_result(self, value):
+        value = self.filter_system_users(value)
+        self._search_result = value
 
     def display_banner(self):
         self.client.send(char.CLEAR_CHAR)
@@ -219,14 +231,13 @@ class InteractiveServer:
     def filter_system_users(assets):
         for asset in assets:
             system_users_granted = asset.system_users_granted
-            high_priority = max([s.priority for s in system_users_granted])
+            high_priority = max([s.priority for s in system_users_granted]) if system_users_granted else 1
             system_users_cleaned = [s for s in system_users_granted if s.priority == high_priority]
             asset.system_users_granted = system_users_cleaned
         return assets
 
     def get_user_assets(self):
-        assets = self.app.service.get_user_assets(self.client.user)
-        self.assets = self.filter_system_users(assets)
+        self.assets = self.app.service.get_user_assets(self.client.user)
         logger.debug("Get user {} assets total: {}".format(self.client.user, len(self.assets)))
 
     def get_user_assets_async(self):
@@ -261,7 +272,7 @@ class InteractiveServer:
 
     def search_and_proxy(self, opt):
         self.search_assets(opt)
-        if len(self.search_result) == 1:
+        if self.search_result and len(self.search_result) == 1:
             self.proxy(self.search_result[0])
         else:
             self.display_search_result()

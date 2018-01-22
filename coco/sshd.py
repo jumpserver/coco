@@ -9,6 +9,8 @@ import threading
 import paramiko
 import sys
 
+import time
+
 from .utils import ssh_key_gen
 from .interface import SSHInterface
 from .interactive import InteractiveServer
@@ -48,13 +50,13 @@ class SSHServer:
             try:
                 sock, addr = self.sock.accept()
                 logger.info("Get ssh request from {}: {}".format(addr[0], addr[1]))
-                thread = threading.Thread(target=self.handle, args=(sock, addr))
+                thread = threading.Thread(target=self.handle_connection, args=(sock, addr))
                 thread.daemon = True
                 thread.start()
             except Exception as e:
                 logger.error("Start SSH server error: {}".format(e))
 
-    def handle(self, sock, addr):
+    def handle_connection(self, sock, addr):
         transport = paramiko.Transport(sock, gss_kex=False)
         try:
             transport.load_server_moduli()
@@ -73,23 +75,29 @@ class SSHServer:
             logger.warning("Handle EOF Error")
             return
 
-        chan = transport.accept(10)
-        if chan is None:
-            logger.warning("No ssh channel get")
-            return
+        while True:
+            chan = transport.accept()
+            if chan is None:
+                continue
+            server.event.wait(5)
+            if not server.event.is_set():
+                logger.warning("Client not request a valid request, exiting")
+                return
 
-        server.event.wait(5)
-        if not server.event.is_set():
-            logger.warning("Client not request a valid request, exiting")
-            return
+            t = threading.Thread(target=self.handle_chan, args=(chan, request))
+            t.daemon = True
+            t.start()
 
+    def handle_chan(self, chan, request):
         client = Client(chan, request)
+        print(chan)
+        print(request)
         self.app.add_client(client)
         self.dispatch(client)
 
     def dispatch(self, client):
         request_type = client.request.type
-        if request_type == 'pty':
+        if request_type == 'pty' or request_type == 'x11':
             logger.info("Request type `pty`, dispatch to interactive mode")
             InteractiveServer(self.app, client).interact()
         elif request_type == 'exec':

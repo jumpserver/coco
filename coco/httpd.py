@@ -26,7 +26,6 @@ class BaseWebSocketHandler:
 
     def prepare(self, request):
         # self.app = self.settings["app"]
-        child, parent = socket.socketpair()
         if request.headers.getlist("X-Forwarded-For"):
             remote_ip = request.headers.getlist("X-Forwarded-For")[0]
         else:
@@ -36,10 +35,6 @@ class BaseWebSocketHandler:
         self.clients[request.sid]["request"].meta = {"width": self.clients[request.sid]["cols"],
                                                      "height": self.clients[request.sid]["rows"]}
         # self.request.__dict__.update(request.__dict__)
-        self.clients[request.sid]["client"] = Client(parent, self.clients[request.sid]["request"])
-        self.clients[request.sid]["proxy"] = WSProxy(self, child, self.clients[request.sid]["room"])
-        self.app.clients.append(self.clients[request.sid]["client"])
-        self.clients[request.sid]["forwarder"] = ProxyServer(self.app, self.clients[request.sid]["client"])
 
     def check_origin(self, origin):
         return True
@@ -64,9 +59,10 @@ class SSHws(Namespace, BaseWebSocketHandler):
             "cols": int(request.cookies.get('cols', 80)),
             "rows": int(request.cookies.get('rows', 24)),
             "room": room,
-            "chan": None,
-            "proxy": None,
-            "client": None,
+            # "chan": dict(),
+            "proxy": dict(),
+            "client": dict(),
+            "forwarder": dict(),
             "request": None,
         }
         self.rooms[room] = {
@@ -80,18 +76,31 @@ class SSHws(Namespace, BaseWebSocketHandler):
         self.prepare(request)
 
     def on_data(self, message):
-        if self.clients[request.sid]["proxy"]:
-            self.clients[request.sid]["proxy"].send({"data": message})
+        if message['room'] and self.clients[request.sid]["proxy"][message['room']]:
+            self.clients[request.sid]["proxy"][message['room']].send({"data": message['data']})
 
     def on_host(self, message):
         # 此处获取主机的信息
-        uuid = message.get('uuid', None)
+        connection = str(uuid.uuid4())
+        assetID = message.get('uuid', None)
         userid = message.get('userid', None)
-        if uuid and userid:
-            asset = self.app.service.get_asset(uuid)
+        self.emit('room', {'room': connection, 'secret': message['secret']})
+
+        if assetID and userid:
+            asset = self.app.service.get_asset(assetID)
             system_user = self.app.service.get_system_user(userid)
             if system_user:
-                self.socketio.start_background_task(self.clients[request.sid]["forwarder"].proxy, asset, system_user)
+
+                child, parent = socket.socketpair()
+                self.clients[request.sid]["client"][connection] = Client(parent, self.clients[request.sid]["request"])
+                self.clients[request.sid]["proxy"][connection] = WSProxy(self, child, self.clients[request.sid]["room"],
+                                                                         connection)
+                self.app.clients.append(self.clients[request.sid]["client"][connection])
+                self.clients[request.sid]["forwarder"][connection] = ProxyServer(self.app,
+                                                                                 self.clients[request.sid]["client"][connection])
+
+                self.socketio.start_background_task(self.clients[request.sid]["forwarder"][connection].proxy, asset,
+                                                    system_user)
                 # self.forwarder.proxy(self.asset, system_user)
             else:
                 self.on_disconnect()
@@ -125,12 +134,20 @@ class SSHws(Namespace, BaseWebSocketHandler):
     def on_disconnect(self):
         self.on_leave(self.clients[request.sid]["room"])
         try:
-            # todo: there maybe have bug
-            self.clients[request.sid]["proxy"].close()
+            del self.clients[request.sid]
         except:
             pass
         # self.ssh.close()
         pass
+
+    def on_logout(self, connection):
+        print("logout", connection)
+        if connection:
+            self.clients[request.sid]["proxy"][connection].close()
+            del self.clients[request.sid]["proxy"][connection]
+            del self.clients[request.sid]["forwarder"][connection]
+            self.clients[request.sid]["client"][connection].close()
+            del self.clients[request.sid]["client"][connection]
 
 
 class HttpServer:
@@ -155,7 +172,7 @@ class HttpServer:
         port = self.app.config["HTTPD_PORT"]
         print('Starting websocket server at {}:{}'.format(host, port))
         self.socketio.on_namespace(SSHws('/ssh').app(self.app))
-        self.socketio.init_app(self.flask)
+        self.socketio.init_app(self.flask, async_mode="threading")
         self.socketio.run(self.flask, port=port, host=host)
 
     def shutdown(self):
