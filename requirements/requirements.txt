@@ -29,4 +29,4 @@ urllib3==1.22
 wcwidth==0.1.7
 werkzeug==0.12.2
 jumpserver-python-sdk==0.0.23
-jms-es-sdk==0.5.1
+jms-es-sdk
