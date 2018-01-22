@@ -49,10 +49,10 @@ class Config:
     # ASSET_LIST_SORT_BY = 'ip'
 
     # 登录是否支持密码认证
-    # SSH_PASSWORD_AUTH = True
+    # PASSWORD_AUTH = True
 
     # 登录是否支持秘钥认证
-    # SSH_PUBLIC_KEY_AUTH = True
+    # PUBLIC_KEY_AUTH = True
 
     # 和Jumpserver 保持心跳时间间隔
     # HEARTBEAT_INTERVAL = 5

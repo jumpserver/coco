@@ -43,9 +43,9 @@ class SSHInterface(paramiko.ServerInterface):
 
     def get_allowed_auths(self, username):
         supported = []
-        if self.app.config["SSH_PASSWORD_AUTH"]:
+        if self.app.config["PASSWORD_AUTH"]:
             supported.append("password")
-        if self.app.config["SSH_PUBLIC_KEY_AUTH"]:
+        if self.app.config["PUBLIC_KEY_AUTH"]:
             supported.append("publickey")
 
         return ",".join(supported)

@@ -42,13 +42,13 @@ class Coco:
         'LOG_DIR': os.path.join(BASE_DIR, 'logs'),
         'SESSION_DIR': os.path.join(BASE_DIR, 'sessions'),
         'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
-        'SSH_PASSWORD_AUTH': True,
-        'SSH_PUBLIC_KEY_AUTH': True,
+        'PASSWORD_AUTH': True,
+        'PUBLIC_KEY_AUTH': True,
         'HEARTBEAT_INTERVAL': 5,
         'MAX_CONNECTIONS': 500,
         'ADMINS': '',
-        'REPLAY_RECORD_ENGINE': 'server',   # local, server
-        'COMMAND_RECORD_ENGINE': 'server',  # local, server, elasticsearch(not yet)
+        'COMMAND_STORAGE': {'TYPE': 'server'},   # server
+        'REPLAY_RECORD_ENGINE': 'server',
     }
 
     def __init__(self, name=None, root_path=None):
@@ -93,16 +93,17 @@ class Coco:
     def make_logger(self):
         create_logger(self)
 
-    # Todo: load some config from server like replay and common upload
     def load_extra_conf_from_server(self):
-        pass
+        configs = self.service.load_config_from_server()
+        self.config.update(configs)
 
-    def initial_recorder(self):
-        self.replay_recorder_class = get_replay_recorder_class(self)
-        self.command_recorder_class = get_command_recorder_class(self)
+    def get_recorder_class(self):
+        self.replay_recorder_class = get_replay_recorder_class(self.config)
+        self.command_recorder_class = get_command_recorder_class(self.config)
 
     def new_command_recorder(self):
-        return self.command_recorder_class(self)
+        recorder = self.command_recorder_class(self)
+        return recorder
 
     def new_replay_recorder(self):
         return self.replay_recorder_class(self)
@@ -111,7 +112,7 @@ class Coco:
         self.make_logger()
         self.service.initial()
         self.load_extra_conf_from_server()
-        self.initial_recorder()
+        self.get_recorder_class()
         self.keep_heartbeat()
         self.monitor_sessions()
 

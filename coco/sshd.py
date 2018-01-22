@@ -97,7 +97,7 @@ class SSHServer:
 
     def dispatch(self, client):
         request_type = client.request.type
-        if request_type == 'pty':
+        if request_type == 'pty' or request_type == 'x11':
             logger.info("Request type `pty`, dispatch to interactive mode")
             InteractiveServer(self.app, client).interact()
         elif request_type == 'exec':
