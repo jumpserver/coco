@@ -5,6 +5,7 @@
 from __future__ import unicode_literals
 
 import hashlib
+import logging
 import re
 import os
 import threading
@@ -369,6 +370,10 @@ def make_message():
 
 def compile_message():
     pass
+
+
+def get_logger(file_name):
+    return logging.getLogger('coco.'+file_name)
 
 
 ugettext = _gettext()

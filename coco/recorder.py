@@ -3,7 +3,6 @@
 #
 
 import abc
-import logging
 import threading
 import time
 import os
@@ -13,9 +12,10 @@ import shutil
 
 from jms_es_sdk import ESStore
 
+from .utils import get_logger
 from .alignment import MemoryQueue
 
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 BUF_SIZE = 1024
 
 

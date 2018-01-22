@@ -3,20 +3,16 @@
 #
 
 import os
-import logging
 import socket
 import threading
 import paramiko
-import sys
 
-import time
-
-from .utils import ssh_key_gen
+from .utils import ssh_key_gen, get_logger
 from .interface import SSHInterface
 from .interactive import InteractiveServer
 from .models import Client, Request
 
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 BACKLOG = 5
 
 
@@ -90,8 +86,6 @@ class SSHServer:
 
     def handle_chan(self, chan, request):
         client = Client(chan, request)
-        print(chan)
-        print(request)
         self.app.add_client(client)
         self.dispatch(client)
 

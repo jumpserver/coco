@@ -6,7 +6,6 @@ import datetime
 import os
 import time
 import threading
-import logging
 import socket
 import json
 
@@ -18,12 +17,13 @@ from .httpd import HttpServer
 from .logger import create_logger
 from .tasks import TaskHandler
 from .recorder import get_command_recorder_class, get_replay_recorder_class
+from .utils import get_logger
 
 
 __version__ = '0.5.0'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 
 
 class Coco:
