@@ -42,7 +42,7 @@ class InteractiveServer:
         if self._search_result:
             return self._search_result
         else:
-            return None
+            return []
 
     @search_result.setter
     def search_result(self, value):

@@ -9,7 +9,7 @@ BASE_DIR = os.path.dirname(__file__)
 
 class Config:
     """
-    Coco config file
+    Coco config file, coco also load config from server update setting below
     """
     # 项目名称, 会用来向Jumpserver注册, 识别而已, 不能重复
     # APP_NAME = "localhost"
@@ -59,6 +59,9 @@ class Config:
 
     # Admin的名字，出问题会提示给用户
     # ADMINS = ''
+    COMMAND_STORAGE = {
+        "TYPE": "server"
+    }
 
 
 config = Config()
