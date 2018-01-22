@@ -8,6 +8,7 @@ import time
 import threading
 import logging
 import socket
+import json
 
 from jms.service import AppService
 
@@ -19,7 +20,7 @@ from .tasks import TaskHandler
 from .recorder import get_command_recorder_class, get_replay_recorder_class
 
 
-__version__ = '0.4.0'
+__version__ = '0.5.0'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = logging.getLogger(__file__)
@@ -95,6 +96,9 @@ class Coco:
 
     def load_extra_conf_from_server(self):
         configs = self.service.load_config_from_server()
+        logger.debug("Loading config from server: {}".format(
+            json.dumps(configs)
+        ))
         self.config.update(configs)
 
     def get_recorder_class(self):

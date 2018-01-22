@@ -189,6 +189,7 @@ class ESCommandRecorder(CommandRecorder, metaclass=Singleton):
     batch_size = 10
     timeout = 5
     no = 0
+    default_hosts = ["http://localhost"]
 
     def __init__(self, app):
         super().__init__(app)
@@ -196,7 +197,7 @@ class ESCommandRecorder(CommandRecorder, metaclass=Singleton):
         self.stop_evt = threading.Event()
         self.push_to_es_async()
         self.__class__.no += 1
-        self.store = ESStore(**app.config["COMMAND_RECORD_OPTIONS"])
+        self.store = ESStore(app.config["COMMAND_STORAGE"].get("HOSTS", self.default_hosts))
         if not self.store.ping():
             raise AssertionError("ESCommand storage init error")
 
