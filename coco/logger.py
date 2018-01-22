@@ -48,6 +48,7 @@ def create_logger(app):
         loggers={
             'coco': main_setting,
             'paramiko': main_setting,
+            'jms': main_setting,
         }
     )
 

@@ -52,10 +52,9 @@ class Coco:
         'REPLAY_RECORD_ENGINE': 'server',
     }
 
-    def __init__(self, name=None, root_path=None):
+    def __init__(self, root_path=None):
         self.root_path = root_path if root_path else BASE_DIR
         self.config = self.config_class(self.root_path, defaults=self.default_config)
-        self.name = name if name else self.config["NAME"]
         self.sessions = []
         self.clients = []
         self.lock = threading.Lock()
@@ -66,6 +65,10 @@ class Coco:
         self.replay_recorder_class = None
         self.command_recorder_class = None
         self._task_handler = None
+
+    @property
+    def name(self):
+        return self.config["NAME"]
 
     @property
     def service(self):

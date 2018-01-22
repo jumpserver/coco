@@ -28,5 +28,5 @@ tornado==4.5.2
 urllib3==1.22
 wcwidth==0.1.7
 werkzeug==0.12.2
-jumpserver-python-sdk==0.0.25
+jumpserver-python-sdk==0.0.26
 jms-es-sdk
