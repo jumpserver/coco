@@ -102,7 +102,8 @@ class Coco:
         self.command_recorder_class = get_command_recorder_class(self.config)
 
     def new_command_recorder(self):
-        return self.command_recorder_class(self)
+        recorder = self.command_recorder_class(self)
+        return recorder
 
     def new_replay_recorder(self):
         return self.replay_recorder_class(self)

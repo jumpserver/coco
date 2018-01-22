@@ -261,7 +261,7 @@ class InteractiveServer:
 
     def search_and_proxy(self, opt):
         self.search_assets(opt)
-        if len(self.search_result) == 1:
+        if self.search_result and len(self.search_result) == 1:
             self.proxy(self.search_result[0])
         else:
             self.display_search_result()
