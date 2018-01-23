@@ -138,7 +138,7 @@ class Server:
         logger.info("Closed server {}".format(self))
         self.chan.close()
         self.stop_evt.set()
-        self.chan.transport.close()
+        self.chan.close()
 
     @staticmethod
     def _have_enter_char(s):
