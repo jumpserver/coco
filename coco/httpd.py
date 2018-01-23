@@ -26,8 +26,9 @@ class BaseWebSocketHandler:
 
     def prepare(self, request):
         # self.app = self.settings["app"]
-        if request.headers.getlist("X-Forwarded-For"):
-            remote_ip = request.headers.getlist("X-Forwarded-For")[0]
+        x_forwarded_for = request.headers.getlist("X-Forwarded-For").split(',')
+        if x_forwarded_for and x_forwarded_for[0]:
+            remote_ip = x_forwarded_for[0]
         else:
             remote_ip = request.remote_addr
         self.clients[request.sid]["request"] = Request((remote_ip, 0))
