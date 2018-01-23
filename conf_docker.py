@@ -60,6 +60,10 @@ class Config:
     # Admin的名字，出问题会提示给用户
     ADMINS = os.environ.get("ADMINS") or ''
 
+    COMMAND_STORAGE = {
+        "TYPE": "server"
+    }
+
 
 class ConfigDocker(Config):
     pass

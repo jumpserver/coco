@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 #
 import os
-import logging
 import socket
 from flask_socketio import SocketIO, Namespace, emit, join_room, leave_room
 from flask import Flask, send_from_directory, render_template, request, jsonify
@@ -12,11 +11,12 @@ import uuid
 from jms.models import User
 from .models import Request, Client, WSProxy
 from .proxy import ProxyServer
+from .utils import get_logger
 
 __version__ = '0.4.0'
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 
 
 class BaseWebSocketHandler:

@@ -9,10 +9,10 @@ BASE_DIR = os.path.dirname(__file__)
 
 class Config:
     """
-    Coco config file
+    Coco config file, coco also load config from server update setting below
     """
     # 项目名称, 会用来向Jumpserver注册, 识别而已, 不能重复
-    # APP_NAME = "localhost"
+    # NAME = "localhost"
 
     # Jumpserver项目的url, api请求注册会使用
     # CORE_HOST = os.environ.get("CORE_HOST") or 'http://127.0.0.1:8080'
@@ -49,16 +49,19 @@ class Config:
     # ASSET_LIST_SORT_BY = 'ip'
 
     # 登录是否支持密码认证
-    # SSH_PASSWORD_AUTH = True
+    # PASSWORD_AUTH = True
 
     # 登录是否支持秘钥认证
-    # SSH_PUBLIC_KEY_AUTH = True
+    # PUBLIC_KEY_AUTH = True
 
     # 和Jumpserver 保持心跳时间间隔
     # HEARTBEAT_INTERVAL = 5
 
     # Admin的名字，出问题会提示给用户
     # ADMINS = ''
+    COMMAND_STORAGE = {
+        "TYPE": "server"
+    }
 
 
 config = Config()

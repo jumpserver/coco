@@ -3,13 +3,14 @@
 #
 import threading
 import uuid
-import logging
 import datetime
 import selectors
 import time
 
+from .utils import get_logger
+
 BUF_SIZE = 1024
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 
 
 class Session:

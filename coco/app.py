@@ -6,8 +6,8 @@ import datetime
 import os
 import time
 import threading
-import logging
 import socket
+import json
 
 from jms.service import AppService
 
@@ -17,12 +17,13 @@ from .httpd import HttpServer
 from .logger import create_logger
 from .tasks import TaskHandler
 from .recorder import get_command_recorder_class, get_replay_recorder_class
+from .utils import get_logger
 
 
-__version__ = '0.4.0'
+__version__ = '0.5.0'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 
 
 class Coco:
@@ -42,19 +43,18 @@ class Coco:
         'LOG_DIR': os.path.join(BASE_DIR, 'logs'),
         'SESSION_DIR': os.path.join(BASE_DIR, 'sessions'),
         'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
-        'SSH_PASSWORD_AUTH': True,
-        'SSH_PUBLIC_KEY_AUTH': True,
+        'PASSWORD_AUTH': True,
+        'PUBLIC_KEY_AUTH': True,
         'HEARTBEAT_INTERVAL': 5,
         'MAX_CONNECTIONS': 500,
         'ADMINS': '',
-        'REPLAY_RECORD_ENGINE': 'server',   # local, server
-        'COMMAND_RECORD_ENGINE': 'server',  # local, server, elasticsearch(not yet)
+        'COMMAND_STORAGE': {'TYPE': 'server'},   # server
+        'REPLAY_RECORD_ENGINE': 'server',
     }
 
-    def __init__(self, name=None, root_path=None):
+    def __init__(self, root_path=None):
         self.root_path = root_path if root_path else BASE_DIR
         self.config = self.config_class(self.root_path, defaults=self.default_config)
-        self.name = name if name else self.config["NAME"]
         self.sessions = []
         self.clients = []
         self.lock = threading.Lock()
@@ -65,6 +65,10 @@ class Coco:
         self.replay_recorder_class = None
         self.command_recorder_class = None
         self._task_handler = None
+
+    @property
+    def name(self):
+        return self.config["NAME"]
 
     @property
     def service(self):
@@ -93,16 +97,20 @@ class Coco:
     def make_logger(self):
         create_logger(self)
 
-    # Todo: load some config from server like replay and common upload
     def load_extra_conf_from_server(self):
-        pass
+        configs = self.service.load_config_from_server()
+        logger.debug("Loading config from server: {}".format(
+            json.dumps(configs)
+        ))
+        self.config.update(configs)
 
-    def initial_recorder(self):
-        self.replay_recorder_class = get_replay_recorder_class(self)
-        self.command_recorder_class = get_command_recorder_class(self)
+    def get_recorder_class(self):
+        self.replay_recorder_class = get_replay_recorder_class(self.config)
+        self.command_recorder_class = get_command_recorder_class(self.config)
 
     def new_command_recorder(self):
-        return self.command_recorder_class(self)
+        recorder = self.command_recorder_class(self)
+        return recorder
 
     def new_replay_recorder(self):
         return self.replay_recorder_class(self)
@@ -111,7 +119,7 @@ class Coco:
         self.make_logger()
         self.service.initial()
         self.load_extra_conf_from_server()
-        self.initial_recorder()
+        self.get_recorder_class()
         self.keep_heartbeat()
         self.monitor_sessions()
 

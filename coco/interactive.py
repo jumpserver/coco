@@ -2,22 +2,21 @@
 # -*- coding: utf-8 -*-
 #
 
-import logging
 import socket
 import threading
 import weakref
-
 import os
+
 from jms.models import Asset, AssetGroup
 
 from . import char
 from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
     wrap_with_primary as primary, wrap_with_warning as warning, \
     is_obj_attr_has, is_obj_attr_eq, sort_assets, TtyIOParser, \
-    ugettext as _
+    ugettext as _, get_logger
 from .proxy import ProxyServer
 
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 
 
 class InteractiveServer:
@@ -42,7 +41,7 @@ class InteractiveServer:
         if self._search_result:
             return self._search_result
         else:
-            return None
+            return []
 
     @search_result.setter
     def search_result(self, value):
@@ -272,7 +271,7 @@ class InteractiveServer:
 
     def search_and_proxy(self, opt):
         self.search_assets(opt)
-        if len(self.search_result) == 1:
+        if self.search_result and len(self.search_result) == 1:
             self.proxy(self.search_result[0])
         else:
             self.display_search_result()

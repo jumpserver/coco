@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 import threading
 import datetime
-import logging
 import weakref
 
 from . import char
 from . import utils
 
 BUF_SIZE = 4096
-logger = logging.getLogger(__file__)
+logger = utils.get_logger(__file__)
 
 
 class Request:
