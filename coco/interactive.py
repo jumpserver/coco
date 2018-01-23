@@ -2,22 +2,21 @@
 # -*- coding: utf-8 -*-
 #
 
-import logging
 import socket
 import threading
 import weakref
-
 import os
+
 from jms.models import Asset, AssetGroup
 
 from . import char
 from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
     wrap_with_primary as primary, wrap_with_warning as warning, \
     is_obj_attr_has, is_obj_attr_eq, sort_assets, TtyIOParser, \
-    ugettext as _
+    ugettext as _, get_logger
 from .proxy import ProxyServer
 
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 
 
 class InteractiveServer:

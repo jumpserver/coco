@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 #
 
-import logging
 import paramiko
 import threading
 import weakref
 
+from .utils import get_logger
 
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 
 
 class SSHInterface(paramiko.ServerInterface):

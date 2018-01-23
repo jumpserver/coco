@@ -4,43 +4,56 @@
 
 import os
 import logging
-from logging import StreamHandler
-from logging.handlers import TimedRotatingFileHandler
-
-
-LOG_LEVELS = {
-    'DEBUG': logging.DEBUG,
-    'INFO': logging.INFO,
-    'WARN': logging.WARNING,
-    'WARNING': logging.WARNING,
-    'ERROR': logging.ERROR,
-    'FATAL': logging.FATAL,
-    'CRITICAL': logging.CRITICAL,
-}
+from logging.config import dictConfig
 
 
 def create_logger(app):
     level = app.config['LOG_LEVEL']
-    level = LOG_LEVELS.get(level, logging.INFO)
     log_dir = app.config.get('LOG_DIR')
     log_path = os.path.join(log_dir, 'coco.log')
+    main_setting = {
+        'handlers': ['console', 'file'],
+        'level': level,
+        'propagate': False,
+    }
+    config = dict(
+        version=1,
+        formatters={
+            "main": {
+                'format': '%(asctime)s [%(module)s %(levelname)s] %(message)s',
+                'datefmt': '%Y-%m-%d %H:%M:%S',
+            },
+            'simple': {
+                'format': '%(asctime)s [%(levelname)-8s] %(message)s',
+                'datefmt': '%Y-%m-%d %H:%M:%S',
+            }
+        },
+        handlers={
+            'null': {
+                'level': 'DEBUG',
+                'class': 'logging.NullHandler',
+            },
+            'console': {
+                'level': 'DEBUG',
+                'class': 'logging.StreamHandler',
+                'formatter': 'main'
+            },
+            'file': {
+                'level': 'DEBUG',
+                'class': 'logging.FileHandler',
+                'formatter': 'main',
+                'filename': log_path,
+            },
+        },
+        loggers={
+            'coco': main_setting,
+            'paramiko': main_setting,
+            'jms': main_setting,
+        }
+    )
+
+    dictConfig(config)
     logger = logging.getLogger()
+    return logger
 
-    main_formatter = logging.Formatter(
-        fmt='%(asctime)s [%(module)s %(levelname)s] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    # main_formatter = logging.Formatter(
-    #     fmt='%(asctime)s [%(levelname)s] %(message)s',
-    #     datefmt='%Y-%m-%d %H:%M:%S'
-    # )
-    console_handler = StreamHandler()
-    file_handler = TimedRotatingFileHandler(
-        filename=log_path, when='D', backupCount=10
-    )
 
-    for handler in [console_handler, file_handler]:
-        handler.setFormatter(main_formatter)
-        logger.addHandler(handler)
-    logger.setLevel(level)
-    logging.getLogger("requests").setLevel(logging.WARNING)
