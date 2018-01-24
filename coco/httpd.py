@@ -94,11 +94,13 @@ class SSHws(Namespace, BaseWebSocketHandler):
 
                 child, parent = socket.socketpair()
                 self.clients[request.sid]["client"][connection] = Client(parent, self.clients[request.sid]["request"])
+
                 self.clients[request.sid]["proxy"][connection] = WSProxy(self, child, self.clients[request.sid]["room"],
                                                                          connection)
                 self.app.clients.append(self.clients[request.sid]["client"][connection])
                 self.clients[request.sid]["forwarder"][connection] = ProxyServer(self.app,
-                                                                                 self.clients[request.sid]["client"][connection])
+                                                                                 self.clients[request.sid]["client"][
+                                                                                     connection])
 
                 self.socketio.start_background_task(self.clients[request.sid]["forwarder"][connection].proxy, asset,
                                                     system_user)
@@ -135,6 +137,8 @@ class SSHws(Namespace, BaseWebSocketHandler):
     def on_disconnect(self):
         self.on_leave(self.clients[request.sid]["room"])
         try:
+            for connection in self.clients[request.sid]["client"]:
+                self.clients[request.sid]["client"][connection].close()
             del self.clients[request.sid]
         except:
             pass

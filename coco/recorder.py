@@ -250,8 +250,8 @@ class S3ReplayRecorder(ReplayRecorder):
 
     def push_to_server(self, session_id):
         self.s3.upload_file(
-            filename=os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
-            bucket=self.bucket) # TODO: 添加日期文件夹及协调一些事宜<liuzheng>
+            os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
+            self.bucket, self.aws_key)  # TODO: 添加日期文件夹及协调一些事宜<liuzheng>
 
 
 def get_command_recorder_class(config):
