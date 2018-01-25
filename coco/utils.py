@@ -163,9 +163,12 @@ class TtyIOParser(object):
 
         for d in data:
             self.stream.feed(d)
-        for line in self.screen.display:
-            if line.strip():
-                output.append(line)
+        try:
+            for line in self.screen.display:
+                if line.strip():
+                    output.append(line)
+        except IndexError:
+            pass
         self.screen.reset()
         return sep.join(output[0:-1]).strip()
 
