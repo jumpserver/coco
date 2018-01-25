@@ -9,6 +9,7 @@ import os
 import gzip
 import json
 import shutil
+import boto3  # AWS S3 sdk
 
 from jms_es_sdk import ESStore
 
@@ -238,6 +239,20 @@ class ESCommandRecorder(CommandRecorder, metaclass=Singleton):
         print("{} has been gc".format(self))
 
 
+class S3ReplayRecorder(ServerReplayRecorder):
+    def __init__(self, app):
+        super().__init__(app)
+        self.bucket = app.config["REPLAY_RECORD_ENGINE"].get("BUCKET", "jumpserver")
+        self.s3 = boto3.client('s3')
+
+    def push_to_server(self, session_id):
+        self.s3.upload_file(
+            os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
+            self.bucket,
+            time.strftime('%Y-%m-%d', time.localtime(
+                self.starttime)) + '/' + session_id + '.replay.gz')
+
+
 def get_command_recorder_class(config):
     command_storage = config["COMMAND_STORAGE"]
 
@@ -249,7 +264,7 @@ def get_command_recorder_class(config):
 
 def get_replay_recorder_class(config):
     replay_engine = config["REPLAY_RECORD_ENGINE"]
-    if replay_engine == "server":
-        return ServerReplayRecorder
+    if replay_engine == "s3":
+        return S3ReplayRecorder
     else:
         return ServerReplayRecorder

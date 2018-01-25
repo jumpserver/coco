@@ -212,7 +212,10 @@ class WSProxy:
 
     def forward(self):
         while not self.stop_event.is_set():
-            data = self.child.recv(BUF_SIZE)
+            try:
+                data = self.child.recv(BUF_SIZE)
+            except OSError:
+                continue
             if len(data) == 0:
                 self.close()
             self.ws.emit("data", {'data': data.decode("utf-8"), 'room': self.connection}, room=self.room)
@@ -225,3 +228,5 @@ class WSProxy:
     def close(self):
         self.stop_event.set()
         self.child.close()
+        self.ws.on_logout(self.connection)
+        logger.debug("Proxy {} closed".format(self))
