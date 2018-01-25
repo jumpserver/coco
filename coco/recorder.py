@@ -9,7 +9,7 @@ import os
 import gzip
 import json
 import shutil
-# import boto3  # AWS S3 sdk
+import boto3  # AWS S3 sdk
 
 from jms_es_sdk import ESStore
 
@@ -242,16 +242,15 @@ class ESCommandRecorder(CommandRecorder, metaclass=Singleton):
 class S3ReplayRecorder(ReplayRecorder):
     def __init__(self, app):
         super().__init__(app)
-        self.aws_id = app.config["REPLAY_RECORD_ENGINE"].get("KEY_ID", None)
-        self.aws_key = app.config["REPLAY_RECORD_ENGINE"].get("KEY", None)
-
-        self.s3 = boto3.client('s3', aws_access_key_id=self.aws_id, aws_secret_access_key=self.aws_key)
         self.bucket = app.config["REPLAY_RECORD_ENGINE"].get("BUCKET", "jumpserver")
+        self.s3 = boto3.client('s3')
 
-    # def push_to_server(self, session_id):
-    #     self.s3.upload_file(
-    #         os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
-    #         self.bucket, self.aws_key)  # TODO: 添加日期文件夹及协调一些事宜<liuzheng>
+    def push_to_server(self, session_id):
+        self.s3.upload_file(
+            os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
+            self.bucket,
+            time.strftime('%Y-%m-%d', time.localtime(
+                self.starttime)) + '/' + session_id + '.replay.gz')
 
 
 def get_command_recorder_class(config):
