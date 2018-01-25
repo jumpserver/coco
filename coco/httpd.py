@@ -158,6 +158,13 @@ class SSHws(Namespace, BaseWebSocketHandler):
                 del self.clients[request.sid]["client"][connection]
                 client.close()
 
+    def logout(self, connection):
+        if connection and (request.sid in self.clients.keys()):
+            if connection in self.clients[request.sid]["proxy"].keys():
+                del self.clients[request.sid]["proxy"][connection]
+            if connection in self.clients[request.sid]["forwarder"].keys():
+                del self.clients[request.sid]["client"][connection]
+
 
 class HttpServer:
     # prepare may be rewrite it
