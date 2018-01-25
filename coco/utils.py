@@ -86,61 +86,6 @@ def ssh_key_gen(length=2048, type='rsa', password=None,
         raise IOError('These is error when generate ssh key.')
 
 
-def content_md5(data):
-    """计算data的MD5值，经过Base64编码并返回str类型。
-
-    返回值可以直接作为HTTP Content-Type头部的值
-    """
-    if isinstance(data, str):
-        data = hashlib.md5(data.encode('utf-8'))
-    value = base64.b64encode(data.digest())
-    return value.decode('utf-8')
-
-
-_STRPTIME_LOCK = threading.Lock()
-_GMT_FORMAT = "%a, %d %b %Y %H:%M:%S GMT"
-_ISO8601_FORMAT = "%Y-%m-%dT%H:%M:%S.000Z"
-
-
-def to_unixtime(time_string, format_string):
-    with _STRPTIME_LOCK:
-        return int(calendar.timegm(time.strptime(str(time_string), format_string)))
-
-
-def http_date(timeval=None):
-    """返回符合HTTP标准的GMT时间字符串，用strftime的格式表示就是"%a, %d %b %Y %H:%M:%S GMT"。
-    但不能使用strftime，因为strftime的结果是和locale相关的。
-    """
-    return formatdate(timeval, usegmt=True)
-
-
-def http_to_unixtime(time_string):
-    """把HTTP Date格式的字符串转换为UNIX时间（自1970年1月1日UTC零点的秒数）。
-
-    HTTP Date形如 `Sat, 05 Dec 2015 11:10:29 GMT` 。
-    """
-    return to_unixtime(time_string, _GMT_FORMAT)
-
-
-def iso8601_to_unixtime(time_string):
-    """把ISO8601时间字符串（形如，2012-02-24T06:07:48.000Z）转换为UNIX时间，精确到秒。"""
-    return to_unixtime(time_string, _ISO8601_FORMAT)
-
-
-def make_signature(access_key_secret, date=None):
-    if isinstance(date, bytes):
-        date = bytes.decode(date)
-    if isinstance(date, int):
-        date_gmt = http_date(date)
-    elif date is None:
-        date_gmt = http_date(int(time.time()))
-    else:
-        date_gmt = date
-
-    data = str(access_key_secret) + "\n" + date_gmt
-    return content_md5(data)
-
-
 class TtyIOParser(object):
     def __init__(self, width=80, height=24):
         self.screen = pyte.Screen(width, height)
@@ -163,9 +108,12 @@ class TtyIOParser(object):
 
         for d in data:
             self.stream.feed(d)
-        for line in self.screen.display:
-            if line.strip():
-                output.append(line)
+        try:
+            for line in self.screen.display:
+                if line.strip():
+                    output.append(line)
+        except IndexError:
+            pass
         self.screen.reset()
         return sep.join(output[0:-1]).strip()
 
@@ -284,10 +232,6 @@ def wrap_with_title(text):
     return wrap_with_color(text, color='black', background='green')
 
 
-def b64encode_as_string(data):
-    return base64.b64encode(data).decode("utf-8")
-
-
 def split_string_int(s):
     """Split string or int
 
@@ -319,37 +263,6 @@ def sort_assets(assets, order_by='hostname'):
     else:
         assets = sorted(assets, key=lambda asset: getattr(asset, order_by))
     return assets
-
-
-class PKey(object):
-    @classmethod
-    def from_string(cls, key_string):
-        try:
-            pkey = paramiko.RSAKey(file_obj=StringIO(key_string))
-            return pkey
-        except paramiko.SSHException:
-            try:
-                pkey = paramiko.DSSKey(file_obj=StringIO(key_string))
-                return pkey
-            except paramiko.SSHException:
-                return None
-
-
-def timestamp_to_datetime_str(ts):
-    datetime_format = '%Y-%m-%dT%H:%M:%S.%fZ'
-    dt = datetime.datetime.fromtimestamp(ts, tz=pytz.timezone('UTC'))
-    return dt.strftime(datetime_format)
-
-
-class MultiQueue(Queue):
-    def mget(self, size=1, block=True, timeout=5):
-        items = []
-        for i in range(size):
-            try:
-                items.append(self.get(block=block, timeout=timeout))
-            except Empty:
-                break
-        return items
 
 
 def _gettext():

@@ -129,7 +129,7 @@ class InteractiveServer:
             self.display_asset_groups()
         elif opt.startswith("g") and opt.lstrip("g").isdigit():
             self.display_group_assets(int(opt.lstrip("g")))
-        elif opt in ['q', 'Q']:
+        elif opt in ['q', 'Q', 'exit', 'quit']:
             return self._sentinel
         elif opt in ['h', 'H']:
             self.display_banner()

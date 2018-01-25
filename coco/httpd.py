@@ -94,11 +94,13 @@ class SSHws(Namespace, BaseWebSocketHandler):
 
                 child, parent = socket.socketpair()
                 self.clients[request.sid]["client"][connection] = Client(parent, self.clients[request.sid]["request"])
+
                 self.clients[request.sid]["proxy"][connection] = WSProxy(self, child, self.clients[request.sid]["room"],
                                                                          connection)
                 self.app.clients.append(self.clients[request.sid]["client"][connection])
-                self.clients[request.sid]["forwarder"][connection] = ProxyServer(self.app,
-                                                                                 self.clients[request.sid]["client"][connection])
+                self.clients[request.sid]["forwarder"][connection] = ProxyServer(
+                    self.app, self.clients[request.sid]["client"][connection]
+                )
 
                 self.socketio.start_background_task(self.clients[request.sid]["forwarder"][connection].proxy, asset,
                                                     system_user)
@@ -135,6 +137,8 @@ class SSHws(Namespace, BaseWebSocketHandler):
     def on_disconnect(self):
         self.on_leave(self.clients[request.sid]["room"])
         try:
+            for connection in self.clients[request.sid]["client"]:
+                self.on_logout(connection)
             del self.clients[request.sid]
         except:
             pass
@@ -142,13 +146,19 @@ class SSHws(Namespace, BaseWebSocketHandler):
         pass
 
     def on_logout(self, connection):
-        print("logout", connection)
+        logger.debug("{} logout".format(connection))
         if connection:
-            self.clients[request.sid]["proxy"][connection].close()
-            del self.clients[request.sid]["proxy"][connection]
-            del self.clients[request.sid]["forwarder"][connection]
-            self.clients[request.sid]["client"][connection].close()
-            del self.clients[request.sid]["client"][connection]
+            if connection in self.clients[request.sid]["proxy"].keys():
+                self.clients[request.sid]["proxy"][connection].close()
+
+    def logout(self, connection):
+        if connection and (request.sid in self.clients.keys()):
+            if connection in self.clients[request.sid]["proxy"].keys():
+                del self.clients[request.sid]["proxy"][connection]
+            if connection in self.clients[request.sid]["forwarder"].keys():
+                del self.clients[request.sid]["forwarder"][connection]
+            if connection in self.clients[request.sid]["client"].keys():
+                del self.clients[request.sid]["client"][connection]
 
 
 class HttpServer:
