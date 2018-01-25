@@ -146,10 +146,7 @@ class SSHws(Namespace, BaseWebSocketHandler):
         pass
 
     def on_logout(self, connection):
-        logger.debug("Session {} logout {}".format(request.sid, connection))
-        logger.debug("keys {}".format(self.clients[request.sid].keys()))
-        if connection and request.sid in self.clients[request.sid].keys():
-            logger.debug("proxy : {}".format(self.clients[request.sid]["proxy"].keys()))
+        if request.sid and connection and (request.sid in self.clients.keys()):
             if connection in self.clients[request.sid]["proxy"].keys():
                 proxy = self.clients[request.sid]["proxy"][connection]
                 del self.clients[request.sid]["proxy"][connection]
