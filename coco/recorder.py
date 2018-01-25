@@ -239,7 +239,7 @@ class ESCommandRecorder(CommandRecorder, metaclass=Singleton):
         print("{} has been gc".format(self))
 
 
-class S3ReplayRecorder(ReplayRecorder):
+class S3ReplayRecorder(ServerReplayRecorder):
     def __init__(self, app):
         super().__init__(app)
         self.bucket = app.config["REPLAY_RECORD_ENGINE"].get("BUCKET", "jumpserver")

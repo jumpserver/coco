@@ -148,11 +148,19 @@ class SSHws(Namespace, BaseWebSocketHandler):
     def on_logout(self, connection):
         logger.debug("{} logout".format(connection))
         if connection:
-            self.clients[request.sid]["proxy"][connection].close()
-            del self.clients[request.sid]["proxy"][connection]
-            del self.clients[request.sid]["forwarder"][connection]
-            self.clients[request.sid]["client"][connection].close()
-            del self.clients[request.sid]["client"][connection]
+            if connection in self.clients[request.sid]["proxy"].keys():
+                self.clients[request.sid]["proxy"][connection].close()
+            if connection in self.clients[request.sid]["client"].keys():
+                self.clients[request.sid]["client"][connection].close()
+
+    def logout(self, connection):
+        if connection and (request.sid in self.clients.keys()):
+            if connection in self.clients[request.sid]["proxy"].keys():
+                del self.clients[request.sid]["proxy"][connection]
+            if connection in self.clients[request.sid]["forwarder"].keys():
+                del self.clients[request.sid]["forwarder"][connection]
+            if connection in self.clients[request.sid]["client"].keys():
+                del self.clients[request.sid]["client"][connection]
 
 
 class HttpServer:
