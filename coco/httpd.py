@@ -150,8 +150,6 @@ class SSHws(Namespace, BaseWebSocketHandler):
         if connection:
             if connection in self.clients[request.sid]["proxy"].keys():
                 self.clients[request.sid]["proxy"][connection].close()
-            if connection in self.clients[request.sid]["client"].keys():
-                self.clients[request.sid]["client"][connection].close()
 
     def logout(self, connection):
         if connection and (request.sid in self.clients.keys()):
