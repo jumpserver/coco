@@ -271,7 +271,5 @@ def get_replay_recorder_class(config):
     replay_storage = config["REPLAY_STORAGE"]
     if replay_storage['TYPE'] == "s3":
         return S3ReplayRecorder
-    elif replay_storage['TYPE'] == "locale":
-        return ServerReplayRecorder
     else:
         return ServerReplayRecorder
