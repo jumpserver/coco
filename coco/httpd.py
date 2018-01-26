@@ -20,6 +20,9 @@ logger = get_logger(__file__)
 
 
 class BaseWebSocketHandler:
+    clients = None
+    current_user = None
+
     def app(self, app):
         self.app = app
         return self
@@ -31,11 +34,13 @@ class BaseWebSocketHandler:
             remote_ip = x_forwarded_for[0]
         else:
             remote_ip = request.remote_addr
-        self.clients[request.sid]["request"] = Request((remote_ip, 0))
-        self.clients[request.sid]["request"].user = self.current_user
-        self.clients[request.sid]["request"].meta = {"width": self.clients[request.sid]["cols"],
-                                                     "height": self.clients[request.sid]["rows"]}
-        # self.request.__dict__.update(request.__dict__)
+        req = Request((remote_ip, 0))
+        req.user = self.current_user
+        req.meta = {
+            "width": self.clients[request.sid]["cols"],
+            "height": self.clients[request.sid]["rows"]
+        }
+        self.clients[request.sid]["request"] = req
 
     def check_origin(self, origin):
         return True
@@ -45,7 +50,6 @@ class BaseWebSocketHandler:
             self.clients[request.sid]["client"].close()
         except:
             pass
-        pass
 
 
 class SSHws(Namespace, BaseWebSocketHandler):
@@ -72,8 +76,10 @@ class SSHws(Namespace, BaseWebSocketHandler):
             "rw": []
         }
         join_room(room)
-        self.current_user = self.app.service.check_user_cookie(session_id=request.cookies.get('sessionid', ''),
-                                                               csrf_token=request.cookies.get('csrftoken', ''))
+        self.current_user = self.app.service.check_user_cookie(
+            session_id=request.cookies.get('sessionid', ''),
+            csrf_token=request.cookies.get('csrftoken', '')
+        )
         self.prepare(request)
 
     def on_data(self, message):
@@ -83,27 +89,31 @@ class SSHws(Namespace, BaseWebSocketHandler):
     def on_host(self, message):
         # 此处获取主机的信息
         connection = str(uuid.uuid4())
-        assetID = message.get('uuid', None)
-        userid = message.get('userid', None)
+        asset_id = message.get('uuid', None)
+        user_id = message.get('userid', None)
         self.emit('room', {'room': connection, 'secret': message['secret']})
 
-        if assetID and userid:
-            asset = self.app.service.get_asset(assetID)
-            system_user = self.app.service.get_system_user(userid)
+        if asset_id and user_id:
+            asset = self.app.service.get_asset(asset_id)
+            system_user = self.app.service.get_system_user(user_id)
+
             if system_user:
-
                 child, parent = socket.socketpair()
-                self.clients[request.sid]["client"][connection] = Client(parent, self.clients[request.sid]["request"])
-
-                self.clients[request.sid]["proxy"][connection] = WSProxy(self, child, self.clients[request.sid]["room"],
-                                                                         connection)
-                self.app.clients.append(self.clients[request.sid]["client"][connection])
-                self.clients[request.sid]["forwarder"][connection] = ProxyServer(
+                self.clients[request.sid]["client"][connection] = Client(
+                    parent, self.clients[request.sid]["request"]
+                )
+                self.clients[request.sid]["proxy"][connection] = WSProxy(
+                    self, child, self.clients[request.sid]["room"], connection
+                )
+                self.clients[request.sid]["forwarder"][
+                    connection] = ProxyServer(
                     self.app, self.clients[request.sid]["client"][connection]
                 )
-
-                self.socketio.start_background_task(self.clients[request.sid]["forwarder"][connection].proxy, asset,
-                                                    system_user)
+                self.app.clients.append(self.clients[request.sid]["client"][connection])
+                self.socketio.start_background_task(
+                    self.clients[request.sid]["forwarder"][connection].proxy,
+                    asset, system_user
+                )
                 # self.forwarder.proxy(self.asset, system_user)
             else:
                 self.on_disconnect()
@@ -142,8 +152,6 @@ class SSHws(Namespace, BaseWebSocketHandler):
             del self.clients[request.sid]
         except:
             pass
-        # self.ssh.close()
-        pass
 
     def on_logout(self, connection):
         logger.debug("{} logout".format(connection))
