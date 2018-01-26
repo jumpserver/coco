@@ -62,6 +62,9 @@ class Config:
     COMMAND_STORAGE = {
         "TYPE": "server"
     }
+    REPLAY_STORAGE = {
+        "TYPE": "server"
+    }
 
 
 config = Config()
