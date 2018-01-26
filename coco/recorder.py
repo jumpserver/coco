@@ -242,15 +242,20 @@ class ESCommandRecorder(CommandRecorder, metaclass=Singleton):
 class S3ReplayRecorder(ServerReplayRecorder):
     def __init__(self, app):
         super().__init__(app)
-        self.bucket = app.config["REPLAY_RECORD_ENGINE"].get("BUCKET", "jumpserver")
+        self.bucket = app.config["REPLAY_STORAGE"].get("BUCKET", "jumpserver")
         self.s3 = boto3.client('s3')
 
     def push_to_server(self, session_id):
-        self.s3.upload_file(
-            os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
-            self.bucket,
-            time.strftime('%Y-%m-%d', time.localtime(
-                self.starttime)) + '/' + session_id + '.replay.gz')
+        try:
+            self.s3.upload_file(
+                os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
+                self.bucket,
+                time.strftime('%Y-%m-%d', time.localtime(
+                    self.starttime)) + '/' + session_id + '.replay.gz')
+        except:
+            return self.app.service.push_session_replay(
+                os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
+                session_id)
 
 
 def get_command_recorder_class(config):
@@ -263,8 +268,8 @@ def get_command_recorder_class(config):
 
 
 def get_replay_recorder_class(config):
-    replay_engine = config["REPLAY_RECORD_ENGINE"]
-    if replay_engine == "s3":
+    replay_storage = config["REPLAY_STORAGE"]
+    if replay_storage['TYPE'] == "s3":
         return S3ReplayRecorder
     else:
         return ServerReplayRecorder

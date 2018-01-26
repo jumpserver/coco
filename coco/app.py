@@ -49,7 +49,7 @@ class Coco:
         'MAX_CONNECTIONS': 500,
         'ADMINS': '',
         'COMMAND_STORAGE': {'TYPE': 'server'},   # server
-        'REPLAY_RECORD_ENGINE': 'server',
+        'REPLAY_STORAGE': {'TYPE': 'server'},
     }
 
     def __init__(self, root_path=None):
