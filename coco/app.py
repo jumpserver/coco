@@ -29,7 +29,8 @@ logger = get_logger(__file__)
 class Coco:
     config_class = Config
     default_config = {
-        'NAME': socket.gethostname(),
+        'DEFAULT_NAME': socket.gethostname(),
+        'NAME': None,
         'CORE_HOST': 'http://127.0.0.1:8080',
         'DEBUG': True,
         'BIND_HOST': '0.0.0.0',
@@ -68,7 +69,10 @@ class Coco:
 
     @property
     def name(self):
-        return self.config["NAME"]
+        if self.config['NAME']:
+            return self.config['NAME']
+        else:
+            return self.config['DEFAULT_NAME']
 
     @property
     def service(self):
