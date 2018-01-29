@@ -12,7 +12,7 @@ class Config:
     Coco config file
     """
     # 默认的名字
-    NAME = os.environ.get("APP_NAME") or None
+    NAME = os.environ.get("NAME") or None
 
     # Jumpserver项目的url, api请求注册会使用
     CORE_HOST = os.environ.get("CORE_HOST") or 'http://core:8080'
