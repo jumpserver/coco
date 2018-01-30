@@ -119,11 +119,12 @@ class InteractiveServer:
                 input_data.append(data)
 
     def dispatch(self, opt):
+        print(repr(opt))
         if opt is None:
             return self._sentinel
         elif opt.startswith("/"):
             self.search_and_display(opt.lstrip("/"))
-        elif opt in ['p', 'P']:
+        elif opt in ['p', 'P', '']:
             self.display_assets()
         elif opt in ['g', 'G']:
             self.display_asset_groups()
