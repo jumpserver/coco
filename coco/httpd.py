@@ -126,11 +126,12 @@ class ProxyNamespace(BaseNamespace):
         connection = str(uuid.uuid4())
         asset_id = message.get('uuid', None)
         user_id = message.get('userid', None)
+        secret = message.get('secret', None)
 
-        self.emit('room', {'room': connection, 'secret': message['secret']})
+        self.emit('room', {'room': connection, 'secret': secret})
 
         if not asset_id or not user_id:
-            self.on_connect()
+            # self.on_connect()
             return
 
         asset = self.app.service.get_asset(asset_id)
@@ -148,12 +149,24 @@ class ProxyNamespace(BaseNamespace):
             self, child, self.clients[request.sid]["room"], connection
         )
         self.clients[request.sid]["forwarder"][connection] = ProxyServer(
-               self.app, self.clients[request.sid]["client"][connection]
+            self.app, self.clients[request.sid]["client"][connection]
         )
         self.socketio.start_background_task(
             self.clients[request.sid]["forwarder"][connection].proxy,
             asset, system_user
         )
+
+    def on_token(self, message):
+        # 此处获取token含有的主机的信息
+        token = message.get('token', None)
+        secret = message.get('secret', None)
+        host = self.app.service.get_token_asset(token)
+        # {
+        #     "user": {UUID},
+        #     "asset": {UUID},
+        #     "system_user": {UUID}
+        # }
+        self.on_host({'secret': secret, 'uuid': host['asset'], 'userid': host['system_user']})
 
     def on_resize(self, message):
         cols = message.get('cols')
