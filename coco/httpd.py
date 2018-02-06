@@ -162,6 +162,7 @@ class ProxyNamespace(BaseNamespace):
         token = message.get('token', None)
         secret = message.get('secret', None)
         host = self.app.service.get_token_asset(token).json()
+        logger.debug(host)
         # {
         #     "user": {UUID},
         #     "asset": {UUID},
