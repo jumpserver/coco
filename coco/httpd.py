@@ -3,12 +3,10 @@
 #
 import os
 import socket
-from flask_socketio import SocketIO, Namespace, emit, join_room, leave_room
-from flask import Flask, send_from_directory, render_template, request, jsonify
 import uuid
+from flask_socketio import SocketIO, Namespace, join_room, leave_room
+from flask import Flask, request, current_app, redirect
 
-# Todo: Remove for future
-from jms.models import User
 from .models import Request, Client, WSProxy
 from .proxy import ProxyServer
 from .utils import get_logger
@@ -19,31 +17,31 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
 
 
-class BaseWebSocketHandler:
+class BaseNamespace(Namespace):
     clients = None
     current_user = None
 
-    def app(self, app):
-        self.app = app
-        return self
+    @property
+    def app(self):
+        app = current_app.config['coco']
+        return app
 
-    def prepare(self, request):
-        # self.app = self.settings["app"]
-        x_forwarded_for = request.headers.get("X-Forwarded-For", '').split(',')
-        if x_forwarded_for and x_forwarded_for[0]:
-            remote_ip = x_forwarded_for[0]
-        else:
-            remote_ip = request.remote_addr
-        req = Request((remote_ip, 0))
-        req.user = self.current_user
-        req.meta = {
-            "width": self.clients[request.sid]["cols"],
-            "height": self.clients[request.sid]["rows"]
-        }
-        self.clients[request.sid]["request"] = req
+    def on_connect(self):
+        self.current_user = self.get_current_user()
+        if self.current_user is None:
+            return redirect(current_app.config['LOGIN_URL'])
+        logger.debug("{} connect websocket".format(self.current_user))
 
-    def check_origin(self, origin):
-        return True
+    def get_current_user(self):
+        session_id = request.cookies.get('sessionid', '')
+        csrf_token = request.cookies.get('csrftoken', '')
+        token = request.headers.get("Authorization")
+        user = None
+        if session_id and csrf_token:
+            user = self.app.service.check_user_cookie(session_id, csrf_token)
+        if token:
+            user = self.app.service.check_user_with_token(token)
+        return user
 
     def close(self):
         try:
@@ -52,99 +50,164 @@ class BaseWebSocketHandler:
             pass
 
 
-class SSHws(Namespace, BaseWebSocketHandler):
+class ProxyNamespace(BaseNamespace):
     def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.clients = dict()
         self.rooms = dict()
-        super().__init__(*args, **kwargs)
 
-    def on_connect(self):
+    def new_client(self):
         room = str(uuid.uuid4())
-        self.clients[request.sid] = {
+        client = {
             "cols": int(request.cookies.get('cols', 80)),
             "rows": int(request.cookies.get('rows', 24)),
             "room": room,
-            # "chan": dict(),
             "proxy": dict(),
             "client": dict(),
             "forwarder": dict(),
-            "request": None,
+            "request": self.make_coco_request()
         }
-        self.rooms[room] = {
+        return client
+
+    def make_coco_request(self):
+        x_forwarded_for = request.headers.get("X-Forwarded-For", '').split(',')
+        if x_forwarded_for and x_forwarded_for[0]:
+            remote_ip = x_forwarded_for[0]
+        else:
+            remote_ip = request.remote_addr
+
+        width_request = request.cookies.get('cols')
+        rows_request = request.cookies.get('rows')
+        if width_request and width_request.isdigit():
+            width = int(width_request)
+        else:
+            width = 80
+
+        if rows_request and rows_request.isdigit():
+            rows = int(rows_request)
+        else:
+            rows = 24
+        req = Request((remote_ip, 0))
+        req.user = self.current_user
+        req.meta = {
+            "width": width,
+            "height": rows,
+        }
+        return req
+
+    def on_connect(self):
+        logger.debug("On connect event trigger")
+        super().on_connect()
+        client = self.new_client()
+        self.clients[request.sid] = client
+        self.rooms[client['room']] = {
             "admin": request.sid,
             "member": [],
             "rw": []
         }
-        join_room(room)
-        self.current_user = self.app.service.check_user_cookie(
-            session_id=request.cookies.get('sessionid', ''),
-            csrf_token=request.cookies.get('csrftoken', '')
-        )
-        self.prepare(request)
+        join_room(client['room'])
 
     def on_data(self, message):
-        if message['room'] and self.clients[request.sid]["proxy"][message['room']]:
-            self.clients[request.sid]["proxy"][message['room']].send({"data": message['data']})
+        """
+        收到浏览器请求
+        :param message: {"data": "xxx", "room": "xxx"}
+        :return:
+        """
+        room = message.get('room')
+        if not room:
+            return
+        room_proxy = self.clients[request.sid]['proxy'].get(room)
+        if room_proxy:
+            room_proxy.send({"data": message['data']})
 
     def on_host(self, message):
         # 此处获取主机的信息
+        logger.debug("On host event trigger")
         connection = str(uuid.uuid4())
         asset_id = message.get('uuid', None)
         user_id = message.get('userid', None)
-        self.emit('room', {'room': connection, 'secret': message['secret']})
+        secret = message.get('secret', None)
 
-        if asset_id and user_id:
-            asset = self.app.service.get_asset(asset_id)
-            system_user = self.app.service.get_system_user(user_id)
+        self.emit('room', {'room': connection, 'secret': secret})
 
-            if system_user:
-                child, parent = socket.socketpair()
-                self.clients[request.sid]["client"][connection] = Client(
-                    parent, self.clients[request.sid]["request"]
-                )
-                self.clients[request.sid]["proxy"][connection] = WSProxy(
-                    self, child, self.clients[request.sid]["room"], connection
-                )
-                self.clients[request.sid]["forwarder"][
-                    connection] = ProxyServer(
-                    self.app, self.clients[request.sid]["client"][connection]
-                )
-                self.app.clients.append(self.clients[request.sid]["client"][connection])
-                self.socketio.start_background_task(
-                    self.clients[request.sid]["forwarder"][connection].proxy,
-                    asset, system_user
-                )
-                # self.forwarder.proxy(self.asset, system_user)
-            else:
-                self.on_disconnect()
-        else:
-            self.on_disconnect()
+        if not asset_id or not user_id:
+            # self.on_connect()
+            return
+
+        asset = self.app.service.get_asset(asset_id)
+        system_user = self.app.service.get_system_user(user_id)
+
+        if not asset or not system_user:
+            self.on_connect()
+            return
+
+        child, parent = socket.socketpair()
+        self.clients[request.sid]["client"][connection] = Client(
+            parent, self.clients[request.sid]["request"]
+        )
+        self.clients[request.sid]["proxy"][connection] = WSProxy(
+            self, child, self.clients[request.sid]["room"], connection
+        )
+        self.clients[request.sid]["forwarder"][connection] = ProxyServer(
+            self.app, self.clients[request.sid]["client"][connection]
+        )
+        self.socketio.start_background_task(
+            self.clients[request.sid]["forwarder"][connection].proxy,
+            asset, system_user
+        )
+
+    def on_token(self, message):
+        # 此处获取token含有的主机的信息
+        logger.debug("On token trigger")
+        token = message.get('token', None)
+        secret = message.get('secret', None)
+        host = self.app.service.get_token_asset(token).json()
+        logger.debug(host)
+        # {
+        #     "user": {UUID},
+        #     "asset": {UUID},
+        #     "system_user": {UUID}
+        # }
+        self.on_host({'secret': secret, 'uuid': host['asset'], 'userid': host['system_user']})
 
     def on_resize(self, message):
-        if self.clients[request.sid]["request"]:
-            self.clients[request.sid]["request"].meta['width'] = message.get('cols', 80)
-            self.clients[request.sid]["request"].meta['height'] = message.get('rows', 24)
+        cols = message.get('cols')
+        rows = message.get('rows')
+        logger.debug("On resize event trigger: {}*{}".format(cols, rows))
+        if cols and rows and self.clients[request.sid]["request"]:
+            self.clients[request.sid]["request"].meta['width'] = cols
+            self.clients[request.sid]["request"].meta['height'] = rows
             self.clients[request.sid]["request"].change_size_event.set()
 
-    def on_room(self, sessionid):
-        if sessionid not in self.clients.keys():
-            self.emit('error', "no such session", room=self.clients[request.sid]["room"])
+    def on_room(self, session_id):
+        logger.debug("On room event trigger")
+        if session_id not in self.clients.keys():
+            self.emit(
+                'error', "no such session",
+                room=self.clients[request.sid]["room"]
+            )
         else:
-            self.emit('room', self.clients[sessionid]["room"], room=self.clients[request.sid]["room"])
+            self.emit(
+                'room', self.clients[session_id]["room"],
+                room=self.clients[request.sid]["room"]
+            )
 
     def on_join(self, room):
+        logger.debug("On join room event trigger")
         self.on_leave(self.clients[request.id]["room"])
         self.clients[request.sid]["room"] = room
         self.rooms[room]["member"].append(request.sid)
         join_room(room=room)
 
     def on_leave(self, room):
+        logger.debug("On leave room event trigger")
         if self.rooms[room]["admin"] == request.sid:
             self.emit("data", "\nAdmin leave", room=room)
             del self.rooms[room]
         leave_room(room=room)
 
     def on_disconnect(self):
+        logger.debug("On disconnect event trigger")
         self.on_leave(self.clients[request.sid]["room"])
         try:
             for connection in self.clients[request.sid]["client"]:
@@ -154,10 +217,11 @@ class SSHws(Namespace, BaseWebSocketHandler):
             pass
 
     def on_logout(self, connection):
-        logger.debug("{} logout".format(connection))
+        logger.debug("On logout event trigger")
         if connection:
             if connection in self.clients[request.sid]["proxy"].keys():
                 self.clients[request.sid]["proxy"][connection].close()
+                del self.clients[request.sid]['proxy'][connection]
 
     def logout(self, connection):
         if connection and (request.sid in self.clients.keys()):
@@ -171,28 +235,31 @@ class SSHws(Namespace, BaseWebSocketHandler):
 
 class HttpServer:
     # prepare may be rewrite it
-    settings = {
-        'cookie_secret': '',
-        'app': None,
-        'login_url': '/login'
+    config = {
+        'SECRET_KEY': '',
+        'coco': None,
+        'LOGIN_URL': '/login'
     }
+    async_mode = "threading"
 
-    def __init__(self, app):
-        self.app = app
-        # self.settings['cookie_secret'] = self.app.config['SECRET_KEY']
-        # self.settings['app'] = self.app
+    def __init__(self, coco):
+        config = coco.config
+        config.update(self.config)
+        config['coco'] = coco
+        self.flask_app = Flask(__name__, template_folder='dist')
+        self.flask_app.config.update(config)
+        self.socket_io = SocketIO()
+        self.register_routes()
 
-        self.flask = Flask(__name__, template_folder='dist')
-        self.flask.config['SECRET_KEY'] = self.app.config['SECRET_KEY']
-        self.socketio = SocketIO()
+    def register_routes(self):
+        self.socket_io.on_namespace(ProxyNamespace('/ssh'))
 
     def run(self):
-        host = self.app.config["BIND_HOST"]
-        port = self.app.config["HTTPD_PORT"]
+        host = self.flask_app.config["BIND_HOST"]
+        port = self.flask_app.config["HTTPD_PORT"]
         print('Starting websocket server at {}:{}'.format(host, port))
-        self.socketio.on_namespace(SSHws('/ssh').app(self.app))
-        self.socketio.init_app(self.flask, async_mode="threading")
-        self.socketio.run(self.flask, port=port, host=host)
+        self.socket_io.init_app(self.flask_app, async_mode=self.async_mode)
+        self.socket_io.run(self.flask_app, port=port, host=host, debug=False)
 
     def shutdown(self):
         pass

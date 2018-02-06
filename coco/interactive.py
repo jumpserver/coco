@@ -82,6 +82,7 @@ class InteractiveServer:
         self.client.send(wr(prompt, before=1, after=0))
         while True:
             data = self.client.recv(10)
+            logger.debug(data)
             if len(data) == 0:
                 self.app.remove_client(self.client)
                 break
@@ -95,6 +96,15 @@ class InteractiveServer:
                     data = char.BELL_CHAR
                 self.client.send(data)
                 continue
+
+            if data.startswith(b'\x03'):
+                # Ctrl-C
+                self.client.send(b'^C\r\nOpt> ')
+                input_data = []
+                continue
+            elif data.startswith(b'\x04'):
+                # Ctrl-D
+                return 'q'
 
             # Todo: Move x1b to char
             if data.startswith(b'\x1b') or data in char.UNSUPPORTED_CHAR:
@@ -119,11 +129,12 @@ class InteractiveServer:
                 input_data.append(data)
 
     def dispatch(self, opt):
+        print(repr(opt))
         if opt is None:
             return self._sentinel
         elif opt.startswith("/"):
             self.search_and_display(opt.lstrip("/"))
-        elif opt in ['p', 'P']:
+        elif opt in ['p', 'P', '']:
             self.display_assets()
         elif opt in ['g', 'G']:
             self.display_asset_groups()
@@ -181,7 +192,7 @@ class InteractiveServer:
         amount_max_length = max(len(str(max([group.assets_amount for group in self.asset_groups]))), 10)
         header = '{1:>%d} {0.name:%d} {0.assets_amount:<%s} ' % (id_max_length, name_max_length, amount_max_length)
         comment_length = self.request.meta["width"] - len(header.format(fake_group, id_max_length))
-        line = header + '{0.comment:%s}' % (comment_length//2)  # comment中可能有中文
+        line = header + '{0.comment:%s}' % (comment_length // 2)  # comment中可能有中文
         header += "{0.comment:%s}" % comment_length
         self.client.send(title(header.format(fake_group, "ID")))
         for index, group in enumerate(self.asset_groups, 1):
@@ -194,12 +205,13 @@ class InteractiveServer:
             self.display_asset_groups()
             return
 
-        self.search_result = self.asset_groups[_id-1].assets_granted
+        self.search_result = self.asset_groups[_id - 1].assets_granted
         self.display_search_result()
 
     def display_search_result(self):
         self.search_result = sort_assets(self.search_result, self.app.config["ASSET_LIST_SORT_BY"])
-        fake_asset = Asset(hostname=_("Hostname"), ip=_("IP"), _system_users_name_list=_("LoginAs"), comment=_("Comment"))
+        fake_asset = Asset(hostname=_("Hostname"), ip=_("IP"), _system_users_name_list=_("LoginAs"),
+                           comment=_("Comment"))
         id_max_length = max(len(str(len(self.search_result))), 3)
         hostname_max_length = max(max([len(asset.hostname) for asset in self.search_result + [fake_asset]]), 15)
         sysuser_max_length = max([len(asset.system_users_name_list) for asset in self.search_result + [fake_asset]])
