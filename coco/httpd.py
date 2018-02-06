@@ -158,9 +158,10 @@ class ProxyNamespace(BaseNamespace):
 
     def on_token(self, message):
         # 此处获取token含有的主机的信息
+        logger.debug("On token trigger")
         token = message.get('token', None)
         secret = message.get('secret', None)
-        host = self.app.service.get_token_asset(token)
+        host = self.app.service.get_token_asset(token).json()
         # {
         #     "user": {UUID},
         #     "asset": {UUID},
