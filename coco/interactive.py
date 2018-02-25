@@ -201,7 +201,7 @@ class InteractiveServer:
 
     def display_group_assets(self, _id):
         if _id > len(self.asset_groups) or _id <= 0:
-            self.client.send(wr(warning("Not match group, select again")))
+            self.client.send(wr(warning("No matched group, select again")))
             self.display_asset_groups()
             return
 
