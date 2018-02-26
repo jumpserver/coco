@@ -243,14 +243,23 @@ class S3ReplayRecorder(ServerReplayRecorder):
     def __init__(self, app):
         super().__init__(app)
         self.bucket = app.config["REPLAY_STORAGE"].get("BUCKET", "jumpserver")
-        self.s3 = boto3.client('s3')
+        self.REGION = app.config["REPLAY_STORAGE"].get("REGION", None)
+        self.ACCESS_KEY = app.config["REPLAY_STORAGE"].get("ACCESS_KEY", None)
+        self.SECRET_KEY = app.config["REPLAY_STORAGE"].get("SECRET_KEY", None)
+        if self.ACCESS_KEY and self.REGION and self.SECRET_KEY:
+            self.s3 = boto3.client('s3',
+                                   region_name=self.REGION,
+                                   aws_access_key_id=self.ACCESS_KEY,
+                                   aws_secret_access_key=self.SECRET_KEY)
+        else:
+            self.s3 = boto3.client('s3')
 
     def push_to_server(self, session_id):
         try:
             self.s3.upload_file(
                 os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
                 self.bucket,
-                time.strftime('%Y-%m-%d', time.localtime(
+                self.app.config.get("NAME", "coco") + time.strftime('%Y-%m-%d', time.localtime(
                     self.starttime)) + '/' + session_id + '.replay.gz')
         except:
             return self.app.service.push_session_replay(

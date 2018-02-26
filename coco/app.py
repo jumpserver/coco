@@ -228,10 +228,10 @@ class Coco:
     def add_session(self, session):
         with self.lock:
             self.sessions.append(session)
-            self.heartbeat_async()
+            self.service.create_session(session.to_json())
 
     def remove_session(self, session):
         with self.lock:
             logger.info("Remove session: {}".format(session))
             self.sessions.remove(session)
-            self.heartbeat_async()
+            self.service.finish_session(session.id)
