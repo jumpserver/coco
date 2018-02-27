@@ -289,4 +289,17 @@ def get_logger(file_name):
     return logging.getLogger('coco.'+file_name)
 
 
+zh_pattern = re.compile(u'[\u4e00-\u9fa5]+')
+
+
+def len_display(s):
+    length = 0
+    for i in s:
+        if zh_pattern.match(i):
+            length += 2
+        else:
+            length += 1
+    return length
+
+
 ugettext = _gettext()
