@@ -136,6 +136,7 @@ class Server:
 
     def close(self):
         logger.info("Closed server {}".format(self))
+        self.send(b'')
         self.chan.close()
         self.stop_evt.set()
         self.chan.close()
