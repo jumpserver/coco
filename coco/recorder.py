@@ -270,7 +270,7 @@ class S3ReplayRecorder(ServerReplayRecorder):
 def get_command_recorder_class(config):
     command_storage = config["COMMAND_STORAGE"]
 
-    if command_storage['TYPE'] == "elasticsearch":
+    if command_storage.get('TYPE') == "elasticsearch":
         return ESCommandRecorder
     else:
         return ServerCommandRecorder
@@ -278,7 +278,7 @@ def get_command_recorder_class(config):
 
 def get_replay_recorder_class(config):
     replay_storage = config["REPLAY_STORAGE"]
-    if replay_storage['TYPE'] == "s3":
+    if replay_storage.get('TYPE') == "s3":
         return S3ReplayRecorder
     else:
         return ServerReplayRecorder
