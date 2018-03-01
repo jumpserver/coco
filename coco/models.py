@@ -101,7 +101,7 @@ class Server:
         else:
             return None
 
-    def send(self, b):
+    def parse(self, b):
         if isinstance(b, str):
             b = b.encode("utf-8")
         if not self._input_initial:
@@ -122,6 +122,9 @@ class Server:
                 del self.input_data[:]
                 del self.output_data[:]
             self._in_input_state = True
+
+    def send(self, b):
+        self.parse(b)
         return self.chan.send(b)
 
     def recv(self, size):
@@ -136,7 +139,7 @@ class Server:
 
     def close(self):
         logger.info("Closed server {}".format(self))
-        self.send(b'')
+        self.parse(b'')
         self.chan.close()
         self.stop_evt.set()
         self.chan.close()
