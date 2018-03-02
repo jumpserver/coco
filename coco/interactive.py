@@ -129,7 +129,6 @@ class InteractiveServer:
                 input_data.append(data)
 
     def dispatch(self, opt):
-        print(repr(opt))
         if opt is None:
             return self._sentinel
         elif opt.startswith("/"):
