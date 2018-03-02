@@ -129,6 +129,7 @@ class ServerReplayRecorder(ReplayRecorder):
             logger.info("Succeed to push {}'s {}".format(session_id, "record"))
         else:
             logger.error("Failed to push {}'s {}".format(session_id, "record"))
+        self.push_to_server(session_id)
 
     def push_to_server(self, session_id):
         return self.app.service.push_session_replay(os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
