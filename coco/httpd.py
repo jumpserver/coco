@@ -64,7 +64,6 @@ class ProxyNamespace(BaseNamespace):
             "room": room,
             "proxy": dict(),
             "client": dict(),
-            "thread": dict(),
             "forwarder": dict(),
             "request": self.make_coco_request()
         }
@@ -152,7 +151,7 @@ class ProxyNamespace(BaseNamespace):
         self.clients[request.sid]["forwarder"][connection] = ProxyServer(
             self.app, self.clients[request.sid]["client"][connection]
         )
-        self.clients[request.sid]["thread"][connection] = self.socketio.start_background_task(
+        self.socketio.start_background_task(
             self.clients[request.sid]["forwarder"][connection].proxy,
             asset, system_user
         )
@@ -232,9 +231,6 @@ class ProxyNamespace(BaseNamespace):
                 del self.clients[request.sid]["forwarder"][connection]
             if connection in self.clients[request.sid]["client"].keys():
                 del self.clients[request.sid]["client"][connection]
-            if connection in self.clients[request.sid]["thread"].keys():
-                logger.debug("thread close", connection)
-                self.clients[request.sid]["thread"][connection].stop()
 
 
 class HttpServer:
@@ -261,7 +257,6 @@ class HttpServer:
     def run(self):
         host = self.flask_app.config["BIND_HOST"]
         port = self.flask_app.config["HTTPD_PORT"]
-        print('Starting websocket server at {}:{}'.format(host, port))
         self.socket_io.init_app(self.flask_app, async_mode=self.async_mode)
         self.socket_io.run(self.flask_app, port=port, host=host, debug=False)
 

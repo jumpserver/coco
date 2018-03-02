@@ -255,6 +255,7 @@ class S3ReplayRecorder(ServerReplayRecorder):
             self.s3 = boto3.client('s3')
 
     def push_to_server(self, session_id):
+        logger.debug("push to server")
         try:
             self.s3.upload_file(
                 os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
