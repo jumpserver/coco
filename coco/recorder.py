@@ -132,8 +132,38 @@ class ServerReplayRecorder(ReplayRecorder):
         self.push_to_server(session_id)
 
     def push_to_server(self, session_id):
-        return self.app.service.push_session_replay(os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
-                                                    session_id)
+        if self.push_to_s3(3, session_id):
+            if self.finish_replay(3, session_id):
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def push_to_s3(self, times, session_id):
+        if times > 0:
+            if self.app.service.push_session_replay(os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
+                                                    session_id):
+                logger.info("success push session: {}'s replay log ", session_id)
+                return True
+            else:
+                logger.error("failed report session {}'s replay log, try  {} times", session_id, times)
+                return self.push_to_s3(times - 1, session_id)
+        else:
+            logger.error("failed report session {}'s replay log", session_id)
+            return False
+
+    def finish_replay(self, times, session_id):
+        if times > 0:
+            if self.app.service.finish_replay(session_id):
+                logger.info("success report session {}'s replay log ", session_id)
+                return True
+            else:
+                logger.error("failed report session {}'s replay log, try {} times", session_id, times)
+                return self.finish_replay(times - 1, session_id)
+        else:
+            logger.error("failed report session {}'s replay log", session_id)
+            return False
 
     def __del__(self):
         print("{} has been gc".format(self))
