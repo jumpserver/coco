@@ -4,7 +4,6 @@
 
 import socket
 import threading
-import logging
 import time
 import weakref
 import paramiko
@@ -13,10 +12,10 @@ from paramiko.ssh_exception import SSHException
 from .session import Session
 from .models import Server
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
-    get_private_key_fingerprint
+    get_private_key_fingerprint, get_logger
 
 
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 TIMEOUT = 8
 BUF_SIZE = 4096
 
@@ -93,7 +92,7 @@ class ProxyServer:
                 timeout=TIMEOUT, compress=True, auth_timeout=10,
                 look_for_keys=False
             )
-        except (paramiko.AuthenticationException, paramiko.BadAuthenticationType):
+        except (paramiko.AuthenticationException, paramiko.BadAuthenticationType, SSHException):
             admins = self.app.config['ADMINS'] or 'administrator'
             self.client.send(warning(wr(
                 "Authenticate with server failed, contact {}".format(admins),

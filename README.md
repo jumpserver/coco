@@ -10,8 +10,8 @@ pre version.
 
 ## Install
 
-    $ git clone http://xxxx
-    
+    $ git clone https://github.com/jumpserver/coco.git
+
 ## Setting
 
 You need update config.py settings as you need, Be aware of: 
@@ -23,7 +23,7 @@ They are:
     NAME:
     JUMPSERVER_URL:
     SECRET_KEY:
-    
+
 Also some config you need kown:
     SSH_HOST:
     SSH_PORT:
@@ -31,8 +31,8 @@ Also some config you need kown:
 
 ## Start
 
-    # python ssh_server.py
-    
+    # python run_server.py
+
 When your start ssh server, It will register with jumpserver api,
 
 Then you need login jumpserver with admin user, active it in <Terminal>

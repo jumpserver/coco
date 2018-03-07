@@ -3,13 +3,14 @@
 #
 import threading
 import uuid
-import logging
 import datetime
 import selectors
 import time
 
+from .utils import get_logger
+
 BUF_SIZE = 1024
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 
 
 class Session:
@@ -27,6 +28,7 @@ class Session:
         self._command_recorder = command_recorder
         self._replay_recorder = replay_recorder
         self.server.set_session(self)
+        self.date_last_active = datetime.datetime.utcnow()
 
     def add_watcher(self, watcher, silent=False):
         """
@@ -128,6 +130,8 @@ class Session:
                         logger.info(msg)
                         self.close()
                         break
+
+                    self.date_last_active = datetime.datetime.utcnow()
                     for watcher in [self.client] + self._watchers + self._sharers:
                         watcher.send(data)
                 elif sock == self.client:
@@ -170,6 +174,7 @@ class Session:
             "login_from": "ST",
             "remote_addr": self.client.addr[0],
             "is_finished": True if self.stop_evt.is_set() else False,
+            "date_last_active": self.date_last_active.strftime("%Y-%m-%d %H:%M:%S") + " +0000",
             "date_start": self.date_created.strftime("%Y-%m-%d %H:%M:%S") + " +0000",
             "date_end": self.date_end.strftime("%Y-%m-%d %H:%M:%S") + " +0000" if self.date_end else None
         }

@@ -1,5 +1,7 @@
 asn1crypto==0.23.0
 bcrypt==3.1.4
+boto3==1.5.18
+botocore==1.8.32
 certifi==2017.11.5
 cffi==1.11.2
 chardet==3.0.4
@@ -28,4 +30,5 @@ tornado==4.5.2
 urllib3==1.22
 wcwidth==0.1.7
 werkzeug==0.12.2
-jumpserver-python-sdk==0.0.23
+jumpserver-python-sdk==0.0.31
+jms-es-sdk

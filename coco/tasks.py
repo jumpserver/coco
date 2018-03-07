@@ -1,8 +1,11 @@
-# coding: utf-8
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
 import weakref
-import logging
 
-logger = logging.getLogger(__file__)
+from .utils import get_logger
+
+logger = get_logger(__file__)
 
 
 class TaskHandler:

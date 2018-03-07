@@ -2,22 +2,21 @@
 # -*- coding: utf-8 -*-
 #
 
-import logging
 import socket
 import threading
 import weakref
-
 import os
+
 from jms.models import Asset, AssetGroup
 
 from . import char
 from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
     wrap_with_primary as primary, wrap_with_warning as warning, \
     is_obj_attr_has, is_obj_attr_eq, sort_assets, TtyIOParser, \
-    ugettext as _
+    ugettext as _, get_logger
 from .proxy import ProxyServer
 
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 
 
 class InteractiveServer:
@@ -42,7 +41,7 @@ class InteractiveServer:
         if self._search_result:
             return self._search_result
         else:
-            return None
+            return []
 
     @search_result.setter
     def search_result(self, value):
@@ -81,8 +80,10 @@ class InteractiveServer:
         input_data = []
         parser = TtyIOParser()
         self.client.send(wr(prompt, before=1, after=0))
+
         while True:
             data = self.client.recv(10)
+            logger.debug(data)
             if len(data) == 0:
                 self.app.remove_client(self.client)
                 break
@@ -97,6 +98,15 @@ class InteractiveServer:
                 self.client.send(data)
                 continue
 
+            if data.startswith(b'\x03'):
+                # Ctrl-C
+                self.client.send(b'^C\r\nOpt> ')
+                input_data = []
+                continue
+            elif data.startswith(b'\x04'):
+                # Ctrl-D
+                return 'q'
+
             # Todo: Move x1b to char
             if data.startswith(b'\x1b') or data in char.UNSUPPORTED_CHAR:
                 self.client.send(b'')
@@ -104,7 +114,7 @@ class InteractiveServer:
 
             # handle shell expect
             multi_char_with_enter = False
-            if len(data) > 1 and data[-1] in char.ENTER_CHAR:
+            if len(data) > 1 and data[-1] in char.ENTER_CHAR_ORDER:
                 self.client.send(data)
                 input_data.append(data[:-1])
                 multi_char_with_enter = True
@@ -124,13 +134,13 @@ class InteractiveServer:
             return self._sentinel
         elif opt.startswith("/"):
             self.search_and_display(opt.lstrip("/"))
-        elif opt in ['p', 'P']:
+        elif opt in ['p', 'P', '']:
             self.display_assets()
         elif opt in ['g', 'G']:
             self.display_asset_groups()
         elif opt.startswith("g") and opt.lstrip("g").isdigit():
             self.display_group_assets(int(opt.lstrip("g")))
-        elif opt in ['q', 'Q']:
+        elif opt in ['q', 'Q', 'exit', 'quit']:
             return self._sentinel
         elif opt in ['h', 'H']:
             self.display_banner()
@@ -173,7 +183,7 @@ class InteractiveServer:
             self.get_user_asset_groups()
 
         if len(self.asset_groups) == 0:
-            self.client.send(warning(_("Nothing")))
+            self.client.send(warning(_("无")))
             return
 
         fake_group = AssetGroup(name=_("Name"), assets_amount=_("Assets"), comment=_("Comment"))
@@ -182,25 +192,26 @@ class InteractiveServer:
         amount_max_length = max(len(str(max([group.assets_amount for group in self.asset_groups]))), 10)
         header = '{1:>%d} {0.name:%d} {0.assets_amount:<%s} ' % (id_max_length, name_max_length, amount_max_length)
         comment_length = self.request.meta["width"] - len(header.format(fake_group, id_max_length))
-        line = header + '{0.comment:%s}' % (comment_length//2)  # comment中可能有中文
+        line = header + '{0.comment:%s}' % (comment_length // 2)  # comment中可能有中文
         header += "{0.comment:%s}" % comment_length
         self.client.send(title(header.format(fake_group, "ID")))
         for index, group in enumerate(self.asset_groups, 1):
             self.client.send(wr(line.format(group, index)))
-        self.client.send(wr(_("Total: {}").format(len(self.asset_groups)), before=1))
+        self.client.send(wr(_("总共: {}").format(len(self.asset_groups)), before=1))
 
     def display_group_assets(self, _id):
         if _id > len(self.asset_groups) or _id <= 0:
-            self.client.send(wr(warning("Not match group, select again")))
+            self.client.send(wr(warning("没有匹配分组，请重新输入")))
             self.display_asset_groups()
             return
 
-        self.search_result = self.asset_groups[_id-1].assets_granted
+        self.search_result = self.asset_groups[_id - 1].assets_granted
         self.display_search_result()
 
     def display_search_result(self):
         self.search_result = sort_assets(self.search_result, self.app.config["ASSET_LIST_SORT_BY"])
-        fake_asset = Asset(hostname=_("Hostname"), ip=_("IP"), _system_users_name_list=_("LoginAs"), comment=_("Comment"))
+        fake_asset = Asset(hostname=_("Hostname"), ip=_("IP"), _system_users_name_list=_("LoginAs"),
+                           comment=_("Comment"))
         id_max_length = max(len(str(len(self.search_result))), 3)
         hostname_max_length = max(max([len(asset.hostname) for asset in self.search_result + [fake_asset]]), 15)
         sysuser_max_length = max([len(asset.system_users_name_list) for asset in self.search_result + [fake_asset]])
@@ -212,7 +223,7 @@ class InteractiveServer:
         self.client.send(wr(title(header.format(fake_asset, "ID"))))
         for index, asset in enumerate(self.search_result, 1):
             self.client.send(wr(line.format(asset, index)))
-        self.client.send(wr(_("Total: {} Matched: {}").format(
+        self.client.send(wr(_("总共: {} 匹配: {}").format(
             len(self.assets), len(self.search_result)), before=1)
         )
 
@@ -254,7 +265,7 @@ class InteractiveServer:
             return None
 
         while True:
-            self.client.send(wr(_("Choose one to login: "), after=1))
+            self.client.send(wr(_("选择一个登陆: "), after=1))
             self.display_system_users(system_users)
             opt = self.get_option("ID> ")
             if opt.isdigit() and len(system_users) > int(opt):
@@ -272,15 +283,19 @@ class InteractiveServer:
 
     def search_and_proxy(self, opt):
         self.search_assets(opt)
-        if len(self.search_result) == 1:
-            self.proxy(self.search_result[0])
+        if self.search_result and len(self.search_result) == 1:
+            asset = self.search_result[0]
+            if asset.platform == "Windows":
+                self.client.send(warning(_("终端不支持登录windows, 请使用web terminal访问")))
+                return
+            self.proxy(asset)
         else:
             self.display_search_result()
 
     def proxy(self, asset):
         system_user = self.choose_system_user(asset.system_users_granted)
         if system_user is None:
-            self.client.send(_("No user"))
+            self.client.send(_("没有系统用户"))
             return
         forwarder = ProxyServer(self.app, self.client)
         forwarder.proxy(asset, system_user)
