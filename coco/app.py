@@ -205,6 +205,7 @@ class Coco:
         for client in self.clients:
             self.remove_client(client)
         time.sleep(1)
+        self.heartbeat()
         self.stop_evt.set()
         self.sshd.shutdown()
         self.httpd.shutdown()
@@ -234,4 +235,4 @@ class Coco:
         with self.lock:
             logger.info("Remove session: {}".format(session))
             self.sessions.remove(session)
-            self.service.finish_session(session.id)
+            self.service.finish_session(session.to_json())

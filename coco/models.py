@@ -22,6 +22,18 @@ class Request:
         self.date_start = datetime.datetime.now()
 
 
+class SizedList(list):
+    def __init__(self, maxsize=0):
+        self.maxsize = maxsize
+        self.size = 0
+        super().__init__()
+
+    def append(self, b):
+        if self.maxsize == 0 or self.size < self.maxsize:
+            super().append(b)
+            self.size += len(b)
+
+
 class Client:
     """
     Client is the request client. Nothing more to say
@@ -78,8 +90,8 @@ class Server:
         self.recv_bytes = 0
         self.stop_evt = threading.Event()
 
-        self.input_data = []
-        self.output_data = []
+        self.input_data = SizedList(maxsize=1024)
+        self.output_data = SizedList(maxsize=1024)
         self._in_input_state = True
         self._input_initial = False
         self._in_vim_state = False
@@ -101,7 +113,7 @@ class Server:
         else:
             return None
 
-    def send(self, b):
+    def parse(self, b):
         if isinstance(b, str):
             b = b.encode("utf-8")
         if not self._input_initial:
@@ -118,10 +130,14 @@ class Server:
                     self._input, self._output,
                     "#" * 30 + " End " + "#" * 30,
                 ))
-                self.session.put_command(self._input, self._output)
+                if self._input:
+                    self.session.put_command(self._input, self._output)
                 del self.input_data[:]
                 del self.output_data[:]
             self._in_input_state = True
+
+    def send(self, b):
+        self.parse(b)
         return self.chan.send(b)
 
     def recv(self, size):
@@ -136,7 +152,7 @@ class Server:
 
     def close(self):
         logger.info("Closed server {}".format(self))
-        self.send(b'')
+        self.parse(b'')
         self.chan.close()
         self.stop_evt.set()
         self.chan.close()
@@ -149,10 +165,14 @@ class Server:
         return False
 
     def _parse_output(self):
+        if not self.output_data:
+            return ''
         parser = utils.TtyIOParser()
         return parser.parse_output(self.output_data)
 
     def _parse_input(self):
+        if not self.input_data or self.input_data[0] == char.RZ_PROTOCOL_CHAR:
+            return
         parser = utils.TtyIOParser()
         return parser.parse_input(self.input_data)
 
@@ -231,3 +251,7 @@ class WSProxy:
         self.child.close()
         self.ws.logout(self.connection)
         logger.debug("Proxy {} closed".format(self))
+
+
+
+

@@ -80,6 +80,7 @@ class InteractiveServer:
         input_data = []
         parser = TtyIOParser()
         self.client.send(wr(prompt, before=1, after=0))
+
         while True:
             data = self.client.recv(10)
             logger.debug(data)
@@ -113,7 +114,7 @@ class InteractiveServer:
 
             # handle shell expect
             multi_char_with_enter = False
-            if len(data) > 1 and data[-1] in char.ENTER_CHAR:
+            if len(data) > 1 and data[-1] in char.ENTER_CHAR_ORDER:
                 self.client.send(data)
                 input_data.append(data[:-1])
                 multi_char_with_enter = True
@@ -182,7 +183,7 @@ class InteractiveServer:
             self.get_user_asset_groups()
 
         if len(self.asset_groups) == 0:
-            self.client.send(warning(_("Nothing")))
+            self.client.send(warning(_("无")))
             return
 
         fake_group = AssetGroup(name=_("Name"), assets_amount=_("Assets"), comment=_("Comment"))
@@ -196,11 +197,11 @@ class InteractiveServer:
         self.client.send(title(header.format(fake_group, "ID")))
         for index, group in enumerate(self.asset_groups, 1):
             self.client.send(wr(line.format(group, index)))
-        self.client.send(wr(_("Total: {}").format(len(self.asset_groups)), before=1))
+        self.client.send(wr(_("总共: {}").format(len(self.asset_groups)), before=1))
 
     def display_group_assets(self, _id):
         if _id > len(self.asset_groups) or _id <= 0:
-            self.client.send(wr(warning("No matched group, select again")))
+            self.client.send(wr(warning("没有匹配分组，请重新输入")))
             self.display_asset_groups()
             return
 
@@ -222,7 +223,7 @@ class InteractiveServer:
         self.client.send(wr(title(header.format(fake_asset, "ID"))))
         for index, asset in enumerate(self.search_result, 1):
             self.client.send(wr(line.format(asset, index)))
-        self.client.send(wr(_("Total: {} Matched: {}").format(
+        self.client.send(wr(_("总共: {} 匹配: {}").format(
             len(self.assets), len(self.search_result)), before=1)
         )
 
@@ -264,7 +265,7 @@ class InteractiveServer:
             return None
 
         while True:
-            self.client.send(wr(_("Choose one to login: "), after=1))
+            self.client.send(wr(_("选择一个登陆: "), after=1))
             self.display_system_users(system_users)
             opt = self.get_option("ID> ")
             if opt.isdigit() and len(system_users) > int(opt):
@@ -283,14 +284,18 @@ class InteractiveServer:
     def search_and_proxy(self, opt):
         self.search_assets(opt)
         if self.search_result and len(self.search_result) == 1:
-            self.proxy(self.search_result[0])
+            asset = self.search_result[0]
+            if asset.platform == "Windows":
+                self.client.send(warning(_("终端不支持登录windows, 请使用web terminal访问")))
+                return
+            self.proxy(asset)
         else:
             self.display_search_result()
 
     def proxy(self, asset):
         system_user = self.choose_system_user(asset.system_users_granted)
         if system_user is None:
-            self.client.send(_("No user"))
+            self.client.send(_("没有系统用户"))
             return
         forwarder = ProxyServer(self.app, self.client)
         forwarder.proxy(asset, system_user)
