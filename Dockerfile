@@ -5,7 +5,7 @@ COPY requirements /opt/coco/requirements
 WORKDIR /opt/coco
 
 RUN cd requirements && yum -y install $(cat rpm_requirements.txt) && \
-   pip install -r requirements.txt
+   pip install -r requirements.txt --download-cache=/opt/coco/.pip-cache/
 COPY . /opt/coco
 VOLUME /opt/coco/logs
 VOLUME /opt/coco/keys

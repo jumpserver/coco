@@ -80,6 +80,7 @@ class InteractiveServer:
         input_data = []
         parser = TtyIOParser()
         self.client.send(wr(prompt, before=1, after=0))
+
         while True:
             data = self.client.recv(10)
             logger.debug(data)
@@ -113,7 +114,7 @@ class InteractiveServer:
 
             # handle shell expect
             multi_char_with_enter = False
-            if len(data) > 1 and data[-1] in char.ENTER_CHAR:
+            if len(data) > 1 and data[-1] in char.ENTER_CHAR_ORDER:
                 self.client.send(data)
                 input_data.append(data[:-1])
                 multi_char_with_enter = True
