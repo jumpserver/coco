@@ -14,7 +14,7 @@ logger = utils.get_logger(__file__)
 class Request:
     def __init__(self, addr):
         self.type = ""
-        self.meta = {}
+        self.meta = {"width": 80, "height": 24}
         self.user = None
         self.addr = addr
         self.remote_ip = self.addr[0]
