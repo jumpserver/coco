@@ -129,10 +129,44 @@ class ServerReplayRecorder(ReplayRecorder):
             logger.info("Succeed to push {}'s {}".format(session_id, "record"))
         else:
             logger.error("Failed to push {}'s {}".format(session_id, "record"))
+        self.push_to_server(session_id)
 
     def push_to_server(self, session_id):
+        if self.upload_replay(3, session_id):
+            if self.finish_replay(3, session_id):
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def push_local(self, session_id):
         return self.app.service.push_session_replay(os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
                                                     session_id)
+
+    def upload_replay(self, times, session_id):
+        if times > 0:
+            if self.push_local(session_id):
+                logger.info("success push session: {}'s replay log ".format(session_id))
+                return True
+            else:
+                logger.error("failed report session {}'s replay log, try  {} times".format(session_id, times))
+                return self.upload_replay(times - 1, session_id)
+        else:
+            logger.error("failed report session {}'s replay log".format(session_id))
+            return False
+
+    def finish_replay(self, times, session_id):
+        if times > 0:
+            if self.app.service.finish_replay(session_id):
+                logger.info("success report session {}'s replay log ".format(session_id))
+                return True
+            else:
+                logger.error("failed report session {}'s replay log, try {} times".format(session_id, times))
+                return self.finish_replay(times - 1, session_id)
+        else:
+            logger.error("failed report session {}'s replay log".format(session_id))
+            return False
 
     def __del__(self):
         print("{} has been gc".format(self))
@@ -254,17 +288,41 @@ class S3ReplayRecorder(ServerReplayRecorder):
         else:
             self.s3 = boto3.client('s3')
 
-    def push_to_server(self, session_id):
+    def push_to_s3(self, session_id):
+        logger.debug("push to s3")
         try:
             self.s3.upload_file(
                 os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
                 self.bucket,
-                self.app.config.get("NAME", "coco") + time.strftime('%Y-%m-%d', time.localtime(
+                time.strftime('%Y-%m-%d', time.localtime(
                     self.starttime)) + '/' + session_id + '.replay.gz')
+            return True
         except:
-            return self.app.service.push_session_replay(
-                os.path.join(self.app.config['LOG_DIR'], session_id + '.replay.gz'),
-                session_id)
+            return False
+
+    def upload_replay(self, times, session_id):
+        if times > 0:
+            if self.push_to_s3(session_id):
+                logger.info("success push session: {}'s replay log to S3 ".format(session_id))
+                return True
+            else:
+                logger.error("failed report session {}'s replay log to S3, try  {} times".format(session_id, times))
+                return self.upload_replay(times - 1, session_id)
+        else:
+            logger.error("failed report session {}'s replay log S3, try to push to local".format(session_id))
+            return self.upload_replay_to_local(3, session_id)
+
+    def upload_replay_to_local(self, times, session_id):
+        if times > 0:
+            if self.push_local(session_id):
+                logger.info("success push session: {}'s replay log ".format(session_id))
+                return True
+            else:
+                logger.error("failed report session {}'s replay log, try  {} times".format(session_id, times))
+                return self.upload_replay_to_local(times - 1, session_id)
+        else:
+            logger.error("failed report session {}'s replay log".format(session_id))
+            return False
 
 
 def get_command_recorder_class(config):
@@ -279,6 +337,7 @@ def get_command_recorder_class(config):
 
 def get_replay_recorder_class(config):
     replay_storage = config["REPLAY_STORAGE"]
+    logger.debug(replay_storage)
     storage_type = replay_storage.get('TYPE')
     if storage_type == "s3":
         return S3ReplayRecorder

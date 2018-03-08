@@ -11,7 +11,7 @@ from .models import Request, Client, WSProxy
 from .proxy import ProxyServer
 from .utils import get_logger
 
-__version__ = '0.4.0'
+__version__ = '0.5.0'
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 logger = get_logger(__file__)
@@ -257,7 +257,6 @@ class HttpServer:
     def run(self):
         host = self.flask_app.config["BIND_HOST"]
         port = self.flask_app.config["HTTPD_PORT"]
-        print('Starting websocket server at {}:{}'.format(host, port))
         self.socket_io.init_app(self.flask_app, async_mode=self.async_mode)
         self.socket_io.run(self.flask_app, port=port, host=host, debug=False)
 
