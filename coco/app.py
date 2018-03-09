@@ -111,7 +111,6 @@ class Coco:
 
     def get_recorder_class(self):
         self.replay_recorder_class = ServerReplayRecorder
-        self.replay_recorder_class.client = jms_storage.init(self.config["REPLAY_STORAGE"])
         self.command_recorder_class = get_command_recorder_class(self.config)
 
     def new_command_recorder(self):
