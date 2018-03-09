@@ -10,13 +10,14 @@ import socket
 import json
 
 from jms.service import AppService
+import jms_storage
 
 from .config import Config
 from .sshd import SSHServer
 from .httpd import HttpServer
 from .logger import create_logger
 from .tasks import TaskHandler
-from .recorder import get_command_recorder_class, get_replay_recorder_class
+from .recorder import get_command_recorder_class, ServerReplayRecorder
 from .utils import get_logger
 
 
@@ -109,7 +110,8 @@ class Coco:
         self.config.update(configs)
 
     def get_recorder_class(self):
-        self.replay_recorder_class = get_replay_recorder_class(self.config)
+        self.replay_recorder_class = ServerReplayRecorder
+        self.replay_recorder_class.client = jms_storage.init(self.config["REPLAY_STORAGE"])
         self.command_recorder_class = get_command_recorder_class(self.config)
 
     def new_command_recorder(self):

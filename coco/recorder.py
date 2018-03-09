@@ -290,7 +290,7 @@ def get_command_recorder_class(config):
     else:
         return ServerCommandRecorder
 
-
-def get_replay_recorder_class(config):
-    ServerReplayRecorder.client = jms_storage.init(config["REPLAY_STORAGE"])
-    return ServerReplayRecorder
+#
+# def get_replay_recorder_class(config):
+#     ServerReplayRecorder.client = jms_storage.init(config["REPLAY_STORAGE"])
+#     return ServerReplayRecorder
