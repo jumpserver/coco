@@ -92,7 +92,6 @@ class ServerReplayRecorder(ReplayRecorder):
     def __init__(self, app):
         super().__init__(app)
         self.file = None
-        self.client = None
 
     def record(self, data):
         """
@@ -113,6 +112,8 @@ class ServerReplayRecorder(ReplayRecorder):
                     data['data'].decode('utf-8', 'replace')) + ',')
 
     def session_start(self, session_id):
+        configs = self.app.service.load_config_from_server()
+        self.client = jms_storage.init(configs["REPLAY_STORAGE"])
         self.starttime = time.time()
         self.file = open(os.path.join(
             self.app.config['LOG_DIR'], session_id + '.replay'
