@@ -112,8 +112,6 @@ class ServerReplayRecorder(ReplayRecorder):
                     data['data'].decode('utf-8', 'replace')) + ',')
 
     def session_start(self, session_id):
-        configs = self.app.service.load_config_from_server()
-        self.client = jms_storage.init(configs["REPLAY_STORAGE"])
         self.starttime = time.time()
         self.file = open(os.path.join(
             self.app.config['LOG_DIR'], session_id + '.replay'
@@ -133,6 +131,9 @@ class ServerReplayRecorder(ReplayRecorder):
         self.upload_replay(session_id)
 
     def upload_replay(self, session_id):
+        configs = self.app.service.load_config_from_server()
+        logger.debug("upload_replay print config: {}".format(configs))
+        self.client = jms_storage.init(configs["REPLAY_STORAGE"])
         if not self.client:
             self.client = jms_storage.jms(self.app.service)
         if self.push_storage(3, session_id):
