@@ -10,7 +10,6 @@ import socket
 import json
 
 from jms.service import AppService
-import jms_storage
 
 from .config import Config
 from .sshd import SSHServer
