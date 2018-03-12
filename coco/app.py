@@ -233,6 +233,9 @@ class Coco:
 
     def remove_session(self, session):
         with self.lock:
-            logger.info("Remove session: {}".format(session))
-            self.sessions.remove(session)
-            self.service.finish_session(session.to_json())
+            try:
+                logger.info("Remove session: {}".format(session))
+                self.sessions.remove(session)
+                self.service.finish_session(session.to_json())
+            except ValueError:
+                logger.warning("Remove session: {} fail, maybe already removed".format(session))
