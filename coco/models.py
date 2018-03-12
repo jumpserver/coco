@@ -33,6 +33,10 @@ class SizedList(list):
             super().append(b)
             self.size += len(b)
 
+    def clean(self):
+        self.size = 0
+        del self[:]
+
 
 class Client:
     """
@@ -132,8 +136,8 @@ class Server:
                 ))
                 if self._input:
                     self.session.put_command(self._input, self._output)
-                del self.input_data[:]
-                del self.output_data[:]
+                self.input_data.clean()
+                self.output_data.clean()
             self._in_input_state = True
 
     def send(self, b):
