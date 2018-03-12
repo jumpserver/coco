@@ -16,7 +16,7 @@ from .sshd import SSHServer
 from .httpd import HttpServer
 from .logger import create_logger
 from .tasks import TaskHandler
-from .recorder import get_command_recorder_class, get_replay_recorder_class
+from .recorder import get_command_recorder_class, ServerReplayRecorder
 from .utils import get_logger
 
 
@@ -109,7 +109,7 @@ class Coco:
         self.config.update(configs)
 
     def get_recorder_class(self):
-        self.replay_recorder_class = get_replay_recorder_class(self.config)
+        self.replay_recorder_class = ServerReplayRecorder
         self.command_recorder_class = get_command_recorder_class(self.config)
 
     def new_command_recorder(self):
@@ -233,6 +233,9 @@ class Coco:
 
     def remove_session(self, session):
         with self.lock:
-            logger.info("Remove session: {}".format(session))
-            self.sessions.remove(session)
-            self.service.finish_session(session.to_json())
+            try:
+                logger.info("Remove session: {}".format(session))
+                self.sessions.remove(session)
+                self.service.finish_session(session.to_json())
+            except ValueError:
+                logger.warning("Remove session: {} fail, maybe already removed".format(session))

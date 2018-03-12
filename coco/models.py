@@ -14,7 +14,7 @@ logger = utils.get_logger(__file__)
 class Request:
     def __init__(self, addr):
         self.type = ""
-        self.meta = {}
+        self.meta = {"width": 80, "height": 24}
         self.user = None
         self.addr = addr
         self.remote_ip = self.addr[0]
@@ -32,6 +32,10 @@ class SizedList(list):
         if self.maxsize == 0 or self.size < self.maxsize:
             super().append(b)
             self.size += len(b)
+
+    def clean(self):
+        self.size = 0
+        del self[:]
 
 
 class Client:
@@ -132,8 +136,8 @@ class Server:
                 ))
                 if self._input:
                     self.session.put_command(self._input, self._output)
-                del self.input_data[:]
-                del self.output_data[:]
+                self.input_data.clean()
+                self.output_data.clean()
             self._in_input_state = True
 
     def send(self, b):
