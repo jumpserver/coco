@@ -75,7 +75,7 @@ class Client:
         return "<%s from %s:%s>" % (self.user, self.addr[0], self.addr[1])
 
     def __del__(self):
-        logger.info("GC client object: {}".format(self))
+        print("GC client object: {}".format(self))
 
 
 class Server:
@@ -187,7 +187,7 @@ class Server:
         return "<To: {}>".format(str(self.asset))
 
     def __del__(self):
-        logger.info("GC server object: {}".format(self))
+        print("Server object has been gc".format(self))
 
 
 class WSProxy:

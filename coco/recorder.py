@@ -179,7 +179,7 @@ class ServerReplayRecorder(ReplayRecorder):
             return False
 
     def __del__(self):
-        print("{} has been gc".format(self))
+        print("Server recorder has been gc")
         del self.file
 
 

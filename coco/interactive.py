@@ -313,6 +313,7 @@ class InteractiveServer:
                     break
             except socket.error:
                 break
+        print("Interact function end")
         self.close()
 
     def interact_async(self):
@@ -323,3 +324,6 @@ class InteractiveServer:
     def close(self):
         self.app.remove_client(self.client)
         logger.info("Exit interactive server")
+
+    def __del__(self):
+        print("Interactive class been gc")

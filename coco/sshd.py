@@ -51,6 +51,7 @@ class SSHServer:
                 thread.start()
             except Exception as e:
                 logger.error("Start SSH server error: {}".format(e))
+        print("SSH Server stop")
 
     def handle_connection(self, sock, addr):
         transport = paramiko.Transport(sock, gss_kex=False)
@@ -72,10 +73,15 @@ class SSHServer:
             return
 
         while True:
+            if not transport.is_active():
+                logger.debug("Transport closed")
+                break
             chan = transport.accept()
+            server.event.wait(5)
+
             if chan is None:
                 continue
-            server.event.wait(5)
+
             if not server.event.is_set():
                 logger.warning("Client not request a valid request, exiting")
                 return
@@ -94,6 +100,7 @@ class SSHServer:
         if request_type == 'pty' or request_type == 'x11':
             logger.info("Request type `pty`, dispatch to interactive mode")
             InteractiveServer(self.app, client).interact()
+            print("Dispatch function end")
         elif request_type == 'exec':
             pass
         elif request_type == 'subsystem':
