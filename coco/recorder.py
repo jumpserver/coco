@@ -179,7 +179,7 @@ class ServerReplayRecorder(ReplayRecorder):
             return False
 
     def __del__(self):
-        print("{} has been gc".format(self))
+        print("Server replay recorder has been gc")
         del self.file
 
 
@@ -227,7 +227,7 @@ class ServerCommandRecorder(CommandRecorder, metaclass=Singleton):
         pass
 
     def __del__(self):
-        print("{} has been gc".format(self))
+        print("GC: Session command storage has been gc")
 
 
 class ESCommandRecorder(CommandRecorder, metaclass=Singleton):
@@ -280,7 +280,7 @@ class ESCommandRecorder(CommandRecorder, metaclass=Singleton):
         pass
 
     def __del__(self):
-        print("{} has been gc".format(self))
+        print("ES command storage has been gc".format(self))
 
 
 def get_command_recorder_class(config):
