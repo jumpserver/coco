@@ -83,7 +83,6 @@ class InteractiveServer:
 
         while True:
             data = self.client.recv(10)
-            logger.debug(data)
             if len(data) == 0:
                 self.app.remove_client(self.client)
                 break
@@ -300,9 +299,6 @@ class InteractiveServer:
         forwarder = ProxyServer(self.app, self.client)
         forwarder.proxy(asset, system_user)
 
-    def replay_session(self, session_id):
-        pass
-
     def interact(self):
         self.display_banner()
         while True:
@@ -322,4 +318,6 @@ class InteractiveServer:
 
     def close(self):
         self.app.remove_client(self.client)
-        logger.info("Exit interactive server")
+
+    # def __del__(self):
+    #     print("GC: Interactive class been gc")

@@ -21,6 +21,9 @@ class Request:
         self.change_size_event = threading.Event()
         self.date_start = datetime.datetime.now()
 
+    # def __del__(self):
+    #     print("GC: Request object gc")
+
 
 class SizedList(list):
     def __init__(self, maxsize=0):
@@ -74,8 +77,8 @@ class Client:
     def __str__(self):
         return "<%s from %s:%s>" % (self.user, self.addr[0], self.addr[1])
 
-    def __del__(self):
-        print("GC: client object has been gc")
+    # def __del__(self):
+    #     print("GC: Client object has been gc")
 
 
 class Server:
@@ -157,9 +160,9 @@ class Server:
     def close(self):
         logger.info("Closed server {}".format(self))
         self.parse(b'')
-        self.chan.close()
         self.stop_evt.set()
         self.chan.close()
+        self.chan.transport.close()
 
     @staticmethod
     def _have_enter_char(s):
@@ -186,8 +189,8 @@ class Server:
     def __str__(self):
         return "<To: {}>".format(str(self.asset))
 
-    def __del__(self):
-        print("GC: Server object has been gc")
+    # def __del__(self):
+    #     print("GC: Server object has been gc")
 
 
 class WSProxy:
