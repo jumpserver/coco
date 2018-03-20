@@ -8,9 +8,7 @@ import time
 import threading
 import socket
 import json
-import tracemalloc
 
-import gc
 from jms.service import AppService
 
 from .config import Config
@@ -68,8 +66,6 @@ class Coco:
         self.replay_recorder_class = None
         self.command_recorder_class = None
         self._task_handler = None
-        tracemalloc.start()
-        self.snapshot = tracemalloc.take_snapshot()
 
     @property
     def name(self):
@@ -134,16 +130,6 @@ class Coco:
     def heartbeat(self):
         _sessions = [s.to_json() for s in self.sessions]
         tasks = self.service.terminal_heartbeat(_sessions)
-        gc.collect()
-        snapshort2 = tracemalloc.take_snapshot()
-        top_stats = snapshort2.compare_to(self.snapshot, 'traceback')
-        print("[ Top 10 differences ]")
-        for stat in top_stats[:10]:
-            print(stat.count_diff)
-        # gc.collect()
-        # print(objgraph.show_most_common_types())
-        # for i in ("User", "Client", "Session", "ProxyServer", "Transport", "Channel", "InteractiveServer", "SSHInterface", "Server", "Asset"):
-        #     print("{} objects: {}".format(i, len(objgraph.by_type(i))))
         if tasks:
             self.handle_task(tasks)
         if tasks is False:
