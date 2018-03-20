@@ -21,13 +21,17 @@ class SSHInterface(paramiko.ServerInterface):
 
     def __init__(self, app, request):
         self._app = weakref.ref(app)
-        self.request = request
+        self._request = weakref.ref(request)
         self.event = threading.Event()
         self.auth_valid = False
 
     @property
     def app(self):
         return self._app()
+
+    @property
+    def request(self):
+        return self._request()
 
     def check_auth_interactive(self, username, submethods):
         logger.info("Check auth interactive: %s %s" % (username, submethods))
@@ -176,6 +180,9 @@ class SSHInterface(paramiko.ServerInterface):
 
     def get_banner(self):
         return None, None
+
+    # def __del__(self):
+    #     print("GC: SSH interface gc")
 
 
 

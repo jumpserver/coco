@@ -24,9 +24,9 @@ class ProxyServer:
     def __init__(self, app, client):
         self._app = weakref.ref(app)
         self.client = client
-        self.request = client.request
         self.server = None
         self.connecting = True
+        self.stop_event = threading.Event()
 
     @property
     def app(self):
@@ -47,6 +47,8 @@ class ProxyServer:
         self.app.add_session(session)
         self.watch_win_size_change_async()
         session.bridge()
+        self.stop_event.set()
+        self.end_watch_win_size_change()
         self.app.remove_session(session)
 
     def validate_permission(self, asset, system_user):
@@ -117,17 +119,20 @@ class ProxyServer:
             self.connecting = False
             self.client.send(b'\r\n')
 
-        term = self.request.meta.get('term', 'xterm')
-        width = self.request.meta.get('width', 80)
-        height = self.request.meta.get('height', 24)
+        request = self.client.request
+        term = request.meta.get('term', 'xterm')
+        width = request.meta.get('width', 80)
+        height = request.meta.get('height', 24)
         chan = ssh.invoke_shell(term, width=width, height=height)
         return Server(chan, asset, system_user)
 
     def watch_win_size_change(self):
-        while self.request.change_size_event.wait():
-            self.request.change_size_event.clear()
-            width = self.request.meta.get('width', 80)
-            height = self.request.meta.get('height', 24)
+        while self.client.request.change_size_event.wait():
+            if self.stop_event.is_set():
+                break
+            self.client.request.change_size_event.clear()
+            width = self.client.request.meta.get('width', 80)
+            height = self.client.request.meta.get('height', 24)
             logger.debug("Change win size: %s - %s" % (width, height))
             try:
                 self.server.chan.resize_pty(width=width, height=height)
@@ -139,6 +144,9 @@ class ProxyServer:
         thread.daemon = True
         thread.start()
 
+    def end_watch_win_size_change(self):
+        self.client.request.change_size_event.set()
+
     def send_connecting_message(self, asset, system_user):
         def func():
             delay = 0.0
@@ -149,5 +157,3 @@ class ProxyServer:
                 delay += 0.1
         thread = threading.Thread(target=func)
         thread.start()
-
-

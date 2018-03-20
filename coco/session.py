@@ -107,7 +107,10 @@ class Session:
 
     def terminate(self):
         msg = b"Terminate by administrator\r\n"
-        self.client.send(msg)
+        try:
+            self.client.send(msg)
+        except OSError:
+            pass
         self.close()
 
     def bridge(self):
@@ -185,5 +188,5 @@ class Session:
     def __repr__(self):
         return self.id
 
-    def __del__(self):
-        logger.info("Session {} object has been GC".format(self.id))
+    # def __del__(self):
+    #     print("GC: Session object has been GC")
