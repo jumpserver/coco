@@ -72,10 +72,16 @@ class SSHServer:
             return
 
         while True:
+            if not transport.is_active():
+                transport.close()
+                sock.close()
+                break
             chan = transport.accept()
+            server.event.wait(5)
+
             if chan is None:
                 continue
-            server.event.wait(5)
+
             if not server.event.is_set():
                 logger.warning("Client not request a valid request, exiting")
                 return

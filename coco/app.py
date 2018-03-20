@@ -222,7 +222,6 @@ class Coco:
                 self.clients.remove(client)
                 logger.info("Client {} leave, total {} now".format(client, len(self.clients)))
                 client.close()
-                del client
             except:
                 pass
 
