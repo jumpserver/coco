@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+
+import os
+import sys
+import argparse
+import time
+import signal
+
+from coco import Coco
+
+try:
+    from conf import config
+except ImportError:
+    print("Please prepare config file `cp conf_example.py conf.py`")
+    sys.exit(1)
+
+try:
+    os.mkdir("logs")
+    os.mkdir("keys")
+    os.mkdir("sessions")
+except:
+    pass
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DAEMON = False
+PID_FILE = os.path.join(BASE_DIR, 'coco.pid')
+
+coco = Coco()
+coco.config.from_object(config)
+
+
+def check_pid(pid):
+    """ Check For the existence of a unix pid. """
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    else:
+        return True
+
+
+def start():
+    print("Start coco process")
+    if DAEMON:
+        fork_daemon()
+    with open(PID_FILE, 'w') as f:
+        f.write(str(os.getpid()))
+    coco.run_forever()
+
+
+def stop():
+    print("Stop coco process")
+    pid = None
+    if os.path.isfile(PID_FILE):
+        with open(PID_FILE) as f:
+            pid = f.read().strip()
+
+    if pid and pid.isdigit():
+        for i in range(15):
+            try:
+                os.kill(int(pid), signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            if check_pid(int(pid)):
+                time.sleep(1)
+                continue
+            else:
+                os.unlink(PID_FILE)
+                break
+
+
+def show_status():
+    pid = None
+    if os.path.isfile(PID_FILE):
+        with open(PID_FILE) as f:
+            pid = f.read().strip()
+
+    if pid and pid.isdigit() and check_pid(int(pid)):
+        print("Coco is running: {}".format(pid))
+    else:
+        print("Coco is stopped")
+
+
+def fork_daemon():
+    try:
+        if os.fork() > 0:
+            sys.exit(0)
+    except OSError as e:
+        sys.stderr.write("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
+        sys.exit(1)
+
+    os.chdir(BASE_DIR)
+    os.setsid()
+    os.umask(0)
+
+    try:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0)
+    except OSError as e:
+        sys.stderr.write("fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
+        sys.exit(1)
+
+    sys.stdout.flush()
+    sys.stderr.flush()
+    si = open('/dev/null', 'r')
+    so = open('/tmp/a.log', 'a')
+    se = open('/dev/null', 'a')
+    os.dup2(si.fileno(), sys.stdin.fileno())
+    os.dup2(so.fileno(), sys.stdout.fileno())
+    os.dup2(se.fileno(), sys.stderr.fileno())
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description="""
+            coco service control tools;
+
+            Example: \r\n 
+
+            %(prog)s start -d;
+            """
+    )
+    parser.add_argument(
+        'action', type=str, default='start',
+        choices=("start", "stop", "restart", "status"),
+        help="Action to run"
+    )
+
+    parser.add_argument('-d', '--daemon', nargs="?", const=1)
+    args = parser.parse_args()
+
+    if args.daemon:
+        DAEMON = True
+
+    action = args.action
+    if action == "start":
+        start()
+    elif action == "stop":
+        stop()
+    elif action == "restart":
+        stop()
+        DAEMON = True
+        start()
+    else:
+        show_status()

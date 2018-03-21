@@ -94,7 +94,7 @@ class ProxyServer:
                 timeout=TIMEOUT, compress=True, auth_timeout=10,
                 look_for_keys=False
             )
-        except (paramiko.AuthenticationException, paramiko.BadAuthenticationType, SSHException):
+        except (paramiko.AuthenticationException, paramiko.BadAuthenticationType, SSHException, TimeoutError):
             admins = self.app.config['ADMINS'] or 'administrator'
             self.client.send(warning(wr(
                 "Authenticate with server failed, contact {}".format(admins),
