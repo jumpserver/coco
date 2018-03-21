@@ -2,33 +2,17 @@
 # -*- coding: utf-8 -*-
 #
 
-import os
 import sys
+import subprocess
+import os
 
-from coco import Coco
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-try:
-    from conf import config
-except ImportError:
-    print("Please prepare config file `cp conf_example.py conf.py`")
-    sys.exit(1)
-
-try:
-    os.mkdir("logs")
-    os.mkdir("keys")
-    os.mkdir("sessions")
-except:
-    pass
-
-
-coco = Coco()
-coco.config.from_object(config)
-
-# Todo:
-# 0. argparser
-# 1. register application user
-# 2. backup record file
-# 3. xxx
 
 if __name__ == '__main__':
-    coco.run_forever()
+    try:
+        subprocess.call(['./cocod', 'start'], stdin=sys.stdin,
+                        stdout=sys.stdout, stderr=sys.stderr)
+    except KeyboardInterrupt:
+        subprocess.call(['./cocod', 'stop'], stdin=sys.stdin,
+                        stdout=sys.stdout, stderr=sys.stderr)
