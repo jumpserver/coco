@@ -62,7 +62,11 @@ class Client:
     def send(self, b):
         if isinstance(b, str):
             b = b.encode("utf-8")
-        return self.chan.send(b)
+        try:
+            return self.chan.send(b)
+        except OSError:
+            self.close()
+            return
 
     def recv(self, size):
         return self.chan.recv(size)
