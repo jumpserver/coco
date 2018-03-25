@@ -86,36 +86,44 @@ class ProxyServer:
     def get_telnet_server_conn(self, asset, system_user):
         pass
 
-    def make_proxy_command(self, asset):
-        gateway = asset.domain.random_gateway()
-        proxy_command = [
-            "ssh", "-p", str(gateway.port),
-            "{}@{}".format(gateway.username, gateway.ip),
-            "-W", "{}:{}".format(asset.ip, asset.port), "-q",
-        ]
-
-        if gateway.password:
-            proxy_command.insert(0, "sshpass -p {}".format(gateway.password))
-
-        if gateway.private_key:
-            gateway.set_key_dir(os.path.join(self.app.root_path, 'keys'))
-            proxy_command.append("-i {}".format(gateway.private_key_file))
-        proxy_command = ' '.join(proxy_command)
-        return proxy_command
-
-    def get_ssh_server_conn(self, asset, system_user):
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    def get_proxy_sock(self, asset):
+        domain = self.app.service.get_domain_detail_with_gateway(
+            asset.domain
+        )
         sock = None
-        if asset.domain:
-            asset.domain = self.app.service.get_domain_detail_with_gateway(asset.domain)
+        for i in domain.gateways:
+            gateway = domain.random_gateway()
+            proxy_command = [
+                "ssh", "-p", str(gateway.port),
+                "{}@{}".format(gateway.username, gateway.ip),
+                "-W", "{}:{}".format(asset.ip, asset.port), "-q",
+            ]
+
+            if gateway.password:
+                proxy_command.insert(0, "sshpass -p {}".format(gateway.password))
+
+            if gateway.private_key:
+                gateway.set_key_dir(os.path.join(self.app.root_path, 'keys'))
+                proxy_command.append("-i {}".format(gateway.private_key_file))
+            proxy_command = ' '.join(proxy_command)
+
             try:
-                proxy_command = self.make_proxy_command(asset)
                 sock = paramiko.ProxyCommand(proxy_command)
+                break
             except (paramiko.AuthenticationException,
                     paramiko.BadAuthenticationType, SSHException,
                     TimeoutError) as e:
                 logger.error(e)
+                continue
+        return sock
+
+    def get_ssh_server_conn(self, asset, system_user):
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        sock = None
+        if asset.domain:
+            sock = self.get_proxy_sock(asset)
 
         try:
             ssh.connect(
