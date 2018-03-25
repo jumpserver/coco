@@ -91,30 +91,31 @@ class SSHInterface(paramiko.ServerInterface):
     def check_channel_direct_tcpip_request(self, chanid, origin, destination):
         logger.debug("Check channel direct tcpip request: %d %s %s" %
                      (chanid, origin, destination))
-        self.request.type = 'direct-tcpip'
-        self.request.meta = {
+        self.request.type.append('direct-tcpip')
+        self.request.meta.update({
             'chanid': chanid, 'origin': origin,
             'destination': destination,
-        }
+        })
         self.event.set()
         return 0
 
     def check_channel_env_request(self, channel, name, value):
         logger.debug("Check channel env request: %s, %s, %s" %
                      (channel, name, value))
+        self.request.type.append('env')
         return False
 
     def check_channel_exec_request(self, channel, command):
         logger.debug("Check channel exec request:  `%s`" % command)
-        self.request.type = 'exec'
-        self.request.meta = {'channel': channel, 'command': command}
+        self.request.type.append('exec')
+        self.request.meta.update({'channel': channel.get_id(), 'command': command})
         self.event.set()
         return False
 
     def check_channel_forward_agent_request(self, channel):
         logger.debug("Check channel forward agent request: %s" % channel)
-        self.request.type = "forward-agent"
-        self.request.meta['channel'] = channel.get_id()
+        self.request.type.append("forward-agent")
+        self.request.meta.update({'channel': channel.get_id()})
         self.event.set()
         return False
 
@@ -123,12 +124,12 @@ class SSHInterface(paramiko.ServerInterface):
             pixelwidth, pixelheight, modes):
         logger.info("Check channel pty request: %s %s %s %s %s" %
                      (term, width, height, pixelwidth, pixelheight))
-        self.request.type = 'pty'
-        self.request.meta = {
+        self.request.type.append('pty')
+        self.request.meta.update({
             'channel': channel, 'term': term, 'width': width,
             'height': height, 'pixelwidth': pixelwidth,
             'pixelheight': pixelheight,
-        }
+        })
         self.event.set()
         return True
 
@@ -143,17 +144,19 @@ class SSHInterface(paramiko.ServerInterface):
 
     def check_channel_subsystem_request(self, channel, name):
         logger.info("Check channel subsystem request: %s %s" % (channel, name))
-        self.request.type = 'subsystem'
-        self.request.meta = {'channel': channel, 'name': name}
+        self.request.type.append('subsystem')
+        self.request.meta.update({'channel': channel.get_id(), 'name': name})
         self.event.set()
         return False
 
     def check_channel_window_change_request(self, channel, width, height,
                                             pixelwidth, pixelheight):
-        self.request.meta['width'] = width
-        self.request.meta['height'] = height
-        self.request.meta['pixelwidth'] = pixelwidth
-        self.request.meta['pixelheight'] = pixelheight
+        self.request.meta.update({
+            'width': width,
+            'height': height,
+            'pixelwidth': pixelwidth,
+            'pixelheight': pixelheight,
+        })
         self.request.change_size_event.set()
         return True
 
@@ -162,19 +165,19 @@ class SSHInterface(paramiko.ServerInterface):
         logger.info("Check channel x11 request %s %s %s %s %s" %
                     (channel, single_connection, auth_protocol,
                      auth_cookie, screen_number))
-        self.request.type = 'x11'
-        self.request.meta = {
-            'channel': channel, 'single_connection': single_connection,
+        self.request.type.append('x11')
+        self.request.meta.update({
+            'channel': channel.get_id(), 'single_connection': single_connection,
             'auth_protocol': auth_protocol, 'auth_cookie': auth_cookie,
             'screen_number': screen_number,
-        }
+        })
         self.event.set()
         return False
 
     def check_port_forward_request(self, address, port):
         logger.info("Check channel port forward request: %s %s" % (address, port))
-        self.request.type = 'port-forward'
-        self.request.meta = {'address': address, 'port': port}
+        self.request.type.append('port-forward')
+        self.request.meta.update({'address': address, 'port': port})
         self.event.set()
         return False
 
@@ -183,18 +186,5 @@ class SSHInterface(paramiko.ServerInterface):
 
     # def __del__(self):
     #     print("GC: SSH interface gc")
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
