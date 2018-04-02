@@ -87,10 +87,12 @@ class ProxyServer:
         pass
 
     def get_proxy_sock(self, asset):
+        sock = None
         domain = self.app.service.get_domain_detail_with_gateway(
             asset.domain
         )
-        sock = None
+        if not domain.gateways:
+            return None
         for i in domain.gateways:
             gateway = domain.random_gateway()
             proxy_command = [
