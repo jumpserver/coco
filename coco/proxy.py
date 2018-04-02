@@ -87,12 +87,14 @@ class ProxyServer:
         pass
 
     def get_proxy_sock(self, asset):
+        sock = None
         domain = self.app.service.get_domain_detail_with_gateway(
             asset.domain
         )
-        sock = None
+        if not domain.has_ssh_gateway():
+            return None
         for i in domain.gateways:
-            gateway = domain.random_gateway()
+            gateway = domain.random_ssh_gateway()
             proxy_command = [
                 "ssh", "-p", str(gateway.port),
                 "{}@{}".format(gateway.username, gateway.ip),
