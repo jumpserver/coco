@@ -3,6 +3,7 @@
 import threading
 import datetime
 import weakref
+import time
 
 from . import char
 from . import utils
@@ -13,7 +14,7 @@ logger = utils.get_logger(__file__)
 
 class Request:
     def __init__(self, addr):
-        self.type = ""
+        self.type = []
         self.meta = {"width": 80, "height": 24}
         self.user = None
         self.addr = addr
@@ -250,7 +251,10 @@ class WSProxy:
                 continue
             if len(data) == 0:
                 self.close()
-            self.ws.emit("data", {'data': data.decode("utf-8"), 'room': self.connection}, room=self.room)
+            data = data.decode(errors="ignore")
+            self.ws.emit("data", {'data': data, 'room': self.connection}, room=self.room)
+            if len(data) == BUF_SIZE:
+                time.sleep(0.1)
 
     def auto_forward(self):
         thread = threading.Thread(target=self.forward, args=())

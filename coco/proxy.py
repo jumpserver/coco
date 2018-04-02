@@ -6,6 +6,8 @@ import socket
 import threading
 import time
 import weakref
+
+import os
 import paramiko
 from paramiko.ssh_exception import SSHException
 
@@ -16,7 +18,7 @@ from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
 
 
 logger = get_logger(__file__)
-TIMEOUT = 8
+TIMEOUT = 10
 BUF_SIZE = 4096
 
 
@@ -84,17 +86,53 @@ class ProxyServer:
     def get_telnet_server_conn(self, asset, system_user):
         pass
 
+    def get_proxy_sock(self, asset):
+        domain = self.app.service.get_domain_detail_with_gateway(
+            asset.domain
+        )
+        sock = None
+        for i in domain.gateways:
+            gateway = domain.random_gateway()
+            proxy_command = [
+                "ssh", "-p", str(gateway.port),
+                "{}@{}".format(gateway.username, gateway.ip),
+                "-W", "{}:{}".format(asset.ip, asset.port), "-q",
+            ]
+
+            if gateway.password:
+                proxy_command.insert(0, "sshpass -p {}".format(gateway.password))
+
+            if gateway.private_key:
+                gateway.set_key_dir(os.path.join(self.app.root_path, 'keys'))
+                proxy_command.append("-i {}".format(gateway.private_key_file))
+            proxy_command = ' '.join(proxy_command)
+
+            try:
+                sock = paramiko.ProxyCommand(proxy_command)
+                break
+            except (paramiko.AuthenticationException,
+                    paramiko.BadAuthenticationType, SSHException,
+                    TimeoutError) as e:
+                logger.error(e)
+                continue
+        return sock
+
     def get_ssh_server_conn(self, asset, system_user):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        sock = None
+        if asset.domain:
+            sock = self.get_proxy_sock(asset)
+
         try:
             ssh.connect(
                 asset.ip, port=asset.port, username=system_user.username,
                 password=system_user.password, pkey=system_user.private_key,
-                timeout=TIMEOUT, compress=True, auth_timeout=10,
-                look_for_keys=False
+                timeout=TIMEOUT, compress=True, auth_timeout=TIMEOUT,
+                look_for_keys=False, sock=sock
             )
-        except (paramiko.AuthenticationException, paramiko.BadAuthenticationType, SSHException, TimeoutError):
+        except (paramiko.AuthenticationException, paramiko.BadAuthenticationType, SSHException):
             admins = self.app.config['ADMINS'] or 'administrator'
             self.client.send(warning(wr(
                 "Authenticate with server failed, contact {}".format(admins),
@@ -112,7 +150,7 @@ class ProxyServer:
                 password_short, key_fingerprint,
             ))
             return None
-        except socket.error as e:
+        except (socket.error, TimeoutError) as e:
             self.client.send(wr(" {}".format(e)))
             return None
         finally:
