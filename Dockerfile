@@ -6,6 +6,10 @@ WORKDIR /opt/coco
 
 RUN cd requirements && yum -y install $(cat rpm_requirements.txt) && \
    pip install -r requirements.txt 
+
+ENV LANG=zh_CN.UTF-8
+ENV LC_ALL=zh_CN.UTF-8
+
 COPY . /opt/coco
 VOLUME /opt/coco/logs
 VOLUME /opt/coco/keys
