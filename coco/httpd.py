@@ -161,6 +161,8 @@ class ProxyNamespace(BaseNamespace):
         logger.debug("On token trigger")
         token = message.get('token', None)
         secret = message.get('secret', None)
+        user_id = message.get('user', None)
+        self.current_user = self.app.service.get_user_profile(user_id)
         host = self.app.service.get_token_asset(token).json()
         logger.debug(host)
         # {
@@ -168,6 +170,10 @@ class ProxyNamespace(BaseNamespace):
         #     "asset": {UUID},
         #     "system_user": {UUID}
         # }
+        connection = str(uuid.uuid4())
+
+        self.emit('room', {'room': connection, 'secret': secret})
+
         self.on_host({'secret': secret, 'uuid': host['asset'], 'userid': host['system_user']})
 
     def on_resize(self, message):
