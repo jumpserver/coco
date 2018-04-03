@@ -96,7 +96,8 @@ class ProxyServer:
         for i in domain.gateways:
             gateway = domain.random_ssh_gateway()
             proxy_command = [
-                "ssh", "-p", str(gateway.port),
+                "ssh", "-o", "StrictHostKeyChecking=no",
+                "-p", str(gateway.port),
                 "{}@{}".format(gateway.username, gateway.ip),
                 "-W", "{}:{}".format(asset.ip, asset.port), "-q",
             ]
