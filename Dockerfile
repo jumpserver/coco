@@ -4,6 +4,7 @@ MAINTAINER Jumpserver Team <ibuler@qq.com>
 COPY requirements /opt/coco/requirements
 WORKDIR /opt/coco
 
+RUN yum -y install epel-release
 RUN cd requirements && yum -y install $(cat rpm_requirements.txt) && \
    pip install -r requirements.txt 
 
