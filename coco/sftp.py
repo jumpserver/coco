@@ -103,6 +103,13 @@ class StubSFTPServer(SFTPServerInterface):
         rpath = '/' + '/'.join(rpath)
         return host, rpath
 
+    def get_sftp_rpath(self, path):
+        host, rpath = self.parse_path(path)
+        sftp = None
+        if host:
+            sftp = self.get_host_sftp(host)
+        return sftp, rpath
+
     @staticmethod
     def stat_host_dir():
         tmp = tempfile.TemporaryDirectory()
@@ -115,16 +122,15 @@ class StubSFTPServer(SFTPServerInterface):
 
     def list_folder(self, path):
         print("Call list folder: {}".format(path))
-        host, rpath = self.parse_path(path)
         output = []
 
-        if host == '':
+        if path == "/":
             for filename in self.hosts:
                 attr = self.stat_host_dir()
                 attr.filename = filename
                 output.append(attr)
         else:
-            sftp = self.get_host_sftp(host)
+            sftp, rpath = self.get_sftp_rpath(path)
             file_list = sftp.listdir(rpath)
             for filename in file_list:
                 attr = sftp.stat(os.path.join(rpath, filename))
@@ -133,10 +139,9 @@ class StubSFTPServer(SFTPServerInterface):
         return output
 
     def stat(self, path):
-        host, *rpath = path.lstrip('/').split('/')
-        rpath = '/' + '/'.join(rpath)
+        host, rpath = self.parse_path(path)
 
-        if host == '':
+        if host and not rpath:
             attr = self.stat_host_dir()
             attr.filename = host
             return attr
@@ -146,8 +151,7 @@ class StubSFTPServer(SFTPServerInterface):
 
     def lstat(self, path):
         print("Call lstat: {}".format(path))
-        host, *rpath = path.lstrip('/').split('/')
-        rpath = '/' + '/'.join(rpath)
+        host, rpath = self.parse_path(path)
 
         if host == '':
             attr = self.stat_host_dir()
@@ -160,8 +164,7 @@ class StubSFTPServer(SFTPServerInterface):
 
     def open(self, path, flags, attr):
         print("Call {}: {}**{}**{}".format("Open", path, flags, attr))
-        host, *rpath = path.lstrip('/').split('/')
-        rpath = '/' + '/'.join(rpath)
+        host, rpath = self.parse_path(path)
 
         binary_flag = getattr(os, 'O_BINARY', 0)
         flags |= binary_flag
@@ -193,89 +196,49 @@ class StubSFTPServer(SFTPServerInterface):
 
     def remove(self, path):
         print("Call {}".format("Remove"))
-        path = self._realpath(path)
-        try:
-            os.remove(path)
-        except OSError as e:
-            return SFTPServer.convert_errno(e.errno)
-        return SFTP_OK
+        sftp, rpath = self.get_sftp_rpath(path)
 
-    def rename(self, oldpath, newpath):
+        if sftp is not None:
+            sftp.remove(rpath)
+            return SFTP_OK
+
+    def rename(self, src, dest):
         print("Call {}".format("Rename"))
-        oldpath = self._realpath(oldpath)
-        newpath = self._realpath(newpath)
-        try:
-            os.rename(oldpath, newpath)
-        except OSError as e:
-            return SFTPServer.convert_errno(e.errno)
-        return SFTP_OK
+        host1, rsrc = self.parse_path(src)
+        host2, rdest = self.parse_path(dest)
+
+        if host1 == host2 and host1:
+            sftp = self.get_host_sftp(host2)
+            sftp.rename(rsrc, rdest)
+            return SFTP_OK
 
     def mkdir(self, path, attr):
         print("Call {}".format("Mkdir"))
-        path = self._realpath(path)
-        try:
-            os.mkdir(path)
-            if attr is not None:
-                SFTPServer.set_file_attr(path, attr)
-        except OSError as e:
-            return SFTPServer.convert_errno(e.errno)
-        return SFTP_OK
+        sftp, rpath = self.get_sftp_rpath(path)
+        if sftp is not None:
+            sftp.mkdir(rpath)
+            return SFTP_OK
 
     def rmdir(self, path):
         print("Call {}".format("Rmdir"))
-        path = self._realpath(path)
-        try:
-            os.rmdir(path)
-        except OSError as e:
-            return SFTPServer.convert_errno(e.errno)
-        return SFTP_OK
+        sftp, rpath = self.get_sftp_rpath(path)
+        if sftp is not None:
+            sftp.rmdir(rpath)
+            return SFTP_OK
 
     def chattr(self, path, attr):
         print("Call {}".format("Chattr"))
-        path = self._realpath(path)
-        try:
-            SFTPServer.set_file_attr(path, attr)
-        except OSError as e:
-            return SFTPServer.convert_errno(e.errno)
-        return SFTP_OK
-
-    def symlink(self, target_path, path):
-        print("Call {}".format("Symlink"))
-        path = self._realpath(path)
-        if (len(target_path) > 0) and (target_path[0] == '/'):
-            # absolute symlink
-            target_path = os.path.join(self.ROOT, target_path[1:])
-            if target_path[:2] == '//':
-                # bug in os.path.join
-                target_path = target_path[1:]
-        else:
-            # compute relative to path
-            abspath = os.path.join(os.path.dirname(path), target_path)
-            if abspath[:len(self.ROOT)] != self.ROOT:
-                # this symlink isn't going to work anyway -- just break it immediately
-                target_path = '<error>'
-        try:
-            os.symlink(target_path, path)
-        except OSError as e:
-            return SFTPServer.convert_errno(e.errno)
-        return SFTP_OK
-
-    def readlink(self, path):
-        print("Call {}".format("Read link"))
-        path = self._realpath(path)
-        try:
-            symlink = os.readlink(path)
-        except OSError as e:
-            return SFTPServer.convert_errno(e.errno)
-        # if it's absolute, remove the root
-        if os.path.isabs(symlink):
-            if symlink[:len(self.ROOT)] == self.ROOT:
-                symlink = symlink[len(self.ROOT):]
-                if (len(symlink) == 0) or (symlink[0] != '/'):
-                    symlink = '/' + symlink
-            else:
-                symlink = '<error>'
-        return symlink
+        sftp, rpath = self.get_sftp_rpath(path)
+        if sftp is not None:
+            if attr._flags & attr.FLAG_PERMISSIONS:
+                sftp.chmod(rpath, attr.st_mode)
+            if attr._flags & attr.FLAG_UIDGID:
+                sftp.chown(rpath, attr.st_uid, attr.st_gid)
+            if attr._flags & attr.FLAG_AMTIME:
+                sftp.utime(rpath, (attr.st_atime, attr.st_mtime))
+            if attr._flags & attr.FLAG_SIZE:
+                sftp.truncate(rpath, attr.st_size)
+            return SFTP_OK
 
 
 HOST, PORT = 'localhost', 3373
