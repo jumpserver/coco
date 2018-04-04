@@ -162,15 +162,19 @@ class ProxyNamespace(BaseNamespace):
         logger.debug(message)
         token = message.get('token', None)
         secret = message.get('secret', None)
-        if token or secret:
-            self.emit('data', "\nOperation not permitted!")
+        connection = str(uuid.uuid4())
+        self.emit('room', {'room': connection, 'secret': secret})
+        if not (token or secret):
+            logger.debug("token or secret is None")
+            self.emit('data', {'data': "\nOperation not permitted!", 'room': connection})
             self.emit('disconnect')
             return None
 
-        host = self.app.service.get_token_asset(token).json()
+        host = self.app.service.get_token_asset(token)
         logger.debug(host)
-        if host:
-            self.emit('data', "\nOperation not permitted!")
+        if not host:
+            logger.debug("host is None")
+            self.emit('data', {'data': "\nOperation not permitted!", 'room': connection})
             self.emit('disconnect')
             return None
 
