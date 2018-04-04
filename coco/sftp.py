@@ -1,85 +1,69 @@
-# Copyright (C) 2003-2009  Robey Pointer <robeypointer@gmail.com>
-#
-# This file is part of paramiko.
-#
-# Paramiko is free software; you can redistribute it and/or modify it under the
-# terms of the GNU Lesser General Public License as published by the Free
-# Software Foundation; either version 2.1 of the License, or (at your option)
-# any later version.
-#
-# Paramiko is distrubuted in the hope that it will be useful, but WITHOUT ANY
-# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-# A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
-# details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with Paramiko; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.
-
-"""
-A stub SFTP server for loopback SFTP testing.
-"""
-
 import os
 import tempfile
-import time
-import socket
-import argparse
-import sys
-import textwrap
 import paramiko
 
-paramiko.util.log_to_file('/tmp/ftpserver.log', 'DEBUG')
+from .connection import SSHConnection
 
 
-class StubServer(paramiko.ServerInterface):
-    def check_auth_password(self, username, password):
-        # all are allowed
-        return paramiko.AUTH_SUCCESSFUL
+class SFTPServer(paramiko.SFTPServerInterface):
+    root = '/tmp'
 
-    def check_auth_publickey(self, username, key):
-        # all are allowed
-        return paramiko.AUTH_SUCCESSFUL
-
-    def check_channel_request(self, kind, chanid):
-        return paramiko.OPEN_SUCCEEDED
-
-    def get_allowed_auths(self, username):
-        """List availble auth mechanisms."""
-        return "password,publickey"
-
-
-class StubSFTPServer(paramiko.SFTPServerInterface):
-    hosts = None
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.get_perm_hosts()
+    def __init__(self, server, **kwargs):
+        super().__init__(server, **kwargs)
+        self.server = server
         self._sftp = {}
+        self.hosts = self.get_perm_hosts()
 
-    def get_host_sftp(self, host):
+    def get_host_sftp(self, host, su):
+        asset = self.hosts.get(host)
+        system_user = None
+        for system_user in self.get_asset_system_users(host):
+            if system_user.name == su:
+                break
+
+        if not asset or not system_user:
+            raise OSError("No asset or system user explicit")
+
         if host not in self._sftp:
-            t = paramiko.Transport(('192.168.244.176', 22))
-            t.connect(username='root', password='redhat123')
-            sftp = paramiko.SFTPClient.from_transport(t)
-            self._sftp[host] = sftp
-            return sftp
+            ssh = SSHConnection(self.server.app)
+            sftp, msg = ssh.get_sftp(asset, system_user)
+            if sftp:
+                self._sftp[host] = sftp
+                return sftp
+            else:
+                raise OSError("Can not connect asset sftp server")
         else:
             return self._sftp[host]
 
     def get_perm_hosts(self):
-        self.hosts = ['centos', 'localhost']
+        assets = self.server.app.service.get_user_assets(
+            self.server.request.user
+        )
+        return {asset.hostname: asset for asset in assets}
 
-    @staticmethod
-    def parse_path(path):
-        host, *rpath = path.lstrip('/').split('/')
-        rpath = '/' + '/'.join(rpath)
-        return host, rpath
+    def parse_path(self, path):
+        data = path.lstrip('/').split('/')
+        su = rpath = ''
+        if len(data) == 1:
+            host = data[0]
+        elif len(data) == 2:
+            host, su = data
+            rpath = self.root
+        else:
+            host, su, *rpath = data
+            rpath = os.path.join(self.root, '/'.join(rpath))
+        return host, su, rpath
 
     def get_sftp_rpath(self, path):
-        host, rpath = self.parse_path(path)
-        sftp = self.get_host_sftp(host) if host else None
+        host, su, rpath = self.parse_path(path)
+        sftp = self.get_host_sftp(host, su) if host and su else None
         return sftp, rpath
+
+    def get_asset_system_users(self, host):
+        asset = self.hosts.get(host)
+        if not asset:
+            return []
+        return [su for su in asset.system_users_granted if su.protocol == "ssh"]
 
     @staticmethod
     def stat_host_dir():
@@ -90,10 +74,16 @@ class StubSFTPServer(paramiko.SFTPServerInterface):
 
     def list_folder(self, path):
         output = []
-        if path == "/":
-            for filename in self.hosts:
+        host, su, rpath = self.parse_path(path)
+        if not host:
+            for hostname in self.hosts:
                 attr = self.stat_host_dir()
-                attr.filename = filename
+                attr.filename = hostname
+                output.append(attr)
+        elif not su:
+            for su in self.get_asset_system_users(host):
+                attr = self.stat_host_dir()
+                attr.filename = su.name
                 output.append(attr)
         else:
             sftp, rpath = self.get_sftp_rpath(path)
@@ -105,23 +95,23 @@ class StubSFTPServer(paramiko.SFTPServerInterface):
         return output
 
     def stat(self, path):
-        host, rpath = self.parse_path(path)
-        if host and not rpath:
+        host, su, rpath = self.parse_path(path)
+        if not rpath or rpath == "/":
             attr = self.stat_host_dir()
-            attr.filename = host
+            attr.filename = su or host
             return attr
         else:
-            sftp = self.get_host_sftp(host)
+            sftp = self.get_host_sftp(host, su)
             return sftp.stat(rpath)
 
     def lstat(self, path):
-        host, rpath = self.parse_path(path)
+        host, su, rpath = self.parse_path(path)
 
-        if host == '':
+        if not rpath or rpath == "/":
             attr = self.stat_host_dir()
-            attr.filename = host
+            attr.filename = su or host
         else:
-            sftp = self.get_host_sftp(host)
+            sftp = self.get_host_sftp(host, su)
             attr = sftp.stat(rpath)
             attr.filename = os.path.basename(path)
         return attr
@@ -165,11 +155,11 @@ class StubSFTPServer(paramiko.SFTPServerInterface):
             return paramiko.SFTP_FAILURE
 
     def rename(self, src, dest):
-        host1, rsrc = self.parse_path(src)
-        host2, rdest = self.parse_path(dest)
+        host1, su1, rsrc = self.parse_path(src)
+        host2, su2, rdest = self.parse_path(dest)
 
-        if host1 == host2 and host1:
-            sftp = self.get_host_sftp(host2)
+        if host1 == host2 and su1 == su2 and host1:
+            sftp = self.get_host_sftp(host1, su1)
             try:
                 sftp.rename(rsrc, rdest)
             except OSError as e:
@@ -179,7 +169,7 @@ class StubSFTPServer(paramiko.SFTPServerInterface):
 
     def mkdir(self, path, attr):
         sftp, rpath = self.get_sftp_rpath(path)
-        if sftp is not None:
+        if sftp is not None and rpath != '/':
             try:
                 sftp.mkdir(rpath)
             except OSError as e:
@@ -188,7 +178,6 @@ class StubSFTPServer(paramiko.SFTPServerInterface):
         return paramiko.SFTP_FAILURE
 
     def rmdir(self, path):
-        print("Call {}".format("Rmdir"))
         sftp, rpath = self.get_sftp_rpath(path)
         if sftp is not None:
             try:
@@ -198,7 +187,6 @@ class StubSFTPServer(paramiko.SFTPServerInterface):
             return paramiko.SFTP_OK
 
     def chattr(self, path, attr):
-        print("Call {}".format("Chattr"))
         sftp, rpath = self.get_sftp_rpath(path)
         if sftp is not None:
             if attr._flags & attr.FLAG_PERMISSIONS:
@@ -210,69 +198,3 @@ class StubSFTPServer(paramiko.SFTPServerInterface):
             if attr._flags & attr.FLAG_SIZE:
                 sftp.truncate(rpath, attr.st_size)
             return paramiko.SFTP_OK
-
-
-HOST, PORT = 'localhost', 3373
-BACKLOG = 10
-
-
-def start_server(host, port, keyfile, level):
-    paramiko_level = getattr(paramiko.common, level)
-    paramiko.common.logging.basicConfig(level=paramiko_level)
-
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
-    server_socket.bind((host, port))
-    server_socket.listen(BACKLOG)
-
-    while True:
-        conn, addr = server_socket.accept()
-
-        host_key = paramiko.RSAKey.from_private_key_file(keyfile)
-        transport = paramiko.Transport(conn)
-        transport.add_server_key(host_key)
-        transport.set_subsystem_handler(
-            'sftp', paramiko.SFTPServer, StubSFTPServer)
-
-        server = StubServer()
-        transport.start_server(server=server)
-
-        channel = transport.accept()
-        while transport.is_active():
-            time.sleep(1)
-
-
-def main():
-    usage = """\
-    usage: sftpserver [options]
-    -k/--keyfile should be specified
-    """
-    parser = argparse.ArgumentParser(usage=textwrap.dedent(usage))
-    parser.add_argument(
-        '--host', dest='host', default=HOST,
-        help='listen on HOST [default: %(default)s]'
-    )
-    parser.add_argument(
-        '-p', '--port', dest='port', type=int, default=PORT,
-        help='listen on PORT [default: %(default)d]'
-    )
-    parser.add_argument(
-        '-l', '--level', dest='level', default='INFO',
-        help='Debug level: WARNING, INFO, DEBUG [default: %(default)s]'
-    )
-    parser.add_argument(
-        '-k', '--keyfile', dest='keyfile', metavar='FILE',
-        help='Path to private key, for example /tmp/test_rsa.key'
-    )
-
-    args = parser.parse_args()
-
-    if args.keyfile is None:
-        parser.print_help()
-        sys.exit(-1)
-
-    start_server(args.host, args.port, args.keyfile, args.level)
-
-
-if __name__ == '__main__':
-    main()

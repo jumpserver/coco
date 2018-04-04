@@ -6,14 +6,18 @@ import os
 import socket
 import threading
 import paramiko
+import time
 
 from .utils import ssh_key_gen, get_logger
 from .interface import SSHInterface
 from .interactive import InteractiveServer
 from .models import Client, Request
+from .sftp import SFTPServer
 
 logger = get_logger(__file__)
 BACKLOG = 5
+
+paramiko.util.log_to_file('/tmp/ftpserver.log', 'DEBUG')
 
 
 class SSHServer:
@@ -60,6 +64,9 @@ class SSHServer:
             logger.warning("Failed load moduli -- gex will be unsupported")
 
         transport.add_server_key(self.host_key)
+        transport.set_subsystem_handler(
+            'sftp', paramiko.SFTPServer, SFTPServer
+        )
         request = Request(addr)
         server = SSHInterface(self.app, request)
         try:
@@ -101,6 +108,9 @@ class SSHServer:
             logger.info("Request type `pty`, dispatch to interactive mode")
             InteractiveServer(self.app, client).interact()
         else:
+            logger.info("Request type `{}`".format(request_type))
+            print(request_type)
+            time.sleep(100)
             client.send("Not support request type: %s" % request_type)
 
     def shutdown(self):
