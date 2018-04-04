@@ -179,7 +179,10 @@ class ProxyNamespace(BaseNamespace):
             return None
 
         user_id = host.get('user', None)
+        logger.debug("self.current_user")
         self.current_user = self.app.service.get_user_profile(user_id)
+
+        logger.debug(self.current_user)
         # {
         #     "user": {UUID},
         #     "asset": {UUID},
