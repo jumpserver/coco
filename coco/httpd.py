@@ -159,20 +159,28 @@ class ProxyNamespace(BaseNamespace):
     def on_token(self, message):
         # 此处获取token含有的主机的信息
         logger.debug("On token trigger")
+        logger.debug(message)
         token = message.get('token', None)
         secret = message.get('secret', None)
-        user_id = message.get('user', None)
-        self.current_user = self.app.service.get_user_profile(user_id)
+        if token or secret:
+            self.emit('data', "\nOperation not permitted!")
+            self.emit('disconnect')
+            return None
+
         host = self.app.service.get_token_asset(token).json()
         logger.debug(host)
+        if host:
+            self.emit('data', "\nOperation not permitted!")
+            self.emit('disconnect')
+            return None
+
+        user_id = host.get('user', None)
+        self.current_user = self.app.service.get_user_profile(user_id)
         # {
         #     "user": {UUID},
         #     "asset": {UUID},
         #     "system_user": {UUID}
         # }
-        connection = str(uuid.uuid4())
-
-        self.emit('room', {'room': connection, 'secret': secret})
 
         self.on_host({'secret': secret, 'uuid': host['asset'], 'userid': host['system_user']})
 
