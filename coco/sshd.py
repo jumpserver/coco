@@ -6,7 +6,6 @@ import os
 import socket
 import threading
 import paramiko
-import time
 
 from .utils import ssh_key_gen, get_logger
 from .interface import SSHInterface
@@ -16,8 +15,6 @@ from .sftp import SFTPServer
 
 logger = get_logger(__file__)
 BACKLOG = 5
-
-paramiko.util.log_to_file('/tmp/ftpserver.log', 'DEBUG')
 
 
 class SSHServer:
@@ -107,10 +104,10 @@ class SSHServer:
         if 'pty' in request_type:
             logger.info("Request type `pty`, dispatch to interactive mode")
             InteractiveServer(self.app, client).interact()
+        elif 'subsystem' in request_type:
+            pass
         else:
             logger.info("Request type `{}`".format(request_type))
-            print(request_type)
-            time.sleep(100)
             client.send("Not support request type: %s" % request_type)
 
     def shutdown(self):
