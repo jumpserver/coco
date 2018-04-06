@@ -19,8 +19,9 @@ class SFTPServer(paramiko.SFTPServerInterface):
     def get_host_sftp(self, host, su):
         asset = self.hosts.get(host)
         system_user = None
-        for system_user in self.get_asset_system_users(host):
-            if system_user.name == su:
+        for s in self.get_asset_system_users(host):
+            if s.name == su:
+                system_user = s
                 break
 
         if not asset or not system_user:
@@ -66,6 +67,13 @@ class SFTPServer(paramiko.SFTPServerInterface):
         if not asset:
             return []
         return [su for su in asset.system_users_granted if su.protocol == "ssh"]
+
+    def su_in_asset(self, su, host):
+        system_users = self.get_asset_system_users(host)
+        if su in [s.name for s in system_users]:
+            return True
+        else:
+            return False
 
     def create_ftp_log(self, path, operate, is_success=True, filename=None):
         host, su, rpath = self.parse_path(path)
@@ -119,6 +127,13 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
     def stat(self, path):
         host, su, rpath = self.parse_path(path)
+
+        e = OSError("Not that dir")
+        if host and host not in self.hosts:
+            return paramiko.SFTPServer.convert_errno(e.errno)
+        if su and not self.su_in_asset(su, host):
+            return paramiko.SFTPServer.convert_errno(e.errno)
+
         if not rpath or rpath == "/":
             attr = self.stat_host_dir()
             attr.filename = su or host
@@ -229,7 +244,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
                 result = paramiko.SFTP_OK
         else:
             result = paramiko.SFTP_FAILURE
-        self.create_ftp_log(path, "MakeDir", success)
+        self.create_ftp_log(path, "Mkdir", success)
         return result
 
     def rmdir(self, path):
@@ -246,7 +261,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
                 result = paramiko.SFTP_OK
         else:
             result = paramiko.SFTP_FAILURE
-        self.create_ftp_log(path, "RmDir", success)
+        self.create_ftp_log(path, "Rmdir", success)
         return result
 
     # def chattr(self, path, attr):
