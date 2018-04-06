@@ -147,7 +147,7 @@ class SSHInterface(paramiko.ServerInterface):
         self.request.type.append('subsystem')
         self.request.meta.update({'channel': channel.get_id(), 'name': name})
         self.event.set()
-        return False
+        return super().check_channel_subsystem_request(channel, name)
 
     def check_channel_window_change_request(self, channel, width, height,
                                             pixelwidth, pixelheight):
