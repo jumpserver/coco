@@ -1,6 +1,8 @@
 import os
 import tempfile
 import paramiko
+import time
+from datetime import datetime
 
 from .connection import SSHConnection
 
@@ -65,6 +67,27 @@ class SFTPServer(paramiko.SFTPServerInterface):
             return []
         return [su for su in asset.system_users_granted if su.protocol == "ssh"]
 
+    def create_ftp_log(self, path, operate, is_success=True, filename=None):
+        host, su, rpath = self.parse_path(path)
+        date_start = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S") + " +0000",
+        data = {
+            "user": self.server.request.user.username,
+            "asset": host,
+            "system_user": su,
+            "remote_addr": self.server.request.addr[0],
+            "operate": operate,
+            "filename": filename or rpath,
+            "date_start": date_start,
+            "is_success": is_success,
+        }
+        for i in range(1, 4):
+            ok = self.server.app.service.create_ftp_log(data)
+            if ok:
+                break
+            else:
+                time.sleep(0.5)
+                continue
+
     @staticmethod
     def stat_host_dir():
         tmp = tempfile.TemporaryDirectory()
@@ -119,6 +142,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
     def open(self, path, flags, attr):
         binary_flag = getattr(os, 'O_BINARY', 0)
         flags |= binary_flag
+        success = False
 
         if flags & os.O_WRONLY:
             if flags & os.O_APPEND:
@@ -134,67 +158,106 @@ class SFTPServer(paramiko.SFTPServerInterface):
             mode = 'rb'
 
         sftp, rpath = self.get_sftp_rpath(path)
+        if 'r' in mode:
+            operate = "Download"
+        else:
+            operate = "Upload"
+
+        result = None
         if sftp is not None:
-            f = sftp.open(rpath, mode, bufsize=4096)
-            obj = paramiko.SFTPHandle(flags)
-            obj.filename = rpath
-            obj.readfile = f
-            obj.writefile = f
-            return obj
+            try:
+                f = sftp.open(rpath, mode, bufsize=4096)
+                obj = paramiko.SFTPHandle(flags)
+                obj.filename = rpath
+                obj.readfile = f
+                obj.writefile = f
+                result = obj
+                success = True
+            except OSError:
+                pass
+        self.create_ftp_log(path, operate, success)
+        return result
 
     def remove(self, path):
         sftp, rpath = self.get_sftp_rpath(path)
+        success = False
 
         if sftp is not None:
             try:
                 sftp.remove(rpath)
             except OSError as e:
-                return paramiko.SFTPServer.convert_errno(e.errno)
-            return paramiko.SFTP_OK
+                result = paramiko.SFTPServer.convert_errno(e.errno)
+            else:
+                result = paramiko.SFTP_OK
+                success = True
         else:
-            return paramiko.SFTP_FAILURE
+            result = paramiko.SFTP_FAILURE
+        self.create_ftp_log(path, "Delete", success)
+        return result
 
     def rename(self, src, dest):
         host1, su1, rsrc = self.parse_path(src)
         host2, su2, rdest = self.parse_path(dest)
+        success = False
 
         if host1 == host2 and su1 == su2 and host1:
             sftp = self.get_host_sftp(host1, su1)
             try:
                 sftp.rename(rsrc, rdest)
+                success = True
             except OSError as e:
-                return paramiko.SFTPServer.convert_errno(e.errno)
-            return paramiko.SFTP_OK
-        return paramiko.SFTP_FAILURE
+                result = paramiko.SFTPServer.convert_errno(e.errno)
+            else:
+                result = paramiko.SFTP_OK
+        else:
+            result = paramiko.SFTP_FAILURE
+        filename = "{}=>{}".format(rsrc, rdest)
+        self.create_ftp_log(rsrc, "Rename", success, filename=filename)
+        return result
 
     def mkdir(self, path, attr):
         sftp, rpath = self.get_sftp_rpath(path)
+        success = False
+
         if sftp is not None and rpath != '/':
             try:
                 sftp.mkdir(rpath)
+                success = True
             except OSError as e:
-                return paramiko.SFTPServer.convert_errno(e.errno)
-            return paramiko.SFTP_OK
-        return paramiko.SFTP_FAILURE
+                result = paramiko.SFTPServer.convert_errno(e.errno)
+            else:
+                result = paramiko.SFTP_OK
+        else:
+            result = paramiko.SFTP_FAILURE
+        self.create_ftp_log(path, "MakeDir", success)
+        return result
 
     def rmdir(self, path):
         sftp, rpath = self.get_sftp_rpath(path)
+        success = False
+
         if sftp is not None:
             try:
                 sftp.rmdir(rpath)
+                success = True
             except OSError as e:
-                return paramiko.SFTPServer.convert_errno(e.errno)
-            return paramiko.SFTP_OK
+                result = paramiko.SFTPServer.convert_errno(e.errno)
+            else:
+                result = paramiko.SFTP_OK
+        else:
+            result = paramiko.SFTP_FAILURE
+        self.create_ftp_log(path, "RmDir", success)
+        return result
 
-    def chattr(self, path, attr):
-        sftp, rpath = self.get_sftp_rpath(path)
-        if sftp is not None:
-            if attr._flags & attr.FLAG_PERMISSIONS:
-                sftp.chmod(rpath, attr.st_mode)
-            if attr._flags & attr.FLAG_UIDGID:
-                sftp.chown(rpath, attr.st_uid, attr.st_gid)
-            if attr._flags & attr.FLAG_AMTIME:
-                sftp.utime(rpath, (attr.st_atime, attr.st_mtime))
-            if attr._flags & attr.FLAG_SIZE:
-                sftp.truncate(rpath, attr.st_size)
-            return paramiko.SFTP_OK
+    # def chattr(self, path, attr):
+    #     sftp, rpath = self.get_sftp_rpath(path)
+    #     if sftp is not None:
+    #         if attr._flags & attr.FLAG_PERMISSIONS:
+    #             sftp.chmod(rpath, attr.st_mode)
+    #         if attr._flags & attr.FLAG_UIDGID:
+    #             sftp.chown(rpath, attr.st_uid, attr.st_gid)
+    #         if attr._flags & attr.FLAG_AMTIME:
+    #             sftp.utime(rpath, (attr.st_atime, attr.st_mtime))
+    #         if attr._flags & attr.FLAG_SIZE:
+    #             sftp.truncate(rpath, attr.st_size)
+    #         return paramiko.SFTP_OK

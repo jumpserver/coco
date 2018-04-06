@@ -20,7 +20,7 @@ Jinja2==2.10
 jmespath==0.9.3
 jms-es-sdk==0.5.2
 jms-storage==0.0.12
-jumpserver-python-sdk==0.0.36
+jumpserver-python-sdk==0.0.39
 MarkupSafe==1.0
 oss2==2.4.0
 paramiko==2.4.0
