@@ -2,19 +2,17 @@
 # -*- coding: utf-8 -*-
 #
 
-import socket
 import threading
 import time
 import weakref
 
-import os
-import paramiko
 from paramiko.ssh_exception import SSHException
 
 from .session import Session
 from .models import Server
+from .connection import SSHConnection
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
-    get_private_key_fingerprint, get_logger
+     get_logger
 
 
 logger = get_logger(__file__)
@@ -62,20 +60,11 @@ class ProxyServer:
             self.client.user.id, asset.id, system_user.id
         )
 
-    def get_system_user_auth(self, system_user):
-        """
-        获取系统用户的认证信息，密码或秘钥
-        :return: system user have full info
-        """
-        system_user.password, system_user.private_key = \
-            self.app.service.get_system_user_auth_info(system_user)
-
     def get_server_conn(self, asset, system_user):
         logger.info("Connect to {}".format(asset.hostname))
         if not self.validate_permission(asset, system_user):
             self.client.send(warning('No permission'))
             return None
-        self.get_system_user_auth(system_user)
         if True:
             server = self.get_ssh_server_conn(asset, system_user)
         else:
@@ -86,84 +75,18 @@ class ProxyServer:
     def get_telnet_server_conn(self, asset, system_user):
         pass
 
-    def get_proxy_sock(self, asset):
-        sock = None
-        domain = self.app.service.get_domain_detail_with_gateway(
-            asset.domain
-        )
-        if not domain.has_ssh_gateway():
-            return None
-        for i in domain.gateways:
-            gateway = domain.random_ssh_gateway()
-            proxy_command = [
-                "ssh", "-p", str(gateway.port),
-                "{}@{}".format(gateway.username, gateway.ip),
-                "-W", "{}:{}".format(asset.ip, asset.port), "-q",
-            ]
-
-            if gateway.password:
-                proxy_command.insert(0, "sshpass -p {}".format(gateway.password))
-
-            if gateway.private_key:
-                gateway.set_key_dir(os.path.join(self.app.root_path, 'keys'))
-                proxy_command.append("-i {}".format(gateway.private_key_file))
-            proxy_command = ' '.join(proxy_command)
-
-            try:
-                sock = paramiko.ProxyCommand(proxy_command)
-                break
-            except (paramiko.AuthenticationException,
-                    paramiko.BadAuthenticationType, SSHException,
-                    TimeoutError) as e:
-                logger.error(e)
-                continue
-        return sock
-
     def get_ssh_server_conn(self, asset, system_user):
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-        sock = None
-        if asset.domain:
-            sock = self.get_proxy_sock(asset)
-
-        try:
-            ssh.connect(
-                asset.ip, port=asset.port, username=system_user.username,
-                password=system_user.password, pkey=system_user.private_key,
-                timeout=TIMEOUT, compress=True, auth_timeout=TIMEOUT,
-                look_for_keys=False, sock=sock
-            )
-        except (paramiko.AuthenticationException, paramiko.BadAuthenticationType, SSHException):
-            admins = self.app.config['ADMINS'] or 'administrator'
-            self.client.send(warning(wr(
-                "Authenticate with server failed, contact {}".format(admins),
-                before=1, after=0
-            )))
-            password_short = "None"
-            key_fingerprint = "None"
-            if system_user.password:
-                password_short = system_user.password[:5] + (len(system_user.password)-5) * '*'
-            if system_user.private_key:
-                key_fingerprint = get_private_key_fingerprint(system_user.private_key)
-
-            logger.error("Connect {}@{}:{} auth failed, password: {}, key: {}".format(
-                system_user.username, asset.ip, asset.port,
-                password_short, key_fingerprint,
-            ))
-            return None
-        except (socket.error, TimeoutError) as e:
-            self.client.send(wr(" {}".format(e)))
-            return None
-        finally:
-            self.connecting = False
-            self.client.send(b'\r\n')
-
+        ssh = SSHConnection(self.app)
         request = self.client.request
         term = request.meta.get('term', 'xterm')
         width = request.meta.get('width', 80)
         height = request.meta.get('height', 24)
-        chan = ssh.invoke_shell(term, width=width, height=height)
+        chan, msg = ssh.get_channel(asset, system_user, term=term,
+                                    width=width, height=height)
+        if not chan:
+            self.client.send(warning(wr(msg, before=1, after=0)))
+        self.connecting = False
+        self.client.send(b'\r\n')
         return Server(chan, asset, system_user)
 
     def watch_win_size_change(self):

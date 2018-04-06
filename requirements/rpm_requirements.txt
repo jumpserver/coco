@@ -1,1 +1,1 @@
-libffi-devel
+libffi-devel sshpass

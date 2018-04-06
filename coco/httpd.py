@@ -159,15 +159,36 @@ class ProxyNamespace(BaseNamespace):
     def on_token(self, message):
         # 此处获取token含有的主机的信息
         logger.debug("On token trigger")
+        logger.debug(message)
         token = message.get('token', None)
         secret = message.get('secret', None)
-        host = self.app.service.get_token_asset(token).json()
+        connection = str(uuid.uuid4())
+        self.emit('room', {'room': connection, 'secret': secret})
+        if not (token or secret):
+            logger.debug("token or secret is None")
+            self.emit('data', {'data': "\nOperation not permitted!", 'room': connection})
+            self.emit('disconnect')
+            return None
+
+        host = self.app.service.get_token_asset(token)
         logger.debug(host)
+        if not host:
+            logger.debug("host is None")
+            self.emit('data', {'data': "\nOperation not permitted!", 'room': connection})
+            self.emit('disconnect')
+            return None
+
+        user_id = host.get('user', None)
+        logger.debug("self.current_user")
+        self.current_user = self.app.service.get_user_profile(user_id)
+
+        logger.debug(self.current_user)
         # {
         #     "user": {UUID},
         #     "asset": {UUID},
         #     "system_user": {UUID}
         # }
+
         self.on_host({'secret': secret, 'uuid': host['asset'], 'userid': host['system_user']})
 
     def on_resize(self, message):
