@@ -181,6 +181,7 @@ class ProxyNamespace(BaseNamespace):
         user_id = host.get('user', None)
         logger.debug("self.current_user")
         self.current_user = self.app.service.get_user_profile(user_id)
+        self.clients[request.sid]["request"].user = self.current_user
 
         logger.debug(self.current_user)
         # {
