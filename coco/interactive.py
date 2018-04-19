@@ -190,7 +190,7 @@ class InteractiveServer:
         name_max_length = max(max([len(group.name) for group in self.asset_groups]), 15)
         amount_max_length = max(len(str(max([group.assets_amount for group in self.asset_groups]))), 10)
         header = '{1:>%d} {0.name:%d} {0.assets_amount:<%s} ' % (id_max_length, name_max_length, amount_max_length)
-        comment_length = self.request.meta["width"] - len(header.format(fake_group, id_max_length))
+        comment_length = max(self.request.meta["width"] - len(header.format(fake_group, id_max_length)), 2)
         line = header + '{0.comment:%s}' % (comment_length // 2)  # comment中可能有中文
         header += "{0.comment:%s}" % comment_length
         self.client.send(title(header.format(fake_group, "ID")))
