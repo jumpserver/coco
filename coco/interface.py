@@ -39,7 +39,7 @@ class SSHInterface(paramiko.ServerInterface):
         logger.info("Check auth interactive: %s %s" % (username, submethods))
         instructions = 'Please enter 6 digits.'
         interactive = paramiko.server.InteractiveQuery(instructions=instructions)
-        interactive.add_prompt(prompt='[OTP auth]: ')
+        interactive.add_prompt(prompt='[MFA auth]: ')
         return interactive
 
     def check_auth_interactive_response(self, responses):
