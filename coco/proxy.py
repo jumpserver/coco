@@ -85,9 +85,12 @@ class ProxyServer:
                                     width=width, height=height)
         if not chan:
             self.client.send(warning(wr(msg, before=1, after=0)))
+            server = None
+        else:
+            server = Server(chan, asset, system_user)
         self.connecting = False
         self.client.send(b'\r\n')
-        return Server(chan, asset, system_user)
+        return server
 
     def watch_win_size_change(self):
         while self.client.request.change_size_event.wait():
