@@ -217,6 +217,7 @@ class InteractiveServer:
         header = '{1:>%d} {0.hostname:%d} {0.ip:15} {0.system_users_name_list:%d} ' % \
                  (id_max_length, hostname_max_length, sysuser_max_length)
         comment_length = self.request.meta["width"] - len(header.format(fake_asset, id_max_length))
+        comment_length = max([comment_length, 2])
         line = header + '{0.comment:.%d}' % (comment_length // 2)  # comment中可能有中文
         header += '{0.comment:%s}' % comment_length
         self.client.send(wr(title(header.format(fake_asset, "ID"))))
