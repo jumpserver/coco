@@ -26,7 +26,6 @@ class SSHConnection:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         sock = None
-        self.get_system_user_auth(system_user)
 
         if asset.domain:
             sock = self.get_proxy_sock(asset)
@@ -82,14 +81,6 @@ class SSHConnection:
             return ssh.open_sftp(), None
         else:
             return None, msg
-
-    def get_system_user_auth(self, system_user):
-        """
-        获取系统用户的认证信息，密码或秘钥
-        :return: system user have full info
-        """
-        system_user.password, system_user.private_key = \
-            self.app.service.get_system_user_auth_info(system_user)
 
     def get_proxy_sock(self, asset):
         sock = None
