@@ -263,6 +263,7 @@ class WSProxy:
 
     def close(self):
         self.stop_event.set()
+        self.child.shutdown(1)
         self.child.close()
         self.ws.logout(self.connection)
         logger.debug("Proxy {} closed".format(self))

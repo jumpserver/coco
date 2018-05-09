@@ -21,7 +21,7 @@ from .recorder import get_command_recorder_class, ServerReplayRecorder
 from .utils import get_logger
 
 
-__version__ = '1.0.0'
+__version__ = '1.3.0'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)

@@ -12,7 +12,7 @@ from .session import Session
 from .models import Server
 from .connection import SSHConnection
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
-     get_logger
+     get_logger, net_input
 
 
 logger = get_logger(__file__)
@@ -32,7 +32,21 @@ class ProxyServer:
     def app(self):
         return self._app()
 
+    def get_system_user_auth(self, system_user):
+        """
+        获取系统用户的认证信息，密码或秘钥
+        :return: system user have full info
+        """
+        password, private_key = \
+            self.app.service.get_system_user_auth_info(system_user)
+        if not password and not private_key:
+            prompt = "{}'s password: ".format(system_user.username)
+            password = net_input(self.client, prompt=prompt, sensitive=True)
+        system_user.password = password
+        system_user.private_key = private_key
+
     def proxy(self, asset, system_user):
+        self.get_system_user_auth(system_user)
         self.send_connecting_message(asset, system_user)
         self.server = self.get_server_conn(asset, system_user)
         if self.server is None:

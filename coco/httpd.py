@@ -184,12 +184,6 @@ class ProxyNamespace(BaseNamespace):
         self.clients[request.sid]["request"].user = self.current_user
 
         logger.debug(self.current_user)
-        # {
-        #     "user": {UUID},
-        #     "asset": {UUID},
-        #     "system_user": {UUID}
-        # }
-
         self.on_host({'secret': secret, 'uuid': host['asset'], 'userid': host['system_user']})
 
     def on_resize(self, message):

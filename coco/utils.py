@@ -4,26 +4,17 @@
 
 from __future__ import unicode_literals
 
-import hashlib
 import logging
 import re
 import os
-import threading
-import base64
-import calendar
-import time
-import datetime
 import gettext
 from io import StringIO
 from binascii import hexlify
 
 import paramiko
 import pyte
-import pytz
-from email.utils import formatdate
-from queue import Queue, Empty
 
-from .exception import NoAppException
+from . import char
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -300,6 +291,68 @@ def len_display(s):
         else:
             length += 1
     return length
+
+
+def net_input(client, prompt='Opt> ', sensitive=False):
+    """实现了一个ssh input, 提示用户输入, 获取并返回
+
+    :return user input string
+    """
+    input_data = []
+    parser = TtyIOParser()
+    client.send(wrap_with_line_feed(prompt, before=0, after=0))
+
+    while True:
+        data = client.recv(10)
+        if len(data) == 0:
+            break
+        # Client input backspace
+        if data in char.BACKSPACE_CHAR:
+            # If input words less than 0, should send 'BELL'
+            if len(input_data) > 0:
+                data = char.BACKSPACE_CHAR[data]
+                input_data.pop()
+            else:
+                data = char.BELL_CHAR
+            client.send(data)
+            continue
+
+        if data.startswith(b'\x03'):
+            # Ctrl-C
+            client.send('^C\r\n{} '.format(prompt).encode())
+            input_data = []
+            continue
+        elif data.startswith(b'\x04'):
+            # Ctrl-D
+            return 'q'
+
+        # Todo: Move x1b to char
+        if data.startswith(b'\x1b') or data in char.UNSUPPORTED_CHAR:
+            client.send(b'')
+            continue
+
+        # handle shell expect
+        multi_char_with_enter = False
+        if len(data) > 1 and data[-1] in char.ENTER_CHAR_ORDER:
+            if sensitive:
+                client.send(len(data) * '*')
+            else:
+                client.send(data)
+            input_data.append(data[:-1])
+            multi_char_with_enter = True
+
+        # If user type ENTER we should get user input
+        if data in char.ENTER_CHAR or multi_char_with_enter:
+            client.send(wrap_with_line_feed(b'', after=2))
+            option = parser.parse_input(input_data)
+            del input_data[:]
+            return option.strip()
+        else:
+            if sensitive:
+                client.send(len(data) * '*')
+            else:
+                client.send(data)
+            input_data.append(data)
 
 
 ugettext = _gettext()
