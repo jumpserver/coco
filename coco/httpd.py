@@ -4,8 +4,10 @@
 import os
 import socket
 import uuid
+import traceback
 from flask_socketio import SocketIO, Namespace, join_room, leave_room
 from flask import Flask, request, current_app, redirect
+from copy import deepcopy
 
 from .models import Request, Client, WSProxy
 from .proxy import ProxyServer
@@ -52,22 +54,61 @@ class BaseNamespace(Namespace):
 
 class ProxyNamespace(BaseNamespace):
     def __init__(self, *args, **kwargs):
+        """
+        :param args:
+        :param kwargs:
+
+        self.connections = {
+            "request_sid": {
+                "room_id": {
+                    "id": room_id,
+                    "proxy": None,
+                    "client": None,
+                    "forwarder": None,
+                    "request": None,
+                    "cols": 80,
+                    "rows": 24
+                },
+
+                ...
+            },
+            ...
+        }
+        """
         super().__init__(*args, **kwargs)
         self.connections = dict()
-        self.rooms = dict()
 
     def new_connection(self):
+        self.connections[request.sid] = dict()
+
+    def new_room(self):
         room_id = str(uuid.uuid4())
-        connection = {
-            "cols": int(request.cookies.get('cols', 80)),
-            "rows": int(request.cookies.get('rows', 24)),
-            "room": room_id,
-            "proxy": dict(),
-            "client": dict(),
-            "forwarder": dict(),
-            "request": self.make_coco_request()
+        room = {
+            "id": room_id,
+            "proxy": None,
+            "client": None,
+            "forwarder": None,
+            "request": self.make_coco_request(),
+            "cols": 80,
+            "rows": 24
         }
-        return connection
+        self.connections[request.sid][room_id] = room
+        return room
+
+    @staticmethod
+    def get_win_size():
+        cols_request = request.cookies.get('cols')
+        rows_request = request.cookies.get('rows')
+        if cols_request and cols_request.isdigit():
+            cols = int(cols_request)
+        else:
+            cols = 80
+
+        if rows_request and rows_request.isdigit():
+            rows = int(rows_request)
+        else:
+            rows = 24
+        return cols, rows
 
     def make_coco_request(self):
         x_forwarded_for = request.headers.get("X-Forwarded-For", '').split(',')
@@ -76,46 +117,30 @@ class ProxyNamespace(BaseNamespace):
         else:
             remote_ip = request.remote_addr
 
-        width_request = request.cookies.get('cols')
-        rows_request = request.cookies.get('rows')
-        if width_request and width_request.isdigit():
-            width = int(width_request)
-        else:
-            width = 80
-
-        if rows_request and rows_request.isdigit():
-            rows = int(rows_request)
-        else:
-            rows = 24
+        width, height = self.get_win_size()
         req = Request((remote_ip, 0))
         req.user = self.current_user
         req.meta = {
             "width": width,
-            "height": rows,
+            "height": height,
         }
         return req
 
     def on_connect(self):
         logger.debug("On connect event trigger")
         super().on_connect()
-        connection = self.new_connection()
-        self.connections[request.sid] = connection
-        self.rooms[connection['room']] = {
-            "admin": request.sid,
-            "member": [],
-            "rw": []
-        }
-        join_room(connection['room'])
+        self.new_connection()
 
     def on_host(self, message):
         # 此处获取主机的信息
         logger.debug("On host event trigger")
-        room_id = str(uuid.uuid4())
         asset_id = message.get('uuid', None)
         user_id = message.get('userid', None)
         secret = message.get('secret', None)
+        room = self.new_room()
 
-        self.emit('room', {'room': room_id, 'secret': secret})
+        self.emit('room', {'room': room["id"], 'secret': secret})
+        join_room(room["id"])
         if not asset_id or not user_id:
             # self.on_connect()
             return
@@ -128,18 +153,14 @@ class ProxyNamespace(BaseNamespace):
             return
 
         child, parent = socket.socketpair()
-        self.connections[request.sid]["client"][room_id] = Client(
-            parent, self.connections[request.sid]["request"]
-        )
-        self.connections[request.sid]["proxy"][room_id] = WSProxy(
-            self, child, self.connections[request.sid]["room"], room_id
-        )
-        self.connections[request.sid]["forwarder"][room_id] = ProxyServer(
-            self.app, self.connections[request.sid]["client"][room_id]
-        )
+        client = Client(parent, room["request"])
+        forwarder = ProxyServer(self.app, client)
+        room["client"] = client
+        room["forwarder"] = forwarder
+        room["proxy"] = WSProxy(self, child, room["id"])
+        room["cols"], room["rows"] = self.get_win_size()
         self.socketio.start_background_task(
-            self.connections[request.sid]["forwarder"][room_id].proxy,
-            asset, system_user
+            forwarder.proxy, asset, system_user
         )
 
     def on_data(self, message):
@@ -148,93 +169,84 @@ class ProxyNamespace(BaseNamespace):
         :param message: {"data": "xxx", "room": "xxx"}
         :return:
         """
-        room = message.get('room')
+        room_id = message.get('room')
+        room = self.connections.get(request.sid, {}).get(room_id)
         if not room:
             return
-        room_proxy = self.connections[request.sid]['proxy'].get(room)
-        if room_proxy:
-            room_proxy.send({"data": message['data']})
+        room["proxy"].send({"data": message['data']})
 
     def on_token(self, message):
         # 此处获取token含有的主机的信息
         logger.debug("On token trigger")
         token = message.get('token', None)
         secret = message.get('secret', None)
-        connection = str(uuid.uuid4())
-        self.emit('room', {'room': connection, 'secret': secret})
-        if not (token or secret):
-            logger.debug("token or secret is None")
-            self.emit('data', {'data': "\nOperation not permitted!", 'room': connection})
+        room = self.new_room()
+        self.emit('room', {'room': room["id"], 'secret': secret})
+        if not token or not secret:
+            logger.debug("Token or secret is None")
+            self.emit('data', {'data': "\nOperation not permitted!",
+                               'room': room["id"]})
             self.emit('disconnect')
             return None
 
         info = self.app.service.get_token_asset(token)
         logger.debug(info)
         if not info:
-            logger.debug("host is None")
-            self.emit('data', {'data': "\nOperation not permitted!", 'room': connection})
+            logger.debug("Token info is None")
+            self.emit('data', {'data': "\nOperation not permitted!",
+                               'room': room["id"]})
             self.emit('disconnect')
             return None
 
         user_id = info.get('user', None)
-        logger.debug("self.current_user")
         self.current_user = self.app.service.get_user_profile(user_id)
-        self.connections[request.sid]["request"].user = self.current_user
+        room["request"].user = self.current_user
         logger.debug(self.current_user)
-        self.on_host({'secret': secret, 'uuid': info['asset'], 'userid': info['system_user']})
+        self.on_host({
+            'secret': secret,
+            'uuid': info['asset'],
+            'userid': info['system_user'],
+        })
 
     def on_resize(self, message):
-        cols = message.get('cols')
-        rows = message.get('rows')
+        cols, rows = message.get('cols', None), message.get('rows', None)
         logger.debug("On resize event trigger: {}*{}".format(cols, rows))
-        if cols and rows and self.connections[request.sid]["request"]:
-            self.connections[request.sid]["request"].meta['width'] = cols
-            self.connections[request.sid]["request"].meta['height'] = rows
-            self.connections[request.sid]["request"].change_size_event.set()
-
-    # def on_room(self, session_id):
-    #     logger.debug("On room event trigger")
-    #     if session_id not in self.connections.keys():
-    #         self.emit(
-    #             'error', "no such session",
-    #             room=self.connections[request.sid]["room"]
-    #         )
-    #     else:
-    #         self.emit(
-    #             'room', self.connections[session_id]["room"],
-    #             room=self.connections[request.sid]["room"]
-    #         )
-    #
-    # def on_join(self, room):
-    #     logger.debug("On join room event trigger")
-    #     self.on_leave(self.connections[request.id]["room"])
-    #     self.connections[request.sid]["room"] = room
-    #     self.rooms[room]["member"].append(request.sid)
-    #     join_room(room=room)
-    #
-    def on_leave(self, room):
-        logger.debug("On leave room event trigger")
-        if self.rooms[room]["admin"] == request.sid:
-            self.emit("data", "\nAdmin leave", room=room)
-            del self.rooms[room]
-        leave_room(room=room)
+        rooms = self.connections.get(request.sid)
+        if not rooms:
+            return
+        room = list(rooms.values())[0]
+        if rooms and (room["cols"], room["rows"]) != (cols, rows):
+            for room in rooms.values():
+                room["request"].meta.update({
+                    'width': cols, 'height': rows
+                })
+                room["request"].change_size_event.set()
+                room.update({"cols": cols, "rows": rows})
 
     def on_disconnect(self):
         logger.debug("On disconnect event trigger")
-        # self.on_leave(self.clients[request.sid]["room"])
-        print(self.connections[request.sid]["client"])
-        try:
-            for connection in self.connections[request.sid]["client"]:
-                self.on_logout(connection)
-            del self.connections[request.sid]
-        except IndexError:
-            pass
+        room_id_list = list(self.connections.get(request.sid, {}).keys())
+        for room_id in room_id_list:
+            try:
+                self.on_logout(room_id)
+            except Exception as e:
+                logger.warn(e)
+        del self.connections[request.sid]
 
-    def on_logout(self, connection):
-        logger.debug("On logout event trigger")
-        if connection in self.connections[request.sid]["proxy"].keys():
-            self.connections[request.sid]["proxy"][connection].close()
-            del self.connections[request.sid]['proxy'][connection]
+    def on_logout(self, room_id):
+        room = self.connections.get(request.sid, {}).get(room_id)
+        if room:
+            room["proxy"].close()
+            self.close_room(room_id)
+            del self.connections[request.sid][room_id]
+            del room
+
+    @staticmethod
+    def on_error_default(e):
+        traceback.print_exc()
+        logger.warn(e)
+
+    error_handler = on_error_default
 
 
 class HttpServer:
@@ -258,9 +270,13 @@ class HttpServer:
         self.flask_app.config.update(config)
         self.socket_io = SocketIO()
         self.register_routes()
+        self.add_error_handler()
 
     def register_routes(self):
         self.socket_io.on_namespace(ProxyNamespace('/ssh'))
+
+    def add_error_handler(self):
+        self.socket_io.on_error_default(ProxyNamespace.on_error_default)
 
     def run(self):
         host = self.flask_app.config["BIND_HOST"]
