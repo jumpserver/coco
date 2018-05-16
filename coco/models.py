@@ -251,6 +251,7 @@ class WSProxy:
             if len(data) == 0:
                 self.close()
             data = data.decode(errors="ignore")
+            print("Send data: {}".format(data))
             self.ws.emit("data", {'data': data, 'room': self.room_id},
                          room=self.room_id)
             if len(data) == BUF_SIZE:

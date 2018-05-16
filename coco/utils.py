@@ -15,7 +15,7 @@ import paramiko
 import pyte
 
 from . import char
-from .ctx import current_app, current_service
+from .ctx import stack
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -370,25 +370,18 @@ def net_input(client, prompt='Opt> ', sensitive=False):
 
 
 def register_app(app):
-    current_app.insert(0, app)
+    stack['app'] = app
 
 
 def register_service(service):
-    current_service.insert(0, service)
+    stack['service'] = service
 
 
 def get_app():
-    if current_app:
-        return current_app[0]
+    if stack.get("app"):
+        return stack["app"]
     else:
-        raise ValueError("App not found")
-
-
-def get_service():
-    if current_service:
-        return current_app[0]
-    else:
-        raise ValueError("Service not found")
+        return ValueError("No app found")
 
 
 ugettext = _gettext()

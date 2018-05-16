@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 #
 
-import weakref
 import os
 import socket
 
 import paramiko
 from paramiko.ssh_exception import SSHException
 
+from .ctx import app_service
 from .utils import get_logger, get_private_key_fingerprint
 
 logger = get_logger(__file__)
@@ -15,20 +15,13 @@ TIMEOUT = 10
 
 
 class SSHConnection:
-    def __init__(self, app):
-        self._app = weakref.ref(app)
-
-    @property
-    def app(self):
-        return self._app()
-
     def get_system_user_auth(self, system_user):
         """
         获取系统用户的认证信息，密码或秘钥
         :return: system user have full info
         """
         password, private_key = \
-            self.app.service.get_system_user_auth_info(system_user)
+            app_service.get_system_user_auth_info(system_user)
         system_user.password = password
         system_user.private_key = private_key
 
@@ -97,7 +90,7 @@ class SSHConnection:
 
     def get_proxy_sock(self, asset):
         sock = None
-        domain = self.app.service.get_domain_detail_with_gateway(
+        domain = app_service.get_domain_detail_with_gateway(
             asset.domain
         )
         if not domain.has_ssh_gateway():

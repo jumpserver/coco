@@ -50,6 +50,7 @@ class Coco:
         'HEARTBEAT_INTERVAL': 5,
         'MAX_CONNECTIONS': 500,
         'ADMINS': '',
+        'WORKERS': 4,
         'COMMAND_STORAGE': {'TYPE': 'server'},   # server
         'REPLAY_STORAGE': {'TYPE': 'server'},
     }
@@ -92,13 +93,13 @@ class Coco:
     @property
     def httpd(self):
         if self._httpd is None:
-            self._httpd = HttpServer(self)
+            self._httpd = HttpServer()
         return self._httpd
 
     @property
     def task_handler(self):
         if self._task_handler is None:
-            self._task_handler = TaskHandler(self)
+            self._task_handler = TaskHandler()
         return self._task_handler
 
     def make_logger(self):
@@ -116,11 +117,10 @@ class Coco:
         self.command_recorder_class = get_command_recorder_class(self.config)
 
     def new_command_recorder(self):
-        recorder = self.command_recorder_class(self)
-        return recorder
+        return self.command_recorder_class()
 
     def new_replay_recorder(self):
-        return self.replay_recorder_class(self)
+        return self.replay_recorder_class()
 
     def bootstrap(self):
         self.make_logger()

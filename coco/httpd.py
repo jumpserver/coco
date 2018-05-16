@@ -11,6 +11,7 @@ from flask import Flask, request, current_app, redirect
 from .models import Request, Client, WSProxy
 from .proxy import ProxyServer
 from .utils import get_logger
+from .ctx import current_app, app_service
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
@@ -20,11 +21,6 @@ logger = get_logger(__file__)
 class BaseNamespace(Namespace):
     clients = None
     current_user = None
-
-    @property
-    def app(self):
-        app = current_app.config['coco']
-        return app
 
     def on_connect(self):
         self.current_user = self.get_current_user()
@@ -38,9 +34,9 @@ class BaseNamespace(Namespace):
         token = request.headers.get("Authorization")
         user = None
         if session_id and csrf_token:
-            user = self.app.service.check_user_cookie(session_id, csrf_token)
+            user = app_service.check_user_cookie(session_id, csrf_token)
         if token:
-            user = self.app.service.check_user_with_token(token)
+            user = app_service.check_user_with_token(token)
         return user
 
     def close(self):
@@ -143,8 +139,8 @@ class ProxyNamespace(BaseNamespace):
             # self.on_connect()
             return
 
-        asset = self.app.service.get_asset(asset_id)
-        system_user = self.app.service.get_system_user(user_id)
+        asset = app_service.get_asset(asset_id)
+        system_user = app_service.get_system_user(user_id)
 
         if not asset or not system_user:
             self.on_connect()
@@ -152,7 +148,7 @@ class ProxyNamespace(BaseNamespace):
 
         child, parent = socket.socketpair()
         client = Client(parent, room["request"])
-        forwarder = ProxyServer(self.app, client)
+        forwarder = ProxyServer(client)
         room["client"] = client
         room["forwarder"] = forwarder
         room["proxy"] = WSProxy(self, child, room["id"])
@@ -187,7 +183,7 @@ class ProxyNamespace(BaseNamespace):
             self.emit('disconnect')
             return None
 
-        info = self.app.service.get_token_asset(token)
+        info = app_service.get_token_asset(token)
         logger.debug(info)
         if not info:
             logger.debug("Token info is None")
@@ -197,7 +193,7 @@ class ProxyNamespace(BaseNamespace):
             return None
 
         user_id = info.get('user', None)
-        self.current_user = self.app.service.get_user_profile(user_id)
+        self.current_user = app_service.get_user_profile(user_id)
         room["request"].user = self.current_user
         logger.debug(self.current_user)
         self.on_host({
@@ -250,20 +246,20 @@ class ProxyNamespace(BaseNamespace):
 class HttpServer:
     # prepare may be rewrite it
     config = {
-        'SECRET_KEY': '',
+        'SECRET_KEY': 'someWOrkSD20KMS9330)&#',
         'coco': None,
         'LOGIN_URL': '/login'
     }
     init_kwargs = dict(
+        # async_mode="gevent",
         async_mode="threading",
         ping_timeout=20,
         ping_interval=10
     )
 
-    def __init__(self, coco):
-        config = coco.config
+    def __init__(self):
+        config = {k: v for k, v in current_app.config.items()}
         config.update(self.config)
-        config['coco'] = coco
         self.flask_app = Flask(__name__, template_folder='dist')
         self.flask_app.config.update(config)
         self.socket_io = SocketIO()

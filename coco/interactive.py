@@ -4,16 +4,16 @@
 
 import socket
 import threading
-import weakref
 import os
 
 from jms.models import Asset, AssetGroup
 
 from . import char
 from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
-    wrap_with_primary as primary, wrap_with_warning as warning, \
-    is_obj_attr_has, is_obj_attr_eq, sort_assets, TtyIOParser, \
-    ugettext as _, get_logger
+    wrap_with_warning as warning, is_obj_attr_has, \
+    is_obj_attr_eq, sort_assets, TtyIOParser, \
+    ugettext as _, get_logger, net_input
+from .ctx import current_app, app_service
 from .proxy import ProxyServer
 
 logger = get_logger(__file__)
@@ -22,19 +22,14 @@ logger = get_logger(__file__)
 class InteractiveServer:
     _sentinel = object()
 
-    def __init__(self, app, client):
-        self._app = weakref.ref(app)
+    def __init__(self, client):
         self.client = client
         self.request = client.request
         self.assets = None
         self._search_result = None
         self.asset_groups = None
         self.get_user_assets_async()
-        self.get_user_asset_groups_async()
-
-    @property
-    def app(self):
-        return self._app()
+        self.get_user_nodes_async()
 
     @property
     def search_result(self):
@@ -50,7 +45,7 @@ class InteractiveServer:
 
     def display_banner(self):
         self.client.send(char.CLEAR_CHAR)
-        logo_path = os.path.join(self.app.root_path, "logo.txt")
+        logo_path = os.path.join(current_app.root_path, "logo.txt")
         if os.path.isfile(logo_path):
             with open(logo_path, 'rb') as f:
                 for i in f:
@@ -70,63 +65,6 @@ class InteractiveServer:
             end="\033[0m", user=self.client.user
         )
         self.client.send(banner)
-
-    def get_option(self, prompt='Opt> '):
-        """实现了一个ssh input, 提示用户输入, 获取并返回
-
-        :return user input string
-        """
-        # Todo: 实现自动hostname或IP补全
-        input_data = []
-        parser = TtyIOParser()
-        self.client.send(wr(prompt, before=1, after=0))
-
-        while True:
-            data = self.client.recv(10)
-            if len(data) == 0:
-                self.app.remove_client(self.client)
-                break
-            # Client input backspace
-            if data in char.BACKSPACE_CHAR:
-                # If input words less than 0, should send 'BELL'
-                if len(input_data) > 0:
-                    data = char.BACKSPACE_CHAR[data]
-                    input_data.pop()
-                else:
-                    data = char.BELL_CHAR
-                self.client.send(data)
-                continue
-
-            if data.startswith(b'\x03'):
-                # Ctrl-C
-                self.client.send(b'^C\r\nOpt> ')
-                input_data = []
-                continue
-            elif data.startswith(b'\x04'):
-                # Ctrl-D
-                return 'q'
-
-            # Todo: Move x1b to char
-            if data.startswith(b'\x1b') or data in char.UNSUPPORTED_CHAR:
-                self.client.send(b'')
-                continue
-
-            # handle shell expect
-            multi_char_with_enter = False
-            if len(data) > 1 and data[-1] in char.ENTER_CHAR_ORDER:
-                self.client.send(data)
-                input_data.append(data[:-1])
-                multi_char_with_enter = True
-
-            # If user type ENTER we should get user input
-            if data in char.ENTER_CHAR or multi_char_with_enter:
-                self.client.send(wr(b'', after=2))
-                option = parser.parse_input(input_data)
-                del input_data[:]
-                return option.strip()
-            else:
-                self.client.send(data)
-                input_data.append(data)
 
     def dispatch(self, opt):
         if opt is None:
@@ -179,7 +117,7 @@ class InteractiveServer:
 
     def display_asset_groups(self):
         if self.asset_groups is None:
-            self.get_user_asset_groups()
+            self.get_user_nodes()
 
         if len(self.asset_groups) == 0:
             self.client.send(warning(_("无")))
@@ -208,7 +146,7 @@ class InteractiveServer:
         self.display_search_result()
 
     def display_search_result(self):
-        self.search_result = sort_assets(self.search_result, self.app.config["ASSET_LIST_SORT_BY"])
+        self.search_result = sort_assets(self.search_result, current_app.config["ASSET_LIST_SORT_BY"])
         fake_asset = Asset(hostname=_("Hostname"), ip=_("IP"), _system_users_name_list=_("LoginAs"),
                            comment=_("Comment"))
         id_max_length = max(len(str(len(self.search_result))), 3)
@@ -231,11 +169,11 @@ class InteractiveServer:
         self.search_assets(q)
         self.display_search_result()
 
-    def get_user_asset_groups(self):
-        self.asset_groups = self.app.service.get_user_asset_groups(self.client.user)
+    def get_user_nodes(self):
+        self.asset_groups = app_service.get_user_asset_groups(self.client.user)
 
-    def get_user_asset_groups_async(self):
-        thread = threading.Thread(target=self.get_user_asset_groups)
+    def get_user_nodes_async(self):
+        thread = threading.Thread(target=self.get_user_nodes)
         thread.start()
 
     @staticmethod
@@ -248,7 +186,7 @@ class InteractiveServer:
         return assets
 
     def get_user_assets(self):
-        self.assets = self.app.service.get_user_assets(self.client.user)
+        self.assets = app_service.get_user_assets(self.client.user)
         logger.debug("Get user {} assets total: {}".format(self.client.user, len(self.assets)))
 
     def get_user_assets_async(self):
@@ -267,7 +205,7 @@ class InteractiveServer:
         while True:
             self.client.send(wr(_("选择一个登陆: "), after=1))
             self.display_system_users(system_users)
-            opt = self.get_option("ID> ")
+            opt = net_input(self.client, prompt="ID> ")
             if opt.isdigit() and len(system_users) > int(opt):
                 return system_users[int(opt)]
             elif opt in ['q', 'Q']:
@@ -297,14 +235,14 @@ class InteractiveServer:
         if system_user is None:
             self.client.send(_("没有系统用户"))
             return
-        forwarder = ProxyServer(self.app, self.client)
+        forwarder = ProxyServer(self.client)
         forwarder.proxy(asset, system_user)
 
     def interact(self):
         self.display_banner()
         while True:
             try:
-                opt = self.get_option()
+                opt = net_input(self.client)
                 rv = self.dispatch(opt)
                 if rv is self._sentinel:
                     break
@@ -318,7 +256,7 @@ class InteractiveServer:
         thread.start()
 
     def close(self):
-        self.app.remove_client(self.client)
+        current_app.remove_client(self.client)
 
     # def __del__(self):
     #     print("GC: Interactive class been gc")
