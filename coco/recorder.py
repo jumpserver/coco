@@ -8,28 +8,14 @@ import time
 import os
 import gzip
 import json
-import shutil
 
 import jms_storage
 
-from .utils import get_logger
+from .utils import get_logger, Singleton
 from .alignment import MemoryQueue
 
 logger = get_logger(__file__)
 BUF_SIZE = 1024
-
-
-class Singleton(type):
-    def __init__(cls, *args, **kwargs):
-        cls.__instance = None
-        super().__init__(*args, **kwargs)
-
-    def __call__(cls, *args, **kwargs):
-        if cls.__instance is None:
-            cls.__instance = super().__call__(*args, **kwargs)
-            return cls.__instance
-        else:
-            return cls.__instance
 
 
 class ReplayRecorder(metaclass=abc.ABCMeta):

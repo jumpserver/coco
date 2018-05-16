@@ -28,7 +28,7 @@ psutil==5.4.1
 pyasn1==0.4.2
 pycparser==2.18
 PyNaCl==1.2.1
-pyte==0.7.0
+pyte==0.8.0
 python-dateutil==2.6.1
 python-engineio==2.1.0
 python-gssapi==0.6.4

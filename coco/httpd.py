@@ -5,15 +5,13 @@ import os
 import socket
 import uuid
 import traceback
-from flask_socketio import SocketIO, Namespace, join_room, leave_room
+from flask_socketio import SocketIO, Namespace, join_room
 from flask import Flask, request, current_app, redirect
-from copy import deepcopy
 
 from .models import Request, Client, WSProxy
 from .proxy import ProxyServer
 from .utils import get_logger
 
-__version__ = '0.5.0'
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 logger = get_logger(__file__)

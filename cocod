@@ -126,7 +126,7 @@ if __name__ == '__main__':
     parser.add_argument(
         'action', type=str, default='start',
         choices=("start", "stop", "restart", "status"),
-        help="Action to run"
+        help="Action to start_worker"
     )
 
     parser.add_argument('-d', '--daemon', nargs="?", const=1)

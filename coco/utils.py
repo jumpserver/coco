@@ -15,8 +15,22 @@ import paramiko
 import pyte
 
 from . import char
+from .ctx import current_app, current_service
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+
+
+class Singleton(type):
+    def __init__(cls, *args, **kwargs):
+        cls.__instance = None
+        super().__init__(*args, **kwargs)
+
+    def __call__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = super().__call__(*args, **kwargs)
+            return cls.__instance
+        else:
+            return cls.__instance
 
 
 def ssh_key_string_to_obj(text, password=None):
@@ -353,6 +367,28 @@ def net_input(client, prompt='Opt> ', sensitive=False):
             else:
                 client.send(data)
             input_data.append(data)
+
+
+def register_app(app):
+    current_app.insert(0, app)
+
+
+def register_service(service):
+    current_service.insert(0, service)
+
+
+def get_app():
+    if current_app:
+        return current_app[0]
+    else:
+        raise ValueError("App not found")
+
+
+def get_service():
+    if current_service:
+        return current_app[0]
+    else:
+        raise ValueError("Service not found")
 
 
 ugettext = _gettext()

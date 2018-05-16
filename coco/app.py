@@ -18,7 +18,7 @@ from .httpd import HttpServer
 from .logger import create_logger
 from .tasks import TaskHandler
 from .recorder import get_command_recorder_class, ServerReplayRecorder
-from .utils import get_logger
+from .utils import get_logger, register_app, register_service
 
 
 __version__ = '1.3.0'
@@ -67,6 +67,7 @@ class Coco:
         self.replay_recorder_class = None
         self.command_recorder_class = None
         self._task_handler = None
+        register_app(self)
 
     @property
     def name(self):
@@ -79,12 +80,13 @@ class Coco:
     def service(self):
         if self._service is None:
             self._service = AppService(self)
+            register_service(self._service)
         return self._service
 
     @property
     def sshd(self):
         if self._sshd is None:
-            self._sshd = SSHServer(self)
+            self._sshd = SSHServer()
         return self._sshd
 
     @property

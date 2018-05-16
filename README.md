@@ -31,7 +31,7 @@ Also some config you need kown:
 
 ## Start
 
-    # python run_server.py
+    # python start_server.py
 
 When your start ssh server, It will register with jumpserver api,
 

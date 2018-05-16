@@ -5,9 +5,12 @@
 import os
 import socket
 import threading
+import random
 import paramiko
+from multiprocessing.reduction import recv_handle, send_handle
+from multiprocessing import Process, Pipe
 
-from .utils import ssh_key_gen, get_logger
+from .utils import ssh_key_gen, get_logger, get_app
 from .interface import SSHInterface
 from .interactive import InteractiveServer
 from .models import Client, Request
@@ -19,11 +22,15 @@ BACKLOG = 5
 
 class SSHServer:
 
-    def __init__(self, app):
-        self.app = app
+    def __init__(self):
         self.stop_evt = threading.Event()
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.host_key_path = os.path.join(self.app.root_path, 'keys', 'host_rsa_key')
+        self.workers = []
+        self.pipe = None
+
+    @property
+    def app(self):
+        return get_app()
 
     @property
     def host_key(self):
@@ -36,22 +43,45 @@ class SSHServer:
         with open(self.host_key_path, 'w') as f:
             f.write(ssh_key)
 
-    def run(self):
+    def start_worker(self, in_pipe, out_pipe):
+        print("APP: {}".format(self.app))
+        print("APP sessions: {}".format(self.app))
+        out_pipe.close()
+        while not self.stop_evt.is_set():
+            fd = recv_handle(in_pipe)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, fileno=fd)
+            addr = sock.getpeername()
+            thread = threading.Thread(target=self.handle_connection, args=(sock, addr))
+            thread.daemon = True
+            thread.start()
+
+    def start_server(self, in_pipe, out_pipe, workers):
+        in_pipe.close()
         host = self.app.config["BIND_HOST"]
         port = self.app.config["SSHD_PORT"]
         print('Starting ssh server at {}:{}'.format(host, port))
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind((host, port))
-        self.sock.listen(BACKLOG)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((host, port))
+        sock.listen(BACKLOG)
+
         while not self.stop_evt.is_set():
-            try:
-                sock, addr = self.sock.accept()
-                logger.info("Get ssh request from {}: {}".format(addr[0], addr[1]))
-                thread = threading.Thread(target=self.handle_connection, args=(sock, addr))
-                thread.daemon = True
-                thread.start()
-            except Exception as e:
-                logger.error("Start SSH server error: {}".format(e))
+            client, addr = sock.accept()
+            logger.info("Get ssh request from {}".format(addr))
+            send_handle(out_pipe, client.fileno(), random.choice(workers).pid)
+            client.close()
+
+    def run(self):
+        in_pipe, out_pipe = Pipe()
+        self.pipe = (in_pipe, out_pipe)
+        workers = []
+        for i in range(4):
+            worker = Process(target=self.start_worker, args=(in_pipe, out_pipe))
+            worker.start()
+            workers.append(worker)
+        self.start_server(in_pipe, out_pipe, workers)
+        in_pipe.close()
+        out_pipe.close()
 
     def handle_connection(self, sock, addr):
         transport = paramiko.Transport(sock, gss_kex=False)
