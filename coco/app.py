@@ -50,7 +50,6 @@ class Coco:
         'HEARTBEAT_INTERVAL': 5,
         'MAX_CONNECTIONS': 500,
         'ADMINS': '',
-        'WORKERS': 4,
         'COMMAND_STORAGE': {'TYPE': 'server'},   # server
         'REPLAY_STORAGE': {'TYPE': 'server'},
     }

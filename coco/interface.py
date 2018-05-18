@@ -4,7 +4,6 @@
 
 import paramiko
 import threading
-import weakref
 
 from .utils import get_logger
 from .ctx import current_app, app_service
@@ -21,15 +20,11 @@ class SSHInterface(paramiko.ServerInterface):
     """
 
     def __init__(self, request):
-        self._request = weakref.ref(request)
+        self.request = request
         self.event = threading.Event()
         self.auth_valid = False
         self.otp_auth = False
         self.info = None
-
-    @property
-    def request(self):
-        return self._request()
 
     def check_auth_interactive(self, username, submethods):
         logger.info("Check auth interactive: %s %s" % (username, submethods))
