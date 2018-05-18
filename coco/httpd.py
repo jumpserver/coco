@@ -19,7 +19,6 @@ logger = get_logger(__file__)
 
 
 class BaseNamespace(Namespace):
-    clients = None
     current_user = None
 
     def on_connect(self):
@@ -38,12 +37,6 @@ class BaseNamespace(Namespace):
         if token:
             user = app_service.check_user_with_token(token)
         return user
-
-    def close(self):
-        try:
-            self.clients[request.sid]["client"].close()
-        except IndexError:
-            pass
 
 
 class ProxyNamespace(BaseNamespace):
@@ -235,13 +228,6 @@ class ProxyNamespace(BaseNamespace):
             del self.connections[request.sid][room_id]
             del room
 
-    @staticmethod
-    def on_error_default(e):
-        traceback.print_exc()
-        logger.warn(e)
-
-    error_handler = on_error_default
-
 
 class HttpServer:
     # prepare may be rewrite it
@@ -264,13 +250,17 @@ class HttpServer:
         self.flask_app.config.update(config)
         self.socket_io = SocketIO()
         self.register_routes()
-        self.add_error_handler()
 
     def register_routes(self):
         self.socket_io.on_namespace(ProxyNamespace('/ssh'))
 
-    def add_error_handler(self):
-        self.socket_io.on_error_default(ProxyNamespace.on_error_default)
+    @staticmethod
+    def on_error_default(e):
+        traceback.print_exc()
+        logger.warn(e)
+
+    def register_error_handler(self):
+        self.socket_io.on_error_default(self.on_error_default)
 
     def run(self):
         host = self.flask_app.config["BIND_HOST"]
@@ -282,4 +272,4 @@ class HttpServer:
         self.socket_io.run(self.flask_app, port=port, host=host, debug=False)
 
     def shutdown(self):
-        pass
+        self.socket_io.server.close()

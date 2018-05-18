@@ -294,27 +294,14 @@ def get_logger(file_name):
     return logging.getLogger('coco.'+file_name)
 
 
-zh_pattern = re.compile(u'[\u4e00-\u9fa5]+')
-
-
-def len_display(s):
-    length = 0
-    for i in s:
-        if zh_pattern.match(i):
-            length += 2
-        else:
-            length += 1
-    return length
-
-
-def net_input(client, prompt='Opt> ', sensitive=False):
+def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
     """实现了一个ssh input, 提示用户输入, 获取并返回
 
     :return user input string
     """
     input_data = []
     parser = TtyIOParser()
-    client.send(wrap_with_line_feed(prompt, before=0, after=0))
+    client.send(wrap_with_line_feed(prompt, before=before, after=after))
 
     while True:
         data = client.recv(10)
@@ -377,11 +364,59 @@ def register_service(service):
     stack['service'] = service
 
 
-def get_app():
-    if stack.get("app"):
-        return stack["app"]
-    else:
-        return ValueError("No app found")
+zh_pattern = re.compile(r'[\u4e00-\u9fa5]')
+
+
+def find_chinese(s):
+    return zh_pattern.findall(s)
+
+
+def align_with_zh(s, length, addin=' '):
+    if not isinstance(s, str):
+        s = str(s)
+    zh_len = len(find_chinese(s))
+    padding = length - (len(s) - zh_len) - zh_len*2
+    padding_content = ''
+
+    if padding > 0:
+        padding_content = addin*padding
+    return s + padding_content
+
+
+def format_with_zh(size_list, *args):
+    data = []
+    for length, s in zip(size_list, args):
+        data.append(align_with_zh(s, length))
+    return ' '.join(data)
+
+
+def size_of_str_with_zh(s):
+    if isinstance(s, int):
+        s = str(s)
+    try:
+        chinese = find_chinese(s)
+    except TypeError:
+        print(type(s))
+        raise
+    return len(s) + len(chinese)
+
+
+def item_max_length(_iter, maxi=None, mini=None, key=None):
+    if key:
+        _iter = [key(i) for i in _iter]
+
+    length = [size_of_str_with_zh(s) for s in _iter]
+    if maxi:
+        length.append(maxi)
+    length = max(length)
+    if mini and length < mini:
+        length = mini
+    return length
+
+
+def int_length(i):
+    return len(str(i))
 
 
 ugettext = _gettext()
+

@@ -12,7 +12,8 @@ from . import char
 from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
     wrap_with_warning as warning, is_obj_attr_has, \
     is_obj_attr_eq, sort_assets, TtyIOParser, \
-    ugettext as _, get_logger, net_input
+    ugettext as _, get_logger, net_input, format_with_zh, item_max_length, \
+    size_of_str_with_zh
 from .ctx import current_app, app_service
 from .proxy import ProxyServer
 
@@ -56,11 +57,11 @@ class InteractiveServer:
         banner = _("""\n {title}   {user}, 欢迎使用Jumpserver开源跳板机系统  {end}\r\n\r
     1) 输入 {green}ID{end} 直接登录 或 输入{green}部分 IP,主机名,备注{end} 进行搜索登录(如果唯一).\r
     2) 输入 {green}/{end} + {green}IP, 主机名{end} or {green}备注 {end}搜索. 如: /ip\r
-    3) 输入 {green}P/p{end} 显示您有权限的主机.\r
-    4) 输入 {green}G/g{end} 显示您有权限的主机组.\r
-    5) 输入 {green}G/g{end} + {green}组ID{end} 显示该组下主机. 如: g1\r
-    6) 输入 {green}H/h{end} 帮助.\r
-    0) 输入 {green}Q/q{end} 退出.\r\n""").format(
+    3) 输入 {green}p{end} 显示您有权限的主机.\r
+    4) 输入 {green}g{end} 显示您有权限的主机组.\r
+    5) 输入 {green}g{end} + {green}组ID{end} 显示该节点下主机. 如: g1\r
+    6) 输入 {green}h{end} 帮助.\r
+    0) 输入 {green}q{end} 退出.\r\n""").format(
             title="\033[1;32m", green="\033[32m",
             end="\033[0m", user=self.client.user
         )
@@ -123,17 +124,25 @@ class InteractiveServer:
             self.client.send(warning(_("无")))
             return
 
-        fake_group = AssetGroup(name=_("Name"), assets_amount=_("Assets"), comment=_("Comment"))
-        id_max_length = max(len(str(len(self.asset_groups))), 5)
-        name_max_length = max(max([len(group.name) for group in self.asset_groups]), 15)
-        amount_max_length = max(len(str(max([group.assets_amount for group in self.asset_groups]))), 10)
-        header = '{1:>%d} {0.name:%d} {0.assets_amount:<%s} ' % (id_max_length, name_max_length, amount_max_length)
-        comment_length = max(self.request.meta["width"] - len(header.format(fake_group, id_max_length)), 2)
-        line = header + '{0.comment:%s}' % (comment_length // 2)  # comment中可能有中文
-        header += "{0.comment:%s}" % comment_length
-        self.client.send(title(header.format(fake_group, "ID")))
+        id_length = max(len(str(len(self.asset_groups))), 5)
+        name_length = item_max_length(self.asset_groups, 15, key=lambda x: x.name)
+        amount_length = item_max_length(self.asset_groups, 10,
+                                        key=lambda x: x.assets_amount)
+        size_list = [id_length, name_length, amount_length]
+        fake_data = ['ID', _("Name"), _("Assets")]
+        header_without_comment = format_with_zh(size_list, *fake_data)
+        comment_length = max(
+            self.request.meta["width"] -
+            size_of_str_with_zh(header_without_comment) - 1,
+            2
+        )
+        size_list.append(comment_length)
+        fake_data.append(_("Comment"))
+
+        self.client.send(title(format_with_zh(size_list, *fake_data)))
         for index, group in enumerate(self.asset_groups, 1):
-            self.client.send(wr(line.format(group, index)))
+            data = [index, group.name, group.assets_amount, group.comment]
+            self.client.send(wr(format_with_zh(size_list, *data)))
         self.client.send(wr(_("总共: {}").format(len(self.asset_groups)), before=1))
 
     def display_group_assets(self, _id):
@@ -146,21 +155,30 @@ class InteractiveServer:
         self.display_search_result()
 
     def display_search_result(self):
-        self.search_result = sort_assets(self.search_result, current_app.config["ASSET_LIST_SORT_BY"])
-        fake_asset = Asset(hostname=_("Hostname"), ip=_("IP"), _system_users_name_list=_("LoginAs"),
-                           comment=_("Comment"))
-        id_max_length = max(len(str(len(self.search_result))), 3)
-        hostname_max_length = max(max([len(asset.hostname) for asset in self.search_result + [fake_asset]]), 15)
-        sysuser_max_length = max([len(asset.system_users_name_list) for asset in self.search_result + [fake_asset]])
-        header = '{1:>%d} {0.hostname:%d} {0.ip:15} {0.system_users_name_list:%d} ' % \
-                 (id_max_length, hostname_max_length, sysuser_max_length)
-        comment_length = self.request.meta["width"] - len(header.format(fake_asset, id_max_length))
-        comment_length = max([comment_length, 2])
-        line = header + '{0.comment:.%d}' % (comment_length // 2)  # comment中可能有中文
-        header += '{0.comment:%s}' % comment_length
-        self.client.send(wr(title(header.format(fake_asset, "ID"))))
+        sort_by = current_app.config["ASSET_LIST_SORT_BY"]
+        self.search_result = sort_assets(self.search_result, sort_by)
+        fake_data = [_("ID"), _("Hostname"), _("IP"), _("LoginAs")]
+        id_length = max(len(str(len(self.search_result))), 4)
+        hostname_length = item_max_length(self.search_result, 15,
+                                          key=lambda x: x.hostname)
+        sysuser_length = item_max_length(self.search_result,
+                                         key=lambda x: x.system_users_name_list)
+        size_list = [id_length, hostname_length, 16, sysuser_length]
+        header_without_comment = format_with_zh(size_list, *fake_data)
+        comment_length = max(
+            self.request.meta["width"] -
+            size_of_str_with_zh(header_without_comment) - 1,
+            2
+        )
+        size_list.append(comment_length)
+        fake_data.append(_("Comment"))
+        self.client.send(wr(title(format_with_zh(size_list, *fake_data))))
         for index, asset in enumerate(self.search_result, 1):
-            self.client.send(wr(line.format(asset, index)))
+            data = [
+                index, asset.hostname, asset.ip,
+                asset.system_users_name_list, asset.comment
+            ]
+            self.client.send(wr(format_with_zh(size_list, *data)))
         self.client.send(wr(_("总共: {} 匹配: {}").format(
             len(self.assets), len(self.search_result)), before=1)
         )
@@ -242,7 +260,7 @@ class InteractiveServer:
         self.display_banner()
         while True:
             try:
-                opt = net_input(self.client)
+                opt = net_input(self.client, prompt='Opt>', before=1)
                 rv = self.dispatch(opt)
                 if rv is self._sentinel:
                     break
