@@ -40,7 +40,7 @@ class Session:
         """
         logger.info("Session add watcher: {} -> {} ".format(self.id, watcher))
         if not silent:
-            watcher.send("Welcome to watch session {}\r\n".format(self.id).encode("utf-8"))
+            watcher.send("Welcome to watch session {}\r\n".format(self.id).encode())
         self.sel.register(watcher, selectors.EVENT_READ)
         self._watchers.append(watcher)
 

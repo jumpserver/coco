@@ -90,8 +90,9 @@ class ProxyServer:
         width = request.meta.get('width', 80)
         height = request.meta.get('height', 24)
         ssh = SSHConnection()
-        chan, msg = ssh.get_channel(asset, system_user, term=term,
-                                    width=width, height=height)
+        chan, msg = ssh.get_channel(
+            asset, system_user, term=term, width=width, height=height
+        )
         if not chan:
             self.client.send(warning(wr(msg, before=1, after=0)))
             server = None
@@ -125,9 +126,11 @@ class ProxyServer:
     def send_connecting_message(self, asset, system_user):
         def func():
             delay = 0.0
-            self.client.send('Connecting to {}@{} {:.1f}'.format(system_user, asset, delay))
+            self.client.send('Connecting to {}@{} {:.1f}'.format(
+                system_user, asset, delay)
+            )
             while self.connecting and delay < TIMEOUT:
-                self.client.send('\x08\x08\x08{:.1f}'.format(delay).encode('utf-8'))
+                self.client.send('\x08\x08\x08{:.1f}'.format(delay).encode())
                 time.sleep(0.1)
                 delay += 0.1
         thread = threading.Thread(target=func)
