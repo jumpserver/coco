@@ -263,7 +263,7 @@ class InteractiveServer:
         self.display_banner()
         while True:
             try:
-                opt = net_input(self.client, prompt='Opt>', before=1)
+                opt = net_input(self.client, prompt='Opt> ', before=1)
                 rv = self.dispatch(opt)
                 if rv is self._sentinel:
                     break

@@ -264,8 +264,11 @@ class WSProxy:
 
     def close(self):
         self.stop_event.set()
-        self.child.shutdown(1)
-        self.child.close()
+        try:
+            self.child.shutdown(1)
+            self.child.close()
+        except OSError:
+            pass
         logger.debug("Proxy {} closed".format(self))
 
 
