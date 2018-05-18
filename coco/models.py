@@ -218,7 +218,7 @@ class WSProxy:
     ```
     """
 
-    def __init__(self, ws, child, room, connection):
+    def __init__(self, ws, child, room_id):
         """
         :param ws: websocket instance or handler, have write_message method
         :param child: sock child pair
@@ -226,9 +226,8 @@ class WSProxy:
         self.ws = ws
         self.child = child
         self.stop_event = threading.Event()
-        self.room = room
+        self.room_id = room_id
         self.auto_forward()
-        self.connection = connection
 
     def send(self, msg):
         """
@@ -252,7 +251,9 @@ class WSProxy:
             if len(data) == 0:
                 self.close()
             data = data.decode(errors="ignore")
-            self.ws.emit("data", {'data': data, 'room': self.connection}, room=self.room)
+            print("Send data: {}".format(data))
+            self.ws.emit("data", {'data': data, 'room': self.room_id},
+                         room=self.room_id)
             if len(data) == BUF_SIZE:
                 time.sleep(0.1)
 
@@ -265,7 +266,6 @@ class WSProxy:
         self.stop_event.set()
         self.child.shutdown(1)
         self.child.close()
-        self.ws.logout(self.connection)
         logger.debug("Proxy {} closed".format(self))
 
 

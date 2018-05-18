@@ -34,7 +34,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
                 self._sftp[host] = sftp
                 return sftp
             else:
-                raise OSError("Can not connect asset sftp server")
+                raise OSError("Can not connect asset sftp server: {}".format(msg))
         else:
             return self._sftp[host]
 

@@ -4,9 +4,9 @@
 
 import paramiko
 import threading
-import weakref
 
 from .utils import get_logger
+from .ctx import current_app, app_service
 
 logger = get_logger(__file__)
 
@@ -19,21 +19,12 @@ class SSHInterface(paramiko.ServerInterface):
     https://github.com/paramiko/paramiko/blob/master/demos/demo_server.py
     """
 
-    def __init__(self, app, request):
-        self._app = weakref.ref(app)
-        self._request = weakref.ref(request)
+    def __init__(self, request):
+        self.request = request
         self.event = threading.Event()
         self.auth_valid = False
         self.otp_auth = False
         self.info = None
-
-    @property
-    def app(self):
-        return self._app()
-
-    @property
-    def request(self):
-        return self._request()
 
     def check_auth_interactive(self, username, submethods):
         logger.info("Check auth interactive: %s %s" % (username, submethods))
@@ -55,7 +46,7 @@ class SSHInterface(paramiko.ServerInterface):
         if not seed:
             return paramiko.AUTH_FAILED
 
-        is_valid = self.app.service.authenticate_otp(seed, otp_code)
+        is_valid = app_service.authenticate_otp(seed, otp_code)
         if is_valid:
             return paramiko.AUTH_SUCCESSFUL
         return paramiko.AUTH_FAILED
@@ -67,9 +58,9 @@ class SSHInterface(paramiko.ServerInterface):
         supported = []
         if self.otp_auth:
             return 'keyboard-interactive'
-        if self.app.config["PASSWORD_AUTH"]:
+        if current_app.config["PASSWORD_AUTH"]:
             supported.append("password")
-        if self.app.config["PUBLIC_KEY_AUTH"]:
+        if current_app.config["PUBLIC_KEY_AUTH"]:
             supported.append("publickey")
         return ",".join(supported)
 
@@ -100,7 +91,7 @@ class SSHInterface(paramiko.ServerInterface):
             return paramiko.AUTH_SUCCESSFUL
 
     def validate_auth(self, username, password="", public_key=""):
-        info = self.app.service.authenticate(
+        info = app_service.authenticate(
             username, password=password, public_key=public_key,
             remote_addr=self.request.remote_ip
         )

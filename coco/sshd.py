@@ -12,6 +12,7 @@ from .interface import SSHInterface
 from .interactive import InteractiveServer
 from .models import Client, Request
 from .sftp import SFTPServer
+from .ctx import current_app
 
 logger = get_logger(__file__)
 BACKLOG = 5
@@ -19,38 +20,41 @@ BACKLOG = 5
 
 class SSHServer:
 
-    def __init__(self, app):
-        self.app = app
+    def __init__(self):
         self.stop_evt = threading.Event()
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.host_key_path = os.path.join(self.app.root_path, 'keys', 'host_rsa_key')
+        self.workers = []
+        self.pipe = None
 
     @property
     def host_key(self):
-        if not os.path.isfile(self.host_key_path):
-            self.gen_host_key()
-        return paramiko.RSAKey(filename=self.host_key_path)
+        host_key_path = os.path.join(current_app.root_path, 'keys', 'host_rsa_key')
+        if not os.path.isfile(host_key_path):
+            self.gen_host_key(host_key_path)
+        return paramiko.RSAKey(filename=host_key_path)
 
-    def gen_host_key(self):
+    @staticmethod
+    def gen_host_key(key_path):
         ssh_key, _ = ssh_key_gen()
-        with open(self.host_key_path, 'w') as f:
+        with open(key_path, 'w') as f:
             f.write(ssh_key)
 
     def run(self):
-        host = self.app.config["BIND_HOST"]
-        port = self.app.config["SSHD_PORT"]
+        host = current_app.config["BIND_HOST"]
+        port = current_app.config["SSHD_PORT"]
         print('Starting ssh server at {}:{}'.format(host, port))
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind((host, port))
-        self.sock.listen(BACKLOG)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((host, port))
+        sock.listen(BACKLOG)
         while not self.stop_evt.is_set():
             try:
-                sock, addr = self.sock.accept()
-                logger.info("Get ssh request from {}: {}".format(addr[0], addr[1]))
-                thread = threading.Thread(target=self.handle_connection, args=(sock, addr))
+                client, addr = sock.accept()
+                logger.info("Get ssh request from {}: {}".format(*addr))
+                thread = threading.Thread(target=self.handle_connection,
+                                          args=(client, addr))
                 thread.daemon = True
                 thread.start()
-            except Exception as e:
+            except IndexError as e:
                 logger.error("Start SSH server error: {}".format(e))
 
     def handle_connection(self, sock, addr):
@@ -65,7 +69,7 @@ class SSHServer:
             'sftp', paramiko.SFTPServer, SFTPServer
         )
         request = Request(addr)
-        server = SSHInterface(self.app, request)
+        server = SSHInterface(request)
         try:
             transport.start_server(server=server)
         except paramiko.SSHException:
@@ -96,7 +100,7 @@ class SSHServer:
 
     def handle_chan(self, chan, request):
         client = Client(chan, request)
-        self.app.add_client(client)
+        current_app.add_client(client)
         self.dispatch(client)
 
     def dispatch(self, client):
@@ -104,7 +108,7 @@ class SSHServer:
         request_type = set(client.request.type)
         if supported & request_type:
             logger.info("Request type `pty`, dispatch to interactive mode")
-            InteractiveServer(self.app, client).interact()
+            InteractiveServer(client).interact()
         elif 'subsystem' in request_type:
             pass
         else:
