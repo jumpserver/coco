@@ -396,7 +396,6 @@ def size_of_str_with_zh(s):
     try:
         chinese = find_chinese(s)
     except TypeError:
-        print(type(s))
         raise
     return len(s) + len(chinese)
 

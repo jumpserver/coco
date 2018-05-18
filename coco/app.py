@@ -9,6 +9,8 @@ import threading
 import socket
 import json
 import signal
+import objgraph
+import gc
 
 from jms.service import AppService
 
@@ -132,6 +134,7 @@ class Coco:
     def heartbeat(self):
         _sessions = [s.to_json() for s in self.sessions]
         tasks = self.service.terminal_heartbeat(_sessions)
+        gc.collect()
         if tasks:
             self.handle_task(tasks)
         if tasks is False:
@@ -219,13 +222,19 @@ class Coco:
     def add_client(self, client):
         with self.lock:
             self.clients.append(client)
-            logger.info("New client {} join, total {} now".format(client, len(self.clients)))
+            logger.info("New client {} join, total {} now".format(
+                    client, len(self.clients)
+                )
+            )
 
     def remove_client(self, client):
         with self.lock:
             try:
                 self.clients.remove(client)
-                logger.info("Client {} leave, total {} now".format(client, len(self.clients)))
+                logger.info("Client {} leave, total {} now".format(
+                       client, len(self.clients)
+                    )
+                )
                 client.close()
             except:
                 pass
@@ -242,4 +251,5 @@ class Coco:
                 self.sessions.remove(session)
                 self.service.finish_session(session.to_json())
             except ValueError:
-                logger.warning("Remove session: {} fail, maybe already removed".format(session))
+                msg = "Remove session: {} fail, maybe already removed"
+                logger.warning(msg.format(session))

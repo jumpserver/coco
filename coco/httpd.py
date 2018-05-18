@@ -212,8 +212,7 @@ class ProxyNamespace(BaseNamespace):
 
     def on_disconnect(self):
         logger.debug("On disconnect event trigger")
-        room_id_list = list(self.connections.get(request.sid, {}).keys())
-        for room_id in room_id_list:
+        for room_id in self.connections.get(request.sid, {}):
             try:
                 self.on_logout(room_id)
             except Exception as e:
@@ -250,14 +249,14 @@ class HttpServer:
         self.flask_app.config.update(config)
         self.socket_io = SocketIO()
         self.register_routes()
+        self.register_error_handler()
 
     def register_routes(self):
         self.socket_io.on_namespace(ProxyNamespace('/ssh'))
 
     @staticmethod
     def on_error_default(e):
-        traceback.print_exc()
-        logger.warn(e)
+        logger.exception(e)
 
     def register_error_handler(self):
         self.socket_io.on_error_default(self.on_error_default)
