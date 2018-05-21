@@ -34,7 +34,7 @@ class SSHConnection:
             self.get_system_user_auth(system_user)
 
         if asset.domain:
-            sock = self.get_proxy_sock(asset)
+            sock = self.get_proxy_sock_v2(asset)
 
         try:
             ssh.connect(
@@ -64,29 +64,54 @@ class SSHConnection:
             return None, str(e)
         except (socket.error, TimeoutError) as e:
             return None, str(e)
-        return ssh, None
+        return ssh, sock, None
 
     def get_transport(self, asset, system_user):
-        ssh, msg = self.get_ssh_client(asset, system_user)
+        ssh, sock, msg = self.get_ssh_client(asset, system_user)
         if ssh:
-            return ssh.get_transport(), None
+            return ssh.get_transport(), sock, None
         else:
-            return None, msg
+            return None, None, msg
 
     def get_channel(self, asset, system_user, term="xterm", width=80, height=24):
-        ssh, msg = self.get_ssh_client(asset, system_user)
+        ssh, sock, msg = self.get_ssh_client(asset, system_user)
         if ssh:
             chan = ssh.invoke_shell(term, width=width, height=height)
-            return chan, None
+            return chan, sock, None
         else:
-            return None, msg
+            return None, sock, msg
 
     def get_sftp(self, asset, system_user):
-        ssh, msg = self.get_ssh_client(asset, system_user)
+        ssh, sock, msg = self.get_ssh_client(asset, system_user)
         if ssh:
-            return ssh.open_sftp(), None
+            return ssh.open_sftp(), sock, None
         else:
-            return None, msg
+            return None, sock, msg
+
+    def get_proxy_sock_v2(self, asset):
+        sock = None
+        domain = app_service.get_domain_detail_with_gateway(
+            asset.domain
+        )
+        if not domain.has_ssh_gateway():
+            return None
+        for i in domain.gateways:
+            gateway = domain.random_ssh_gateway()
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            try:
+                ssh.connect(gateway.ip, username=gateway.username,
+                            password=gateway.password,
+                            pkey=gateway.private_key_obj)
+            except(paramiko.AuthenticationException,
+                   paramiko.BadAuthenticationType,
+                   SSHException):
+                continue
+            sock = ssh.get_transport().open_channel(
+                'direct-tcpip', (asset.ip, asset.port), ('127.0.0.1', 0)
+            )
+            break
+        return sock
 
     def get_proxy_sock(self, asset):
         sock = None

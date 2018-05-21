@@ -9,8 +9,6 @@ import threading
 import socket
 import json
 import signal
-import objgraph
-import gc
 
 from jms.service import AppService
 
@@ -134,7 +132,6 @@ class Coco:
     def heartbeat(self):
         _sessions = [s.to_json() for s in self.sessions]
         tasks = self.service.terminal_heartbeat(_sessions)
-        gc.collect()
         if tasks:
             self.handle_task(tasks)
         if tasks is False:

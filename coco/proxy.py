@@ -90,14 +90,14 @@ class ProxyServer:
         width = request.meta.get('width', 80)
         height = request.meta.get('height', 24)
         ssh = SSHConnection()
-        chan, msg = ssh.get_channel(
+        chan, sock, msg = ssh.get_channel(
             asset, system_user, term=term, width=width, height=height
         )
         if not chan:
             self.client.send(warning(wr(msg, before=1, after=0)))
             server = None
         else:
-            server = Server(chan, asset, system_user)
+            server = Server(chan, sock, asset, system_user)
         self.connecting = False
         self.client.send(b'\r\n')
         return server
