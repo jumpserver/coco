@@ -252,6 +252,7 @@ class WSProxy:
             except OSError:
                 continue
             if len(data) == 0:
+                self.ws.emit("logout", {"room": self.room_id}, room=self.room_id)
                 self.close()
             data = data.decode(errors="ignore")
             self.ws.emit("data", {'data': data, 'room': self.room_id},
