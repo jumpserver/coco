@@ -73,7 +73,7 @@ class CommandRecorder:
         pass
 
 
-class ServerReplayRecorder(ReplayRecorder):
+class MultiReplayRecorder(ReplayRecorder):
     time_start = None
     storage = None
 
@@ -81,6 +81,7 @@ class ServerReplayRecorder(ReplayRecorder):
         super().__init__()
         self.file = None
         self.file_path = None
+        self.get_storage()
 
     def record(self, data):
         """
@@ -107,48 +108,44 @@ class ServerReplayRecorder(ReplayRecorder):
     def session_end(self, session_id):
         self.file.write('"0":""}')
         self.file.close()
-        if self.upload_replay(session_id):
-            logger.info("Succeed to push {}'s {}".format(session_id, "record"))
-        else:
-            logger.error("Failed to push {}'s {}".format(session_id, "record"))
+        self.upload_replay(session_id)
 
-    def upload_replay(self, session_id):
-        configs = app_service.load_config_from_server()
-        logger.debug("upload_replay print config: {}".format(configs))
-        self.storage = jms_storage.init(configs["REPLAY_STORAGE"])
-        if not self.storage:
-            self.storage = jms_storage.jms(app_service)
-        if self.push_file(3, session_id):
+    def get_storage(self):
+        config = current_app.config["REPLAY_STORAGE"]
+        if config['TYPE'] == 's3':
+            self.storage = jms_storage.S3Storage(config)
+        elif config['TYPE'] == 'oss':
+            self.storage = jms_storage.OSSStorage(config)
+        else:
+            self.storage = jms_storage.JMSReplayStorage(app_service)
+
+    def upload_replay(self, session_id, times=3):
+        if times < 1:
+            if self.storage.type == 'jms':
+                return False
+            else:
+                self.storage = jms_storage.JMSReplayStorage(app_service)
+                self.upload_replay(session_id, times=3)
+
+        ok, msg = self.push_to_storage(session_id)
+        if not ok:
+            msg = 'Failed push replay file: {}, try again {}'.format(msg, times)
+            logger.warn(msg)
+            self.upload_replay(session_id, times-1)
+        else:
+            msg = 'Success push replay file: {}'.format(session_id)
+            logger.info(msg)
+            self.finish_replay(3, session_id)
             os.unlink(self.file_path)
             return True
-        else:
-            return False
 
     def push_to_storage(self, session_id):
         dt = time.strftime('%Y-%m-%d', time.localtime(self.time_start))
         target = dt + '/' + session_id + '.replay.gz'
-        return self.storage.upload_file(self.file_path, target)
-
-    def push_file(self, times, session_id):
-        if times < 0:
-            if self.storage.type() == 'jms':
-                return False
-            else:
-                msg = "Failed push session {}'s replay log to storage".format(session_id)
-                logger.error(msg)
-                self.storage = jms_storage.jms(app_service)
-                return self.push_file(3, session_id)
-
-        if self.push_to_storage(session_id):
-            logger.info("Success push session: {}'s replay log to storage ".format(session_id))
-            return True
-        else:
-            msg = "Failed push session {}'s replay log to storage, try  {} times".format(session_id, times)
-            logger.error(msg)
-            return self.push_file(times - 1, session_id)
+        return self.storage.upload(self.file_path, target)
 
     def finish_replay(self, times, session_id):
-        if times < 0:
+        if times < 1:
             logger.error("Failed finished session {}'s replay".format(session_id))
             return False
 
@@ -156,7 +153,8 @@ class ServerReplayRecorder(ReplayRecorder):
             logger.info("Success finish session {}'s replay ".format(session_id))
             return True
         else:
-            logger.error("Failed finish session {}'s replay, try {} times".format(session_id, times))
+            msg = "Failed finish session {}'s replay, try {} times"
+            logger.error(msg.format(session_id, times))
             return self.finish_replay(times - 1, session_id)
 
 
@@ -219,7 +217,7 @@ class ESCommandRecorder(CommandRecorder, metaclass=Singleton):
         self.stop_evt = threading.Event()
         self.push_to_es_async()
         self.__class__.no += 1
-        self.store = jms_storage.ESStore(
+        self.store = jms_storage.ESStorage(
             current_app.config["COMMAND_STORAGE"].get("HOSTS", self.default_hosts)
         )
         if not self.store.ping():
@@ -271,7 +269,6 @@ def get_command_recorder_class(config):
     else:
         return ServerCommandRecorder
 
-#
-# def get_replay_recorder_class(config):
-#     ServerReplayRecorder.client = jms_storage.init(config["REPLAY_STORAGE"])
-#     return ServerReplayRecorder
+
+def get_replay_recorder_class(config):
+    return MultiReplayRecorder
