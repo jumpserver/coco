@@ -396,7 +396,6 @@ def size_of_str_with_zh(s):
     try:
         chinese = find_chinese(s)
     except TypeError:
-        print(type(s))
         raise
     return len(s) + len(chinese)
 
@@ -406,6 +405,8 @@ def item_max_length(_iter, maxi=None, mini=None, key=None):
         _iter = [key(i) for i in _iter]
 
     length = [size_of_str_with_zh(s) for s in _iter]
+    if not length:
+        return 1
     if maxi:
         length.append(maxi)
     length = max(length)

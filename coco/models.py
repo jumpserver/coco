@@ -94,8 +94,9 @@ class Server:
     """
 
     # Todo: Server name is not very suitable
-    def __init__(self, chan, asset, system_user):
+    def __init__(self, chan, sock, asset, system_user):
         self.chan = chan
+        self.sock = sock
         self.asset = asset
         self.system_user = system_user
         self.send_bytes = 0
@@ -168,6 +169,8 @@ class Server:
         self.stop_evt.set()
         self.chan.close()
         self.chan.transport.close()
+        if self.sock:
+            self.sock.transport.close()
 
     @staticmethod
     def _have_enter_char(s):
@@ -251,7 +254,6 @@ class WSProxy:
             if len(data) == 0:
                 self.close()
             data = data.decode(errors="ignore")
-            print("Send data: {}".format(data))
             self.ws.emit("data", {'data': data, 'room': self.room_id},
                          room=self.room_id)
             if len(data) == BUF_SIZE:
@@ -264,8 +266,11 @@ class WSProxy:
 
     def close(self):
         self.stop_event.set()
-        self.child.shutdown(1)
-        self.child.close()
+        try:
+            self.child.shutdown(1)
+            self.child.close()
+        except (OSError, EOFError):
+            pass
         logger.debug("Proxy {} closed".format(self))
 
 
