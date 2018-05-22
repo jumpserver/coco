@@ -252,7 +252,7 @@ class WSProxy:
             except (OSError, EOFError):
                 self.close()
                 break
-            if len(data) == 0:
+            if not data:
                 self.close()
                 break
             data = data.decode(errors="ignore")
@@ -275,7 +275,4 @@ class WSProxy:
         except (OSError, EOFError):
             pass
         logger.debug("Proxy {} closed".format(self))
-
-
-
 

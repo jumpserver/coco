@@ -170,12 +170,17 @@ class Coco:
                 active_sessions = [str(session.id) for session in self.sessions]
                 for filename in os.listdir(log_dir):
                     session_id = filename.split('.')[0]
+                    full_path = os.path.join(log_dir, filename)
+
                     if len(session_id) != 36:
                         continue
 
                     if session_id not in active_sessions:
-                        recorder.file_path = os.path.join(log_dir, filename)
-                        recorder.upload_replay(session_id, 1)
+                        recorder.file_path = full_path
+                        ok = recorder.upload_replay(session_id, 1)
+                        if not ok and os.path.getsize(full_path) == 0:
+                            os.unlink(full_path)
+
                 time.sleep(interval)
         thread = threading.Thread(target=func)
         thread.start()
