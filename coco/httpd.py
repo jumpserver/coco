@@ -4,7 +4,6 @@
 import os
 import socket
 import uuid
-from copy import deepcopy
 from flask_socketio import SocketIO, Namespace, join_room
 from flask import Flask, request, current_app, redirect
 
@@ -212,7 +211,8 @@ class ProxyNamespace(BaseNamespace):
 
     def on_disconnect(self):
         logger.debug("On disconnect event trigger")
-        for room_id in self.connections.get(request.sid, {}):
+        rooms = {k: v for k, v in self.connections.get(request.sid, {}).items()}
+        for room_id in rooms:
             try:
                 self.on_logout(room_id)
             except Exception as e:
