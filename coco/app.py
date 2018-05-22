@@ -17,7 +17,7 @@ from .sshd import SSHServer
 from .httpd import HttpServer
 from .logger import create_logger
 from .tasks import TaskHandler
-from .recorder import get_command_recorder_class, get_replay_recorder_class
+from .recorder import ReplayRecorder, CommandRecorder
 from .utils import get_logger, register_app, register_service
 
 
@@ -117,21 +117,18 @@ class Coco:
         ))
         self.config.update(configs)
 
-    def get_recorder_class(self):
-        self.replay_recorder_class = get_replay_recorder_class(self.config)
-        self.command_recorder_class = get_command_recorder_class(self.config)
+    @staticmethod
+    def new_command_recorder():
+        return CommandRecorder()
 
-    def new_command_recorder(self):
-        return self.command_recorder_class()
-
-    def new_replay_recorder(self):
-        return self.replay_recorder_class()
+    @staticmethod
+    def new_replay_recorder():
+        return ReplayRecorder()
 
     def bootstrap(self):
         self.make_logger()
         self.service.initial()
         self.load_extra_conf_from_server()
-        self.get_recorder_class()
         self.keep_heartbeat()
         self.monitor_sessions()
         self.monitor_sessions_replay()

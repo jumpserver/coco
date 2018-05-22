@@ -4,7 +4,7 @@
 import os
 import socket
 import uuid
-import traceback
+from copy import deepcopy
 from flask_socketio import SocketIO, Namespace, join_room
 from flask import Flask, request, current_app, redirect
 
