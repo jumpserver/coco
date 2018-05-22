@@ -17,7 +17,7 @@ from .sshd import SSHServer
 from .httpd import HttpServer
 from .logger import create_logger
 from .tasks import TaskHandler
-from .recorder import get_command_recorder_class, ServerReplayRecorder
+from .recorder import ReplayRecorder, CommandRecorder
 from .utils import get_logger, register_app, register_service
 
 
@@ -56,7 +56,6 @@ class Coco:
 
     def __init__(self, root_path=None):
         self.root_path = root_path if root_path else BASE_DIR
-        self.config = self.config_class(self.root_path, defaults=self.default_config)
         self.sessions = []
         self.clients = []
         self.lock = threading.Lock()
@@ -67,7 +66,14 @@ class Coco:
         self.replay_recorder_class = None
         self.command_recorder_class = None
         self._task_handler = None
+        self.config = None
+        self.init_config()
         register_app(self)
+
+    def init_config(self):
+        self.config = self.config_class(
+            self.root_path, defaults=self.default_config
+        )
 
     @property
     def name(self):
@@ -111,23 +117,21 @@ class Coco:
         ))
         self.config.update(configs)
 
-    def get_recorder_class(self):
-        self.replay_recorder_class = ServerReplayRecorder
-        self.command_recorder_class = get_command_recorder_class(self.config)
+    @staticmethod
+    def new_command_recorder():
+        return CommandRecorder()
 
-    def new_command_recorder(self):
-        return self.command_recorder_class()
-
-    def new_replay_recorder(self):
-        return self.replay_recorder_class()
+    @staticmethod
+    def new_replay_recorder():
+        return ReplayRecorder()
 
     def bootstrap(self):
         self.make_logger()
         self.service.initial()
         self.load_extra_conf_from_server()
-        self.get_recorder_class()
         self.keep_heartbeat()
         self.monitor_sessions()
+        self.monitor_sessions_replay()
 
     def heartbeat(self):
         _sessions = [s.to_json() for s in self.sessions]
@@ -153,6 +157,26 @@ class Coco:
                 self.heartbeat()
                 time.sleep(self.config["HEARTBEAT_INTERVAL"])
 
+        thread = threading.Thread(target=func)
+        thread.start()
+
+    def monitor_sessions_replay(self):
+        interval = 10
+        recorder = self.new_replay_recorder()
+        log_dir = os.path.join(self.config['LOG_DIR'])
+
+        def func():
+            while not self.stop_evt.is_set():
+                active_sessions = [str(session.id) for session in self.sessions]
+                for filename in os.listdir(log_dir):
+                    session_id = filename.split('.')[0]
+                    if len(session_id) != 36:
+                        continue
+
+                    if session_id not in active_sessions:
+                        recorder.file_path = os.path.join(log_dir, filename)
+                        recorder.upload_replay(session_id, 1)
+                time.sleep(interval)
         thread = threading.Thread(target=func)
         thread.start()
 

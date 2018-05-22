@@ -249,10 +249,12 @@ class WSProxy:
         while not self.stop_event.is_set():
             try:
                 data = self.child.recv(BUF_SIZE)
-            except OSError:
-                continue
+            except (OSError, EOFError):
+                self.close()
+                break
             if len(data) == 0:
                 self.close()
+                break
             data = data.decode(errors="ignore")
             self.ws.emit("data", {'data': data, 'room': self.room_id},
                          room=self.room_id)
@@ -265,6 +267,7 @@ class WSProxy:
         thread.start()
 
     def close(self):
+        self.ws.emit("logout", {"room": self.room_id}, room=self.room_id)
         self.stop_event.set()
         try:
             self.child.shutdown(1)

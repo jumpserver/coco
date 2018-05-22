@@ -38,6 +38,9 @@ class InteractiveServer:
 
     @search_result.setter
     def search_result(self, value):
+        if not value:
+            self._search_result = value
+            return
         value = self.filter_system_users(value)
         self._search_result = value
 
@@ -88,7 +91,7 @@ class InteractiveServer:
         result = []
 
         # 所有的
-        if q == '':
+        if q in ('', None):
             result = self.assets
         # 用户输入的是数字，可能想使用id唯一键搜索
         elif q.isdigit() and self.search_result and \
@@ -242,6 +245,7 @@ class InteractiveServer:
         self.search_assets(opt)
         if self.search_result and len(self.search_result) == 1:
             asset = self.search_result[0]
+            self.search_result = None
             if asset.platform == "Windows":
                 self.client.send(warning(
                     _("终端不支持登录windows, 请使用web terminal访问"))
