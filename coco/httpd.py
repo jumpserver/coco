@@ -5,6 +5,7 @@ import os
 import socket
 import uuid
 import eventlet
+from eventlet.debug import hub_prevent_multiple_readers
 from flask_socketio import SocketIO, Namespace, join_room
 from flask import Flask, request, current_app, redirect
 
@@ -17,7 +18,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 logger = get_logger(__file__)
 
-eventlet.monkey_patch()
+# eventlet.monkey_patch()
+# hub_prevent_multiple_readers(False)
 
 
 class BaseNamespace(Namespace):
@@ -239,8 +241,8 @@ class HttpServer:
         'LOGIN_URL': '/login'
     }
     init_kwargs = dict(
-        async_mode="eventlet",
-        # async_mode="threading",
+        # async_mode="eventlet",
+        async_mode="threading",
         ping_timeout=20,
         ping_interval=10
     )
