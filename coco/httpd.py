@@ -267,6 +267,7 @@ class HttpServer:
     def run(self):
         host = self.flask_app.config["BIND_HOST"]
         port = self.flask_app.config["HTTPD_PORT"]
+        print('Starting websock server at {}:{}'.format(host, port))
         self.socket_io.init_app(
             self.flask_app,
             **self.init_kwargs
