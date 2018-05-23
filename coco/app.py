@@ -218,9 +218,11 @@ class Coco:
                 self.run_httpd()
 
             signal.signal(signal.SIGTERM, lambda x, y: self.shutdown())
-            while self.stop_evt.wait(5):
-                print("Coco receive term signal, exit")
-                break
+            while True:
+                if self.stop_evt.is_set():
+                    print("Coco receive term signal, exit")
+                    break
+                time.sleep(3)
         except KeyboardInterrupt:
             self.stop_evt.set()
             self.shutdown()
