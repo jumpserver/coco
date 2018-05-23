@@ -18,8 +18,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 logger = get_logger(__file__)
 
-# eventlet.monkey_patch()
-# hub_prevent_multiple_readers(False)
+eventlet.monkey_patch()
+hub_prevent_multiple_readers(False)
 
 
 class BaseNamespace(Namespace):
@@ -241,8 +241,8 @@ class HttpServer:
         'LOGIN_URL': '/login'
     }
     init_kwargs = dict(
-        # async_mode="eventlet",
-        async_mode="threading",
+        async_mode="eventlet",
+        # async_mode="threading",
         ping_timeout=20,
         ping_interval=10
     )

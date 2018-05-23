@@ -9,9 +9,7 @@ logger = get_logger(__file__)
 
 
 class TaskHandler:
-    routes = None
-
-    def init(self):
+    def __init__(self):
         self.routes = {
             'kill_session': self.handle_kill_session
         }
