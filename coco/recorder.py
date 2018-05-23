@@ -134,9 +134,9 @@ class CommandRecorder(metaclass=Singleton):
         def func():
             while not self.stop_evt.is_set():
                 data_set = self.queue.mget(self.batch_size, timeout=self.timeout)
-                logger.debug("Session command remain push: {}".format(
-                    self.queue.qsize())
-                )
+                size = self.queue.qsize()
+                if size > 0:
+                    logger.debug("Session command remain push: {}".format(size))
                 if not data_set:
                     continue
                 logger.debug("Send {} commands to server".format(len(data_set)))

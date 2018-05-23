@@ -61,9 +61,9 @@ class SSHConnection:
                 system_user.username, asset.ip, asset.port,
                 password_short, key_fingerprint,
             ))
-            return None, str(e)
+            return None, None, str(e)
         except (socket.error, TimeoutError) as e:
-            return None, str(e)
+            return None, None, str(e)
         return ssh, sock, None
 
     def get_transport(self, asset, system_user):
@@ -88,7 +88,8 @@ class SSHConnection:
         else:
             return None, sock, msg
 
-    def get_proxy_sock_v2(self, asset):
+    @staticmethod
+    def get_proxy_sock_v2(asset):
         sock = None
         domain = app_service.get_domain_detail_with_gateway(
             asset.domain

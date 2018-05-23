@@ -4,6 +4,7 @@
 import os
 import socket
 import uuid
+import eventlet
 from flask_socketio import SocketIO, Namespace, join_room
 from flask import Flask, request, current_app, redirect
 
@@ -16,6 +17,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 logger = get_logger(__file__)
 
+eventlet.monkey_patch()
+
 
 class BaseNamespace(Namespace):
     current_user = None
@@ -23,7 +26,7 @@ class BaseNamespace(Namespace):
     def on_connect(self):
         self.current_user = self.get_current_user()
         if self.current_user is None:
-            return redirect(current_app.config['LOGIN_URL'])
+            return redirect(self.socketio.config['LOGIN_URL'])
         logger.debug("{} connect websocket".format(self.current_user))
 
     def get_current_user(self):
@@ -236,8 +239,8 @@ class HttpServer:
         'LOGIN_URL': '/login'
     }
     init_kwargs = dict(
-        # async_mode="gevent",
-        async_mode="threading",
+        async_mode="eventlet",
+        # async_mode="threading",
         ping_timeout=20,
         ping_interval=10
     )
@@ -264,6 +267,7 @@ class HttpServer:
     def run(self):
         host = self.flask_app.config["BIND_HOST"]
         port = self.flask_app.config["HTTPD_PORT"]
+        print('Starting websock server at {}:{}'.format(host, port))
         self.socket_io.init_app(
             self.flask_app,
             **self.init_kwargs
