@@ -25,7 +25,7 @@ from .utils import get_logger, register_app, register_service
 eventlet.monkey_patch()
 hub_prevent_multiple_readers(False)
 
-__version__ = '1.3.0'
+__version__ = '1.3.1'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
