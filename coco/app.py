@@ -9,6 +9,8 @@ import threading
 import socket
 import json
 import signal
+import eventlet
+from eventlet.debug import hub_prevent_multiple_readers
 
 from jms.service import AppService
 
@@ -17,9 +19,11 @@ from .sshd import SSHServer
 from .httpd import HttpServer
 from .logger import create_logger
 from .tasks import TaskHandler
-from .recorder import get_command_recorder_class, ServerReplayRecorder
-from .utils import get_logger
+from .recorder import ReplayRecorder, CommandRecorder
+from .utils import get_logger, register_app, register_service
 
+eventlet.monkey_patch()
+hub_prevent_multiple_readers(False)
 
 __version__ = '1.3.0'
 
@@ -56,7 +60,6 @@ class Coco:
 
     def __init__(self, root_path=None):
         self.root_path = root_path if root_path else BASE_DIR
-        self.config = self.config_class(self.root_path, defaults=self.default_config)
         self.sessions = []
         self.clients = []
         self.lock = threading.Lock()
@@ -67,6 +70,14 @@ class Coco:
         self.replay_recorder_class = None
         self.command_recorder_class = None
         self._task_handler = None
+        self.config = None
+        self.init_config()
+        register_app(self)
+
+    def init_config(self):
+        self.config = self.config_class(
+            self.root_path, defaults=self.default_config
+        )
 
     @property
     def name(self):
@@ -79,24 +90,25 @@ class Coco:
     def service(self):
         if self._service is None:
             self._service = AppService(self)
+            register_service(self._service)
         return self._service
 
     @property
     def sshd(self):
         if self._sshd is None:
-            self._sshd = SSHServer(self)
+            self._sshd = SSHServer()
         return self._sshd
 
     @property
     def httpd(self):
         if self._httpd is None:
-            self._httpd = HttpServer(self)
+            self._httpd = HttpServer()
         return self._httpd
 
     @property
     def task_handler(self):
         if self._task_handler is None:
-            self._task_handler = TaskHandler(self)
+            self._task_handler = TaskHandler()
         return self._task_handler
 
     def make_logger(self):
@@ -109,24 +121,21 @@ class Coco:
         ))
         self.config.update(configs)
 
-    def get_recorder_class(self):
-        self.replay_recorder_class = ServerReplayRecorder
-        self.command_recorder_class = get_command_recorder_class(self.config)
+    @staticmethod
+    def new_command_recorder():
+        return CommandRecorder()
 
-    def new_command_recorder(self):
-        recorder = self.command_recorder_class(self)
-        return recorder
-
-    def new_replay_recorder(self):
-        return self.replay_recorder_class(self)
+    @staticmethod
+    def new_replay_recorder():
+        return ReplayRecorder()
 
     def bootstrap(self):
         self.make_logger()
         self.service.initial()
         self.load_extra_conf_from_server()
-        self.get_recorder_class()
         self.keep_heartbeat()
         self.monitor_sessions()
+        self.monitor_sessions_replay()
 
     def heartbeat(self):
         _sessions = [s.to_json() for s in self.sessions]
@@ -152,6 +161,31 @@ class Coco:
                 self.heartbeat()
                 time.sleep(self.config["HEARTBEAT_INTERVAL"])
 
+        thread = threading.Thread(target=func)
+        thread.start()
+
+    def monitor_sessions_replay(self):
+        interval = 10
+        recorder = self.new_replay_recorder()
+        log_dir = os.path.join(self.config['LOG_DIR'])
+
+        def func():
+            while not self.stop_evt.is_set():
+                active_sessions = [str(session.id) for session in self.sessions]
+                for filename in os.listdir(log_dir):
+                    session_id = filename.split('.')[0]
+                    full_path = os.path.join(log_dir, filename)
+
+                    if len(session_id) != 36:
+                        continue
+
+                    if session_id not in active_sessions:
+                        recorder.file_path = full_path
+                        ok = recorder.upload_replay(session_id, 1)
+                        if not ok and os.path.getsize(full_path) == 0:
+                            os.unlink(full_path)
+
+                time.sleep(interval)
         thread = threading.Thread(target=func)
         thread.start()
 
@@ -188,9 +222,11 @@ class Coco:
                 self.run_httpd()
 
             signal.signal(signal.SIGTERM, lambda x, y: self.shutdown())
-            while self.stop_evt.wait(5):
-                print("Coco receive term signal, exit")
-                break
+            while True:
+                if self.stop_evt.is_set():
+                    print("Coco receive term signal, exit")
+                    break
+                time.sleep(3)
         except KeyboardInterrupt:
             self.stop_evt.set()
             self.shutdown()
@@ -218,13 +254,19 @@ class Coco:
     def add_client(self, client):
         with self.lock:
             self.clients.append(client)
-            logger.info("New client {} join, total {} now".format(client, len(self.clients)))
+            logger.info("New client {} join, total {} now".format(
+                    client, len(self.clients)
+                )
+            )
 
     def remove_client(self, client):
         with self.lock:
             try:
                 self.clients.remove(client)
-                logger.info("Client {} leave, total {} now".format(client, len(self.clients)))
+                logger.info("Client {} leave, total {} now".format(
+                       client, len(self.clients)
+                    )
+                )
                 client.close()
             except:
                 pass
@@ -241,4 +283,5 @@ class Coco:
                 self.sessions.remove(session)
                 self.service.finish_session(session.to_json())
             except ValueError:
-                logger.warning("Remove session: {} fail, maybe already removed".format(session))
+                msg = "Remove session: {} fail, maybe already removed"
+                logger.warning(msg.format(session))

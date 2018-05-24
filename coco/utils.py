@@ -4,28 +4,33 @@
 
 from __future__ import unicode_literals
 
-import hashlib
 import logging
 import re
 import os
-import threading
-import base64
-import calendar
-import time
-import datetime
 import gettext
 from io import StringIO
 from binascii import hexlify
 
 import paramiko
 import pyte
-import pytz
-from email.utils import formatdate
-from queue import Queue, Empty
 
-from .exception import NoAppException
+from . import char
+from .ctx import stack
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+
+
+class Singleton(type):
+    def __init__(cls, *args, **kwargs):
+        cls.__instance = None
+        super().__init__(*args, **kwargs)
+
+    def __call__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = super().__call__(*args, **kwargs)
+            return cls.__instance
+        else:
+            return cls.__instance
 
 
 def ssh_key_string_to_obj(text, password=None):
@@ -289,17 +294,130 @@ def get_logger(file_name):
     return logging.getLogger('coco.'+file_name)
 
 
-zh_pattern = re.compile(u'[\u4e00-\u9fa5]+')
+def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
+    """实现了一个ssh input, 提示用户输入, 获取并返回
 
+    :return user input string
+    """
+    input_data = []
+    parser = TtyIOParser()
+    client.send(wrap_with_line_feed(prompt, before=before, after=after))
 
-def len_display(s):
-    length = 0
-    for i in s:
-        if zh_pattern.match(i):
-            length += 2
+    while True:
+        data = client.recv(10)
+        if len(data) == 0:
+            break
+        # Client input backspace
+        if data in char.BACKSPACE_CHAR:
+            # If input words less than 0, should send 'BELL'
+            if len(input_data) > 0:
+                data = char.BACKSPACE_CHAR[data]
+                input_data.pop()
+            else:
+                data = char.BELL_CHAR
+            client.send(data)
+            continue
+
+        if data.startswith(b'\x03'):
+            # Ctrl-C
+            client.send('^C\r\n{} '.format(prompt).encode())
+            input_data = []
+            continue
+        elif data.startswith(b'\x04'):
+            # Ctrl-D
+            return 'q'
+
+        # Todo: Move x1b to char
+        if data.startswith(b'\x1b') or data in char.UNSUPPORTED_CHAR:
+            client.send(b'')
+            continue
+
+        # handle shell expect
+        multi_char_with_enter = False
+        if len(data) > 1 and data[-1] in char.ENTER_CHAR_ORDER:
+            if sensitive:
+                client.send(len(data) * '*')
+            else:
+                client.send(data)
+            input_data.append(data[:-1])
+            multi_char_with_enter = True
+
+        # If user type ENTER we should get user input
+        if data in char.ENTER_CHAR or multi_char_with_enter:
+            client.send(wrap_with_line_feed(b'', after=2))
+            option = parser.parse_input(input_data)
+            del input_data[:]
+            return option.strip()
         else:
-            length += 1
+            if sensitive:
+                client.send(len(data) * '*')
+            else:
+                client.send(data)
+            input_data.append(data)
+
+
+def register_app(app):
+    stack['app'] = app
+
+
+def register_service(service):
+    stack['service'] = service
+
+
+zh_pattern = re.compile(r'[\u4e00-\u9fa5]')
+
+
+def find_chinese(s):
+    return zh_pattern.findall(s)
+
+
+def align_with_zh(s, length, addin=' '):
+    if not isinstance(s, str):
+        s = str(s)
+    zh_len = len(find_chinese(s))
+    padding = length - (len(s) - zh_len) - zh_len*2
+    padding_content = ''
+
+    if padding > 0:
+        padding_content = addin*padding
+    return s + padding_content
+
+
+def format_with_zh(size_list, *args):
+    data = []
+    for length, s in zip(size_list, args):
+        data.append(align_with_zh(s, length))
+    return ' '.join(data)
+
+
+def size_of_str_with_zh(s):
+    if isinstance(s, int):
+        s = str(s)
+    try:
+        chinese = find_chinese(s)
+    except TypeError:
+        raise
+    return len(s) + len(chinese)
+
+
+def item_max_length(_iter, maxi=None, mini=None, key=None):
+    if key:
+        _iter = [key(i) for i in _iter]
+
+    length = [size_of_str_with_zh(s) for s in _iter]
+    if not length:
+        return 1
+    if maxi:
+        length.append(maxi)
+    length = max(length)
+    if mini and length < mini:
+        length = mini
     return length
 
 
+def int_length(i):
+    return len(str(i))
+
+
 ugettext = _gettext()
+

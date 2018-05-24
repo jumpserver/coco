@@ -2,6 +2,7 @@ import os
 import tempfile
 import paramiko
 import time
+from .ctx import app_service
 from datetime import datetime
 
 from .connection import SSHConnection
@@ -16,6 +17,17 @@ class SFTPServer(paramiko.SFTPServerInterface):
         self._sftp = {}
         self.hosts = self.get_perm_hosts()
 
+    def session_ended(self):
+        super().session_ended()
+        for _, v in self._sftp.items():
+            sftp = v['sftp']
+            sock = v.get('sock')
+            sftp.close()
+            if sock:
+                sock.close()
+                sock.transport.close()
+        self._sftp = {}
+
     def get_host_sftp(self, host, su):
         asset = self.hosts.get(host)
         system_user = None
@@ -28,18 +40,18 @@ class SFTPServer(paramiko.SFTPServerInterface):
             raise OSError("No asset or system user explicit")
 
         if host not in self._sftp:
-            ssh = SSHConnection(self.server.app)
-            sftp, msg = ssh.get_sftp(asset, system_user)
+            ssh = SSHConnection()
+            sftp, sock, msg = ssh.get_sftp(asset, system_user)
             if sftp:
-                self._sftp[host] = sftp
+                self._sftp[host] = {'sftp': sftp, 'sock': sock}
                 return sftp
             else:
-                raise OSError("Can not connect asset sftp server")
+                raise OSError("Can not connect asset sftp server: {}".format(msg))
         else:
-            return self._sftp[host]
+            return self._sftp[host]['sftp']
 
     def get_perm_hosts(self):
-        assets = self.server.app.service.get_user_assets(
+        assets = app_service.get_user_assets(
             self.server.request.user
         )
         return {asset.hostname: asset for asset in assets}
@@ -89,7 +101,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
             "is_success": is_success,
         }
         for i in range(1, 4):
-            ok = self.server.app.service.create_ftp_log(data)
+            ok = app_service.create_ftp_log(data)
             if ok:
                 break
             else:

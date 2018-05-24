@@ -94,8 +94,9 @@ class Server:
     """
 
     # Todo: Server name is not very suitable
-    def __init__(self, chan, asset, system_user):
+    def __init__(self, chan, sock, asset, system_user):
         self.chan = chan
+        self.sock = sock
         self.asset = asset
         self.system_user = system_user
         self.send_bytes = 0
@@ -168,6 +169,8 @@ class Server:
         self.stop_evt.set()
         self.chan.close()
         self.chan.transport.close()
+        if self.sock:
+            self.sock.transport.close()
 
     @staticmethod
     def _have_enter_char(s):
@@ -218,7 +221,7 @@ class WSProxy:
     ```
     """
 
-    def __init__(self, ws, child, room, connection):
+    def __init__(self, ws, child, room_id):
         """
         :param ws: websocket instance or handler, have write_message method
         :param child: sock child pair
@@ -226,9 +229,8 @@ class WSProxy:
         self.ws = ws
         self.child = child
         self.stop_event = threading.Event()
-        self.room = room
+        self.room_id = room_id
         self.auto_forward()
-        self.connection = connection
 
     def send(self, msg):
         """
@@ -247,12 +249,15 @@ class WSProxy:
         while not self.stop_event.is_set():
             try:
                 data = self.child.recv(BUF_SIZE)
-            except OSError:
-                continue
-            if len(data) == 0:
+            except (OSError, EOFError):
                 self.close()
+                break
+            if not data:
+                self.close()
+                break
             data = data.decode(errors="ignore")
-            self.ws.emit("data", {'data': data, 'room': self.connection}, room=self.room)
+            self.ws.emit("data", {'data': data, 'room': self.room_id},
+                         room=self.room_id)
             if len(data) == BUF_SIZE:
                 time.sleep(0.1)
 
@@ -262,11 +267,12 @@ class WSProxy:
         thread.start()
 
     def close(self):
+        self.ws.emit("logout", {"room": self.room_id}, room=self.room_id)
         self.stop_event.set()
-        self.child.close()
-        self.ws.logout(self.connection)
+        try:
+            self.child.shutdown(1)
+            self.child.close()
+        except (OSError, EOFError):
+            pass
         logger.debug("Proxy {} closed".format(self))
-
-
-
 
