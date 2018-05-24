@@ -167,13 +167,11 @@ class ProxyNamespace(BaseNamespace):
         secret = message.get('secret', None)
         room = self.new_room()
         self.emit('room', {'room': room["id"], 'secret': secret})
-        self.socketio.sleep(0)
         if not token or not secret:
-            logger.debug("Token or secret is None")
+            logger.debug("Token or secret is None: {}".format(token, secret))
             self.emit('data', {'data': "\nOperation not permitted!",
                                'room': room["id"]})
             self.emit('disconnect')
-            self.socketio.sleep(0)
             return None
 
         info = app_service.get_token_asset(token)
@@ -183,7 +181,6 @@ class ProxyNamespace(BaseNamespace):
             self.emit('data', {'data': "\nOperation not permitted!",
                                'room': room["id"]})
             self.emit('disconnect')
-            self.socketio.sleep(0)
             return None
 
         user_id = info.get('user', None)
