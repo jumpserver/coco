@@ -4,7 +4,6 @@
 import os
 import socket
 import uuid
-import eventlet
 from flask_socketio import SocketIO, Namespace, join_room
 from flask import Flask, request, current_app, redirect
 
@@ -14,10 +13,7 @@ from .utils import get_logger
 from .ctx import current_app, app_service
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-
 logger = get_logger(__file__)
-
-eventlet.monkey_patch()
 
 
 class BaseNamespace(Namespace):
@@ -172,7 +168,7 @@ class ProxyNamespace(BaseNamespace):
         room = self.new_room()
         self.emit('room', {'room': room["id"], 'secret': secret})
         if not token or not secret:
-            logger.debug("Token or secret is None")
+            logger.debug("Token or secret is None: {}".format(token, secret))
             self.emit('data', {'data': "\nOperation not permitted!",
                                'room': room["id"]})
             self.emit('disconnect')
@@ -230,6 +226,9 @@ class ProxyNamespace(BaseNamespace):
             del self.connections[request.sid][room_id]
             del room
 
+    def on_ping(self):
+        self.emit('pong')
+
 
 class HttpServer:
     # prepare may be rewrite it
@@ -241,8 +240,10 @@ class HttpServer:
     init_kwargs = dict(
         async_mode="eventlet",
         # async_mode="threading",
-        ping_timeout=20,
-        ping_interval=10
+        # ping_timeout=20,
+        # ping_interval=10,
+        # engineio_logger=True,
+        # logger=True
     )
 
     def __init__(self):
@@ -267,7 +268,7 @@ class HttpServer:
     def run(self):
         host = self.flask_app.config["BIND_HOST"]
         port = self.flask_app.config["HTTPD_PORT"]
-        print('Starting websock server at {}:{}'.format(host, port))
+        print('Starting websocket server at {}:{}'.format(host, port))
         self.socket_io.init_app(
             self.flask_app,
             **self.init_kwargs
@@ -275,4 +276,5 @@ class HttpServer:
         self.socket_io.run(self.flask_app, port=port, host=host, debug=False)
 
     def shutdown(self):
-        self.socket_io.server.close()
+        self.socket_io.stop()
+        pass
