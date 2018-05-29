@@ -184,7 +184,7 @@ class Coco:
                         ok = recorder.upload_replay(session_id, 1)
                         if not ok and os.path.getsize(full_path) == 0:
                             os.unlink(full_path)
-
+                    time.sleep(1)
                 time.sleep(interval)
         thread = threading.Thread(target=func)
         thread.start()
