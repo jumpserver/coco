@@ -103,6 +103,7 @@ class SSHConnection:
             try:
                 ssh.connect(gateway.ip, username=gateway.username,
                             password=gateway.password,
+                            port=gateway.port,
                             pkey=gateway.private_key_obj)
             except(paramiko.AuthenticationException,
                    paramiko.BadAuthenticationType,
