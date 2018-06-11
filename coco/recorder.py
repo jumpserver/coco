@@ -72,7 +72,9 @@ class ReplayRecorder(metaclass=abc.ABCMeta):
 
         ok, msg = self.push_to_storage(session_id)
         if not ok:
-            msg = 'Failed push replay file: {}, try again {}'.format(msg, times)
+            msg = 'Failed push replay file {}: {}, try again {}'.format(
+                session_id, msg, times
+            )
             logger.warn(msg)
             self.upload_replay(session_id, times-1)
         else:

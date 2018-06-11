@@ -62,52 +62,35 @@ class ProxyNamespace(BaseNamespace):
         """
         super().__init__(*args, **kwargs)
         self.connections = dict()
+        self.win_size = None
 
     def new_connection(self):
         self.connections[request.sid] = dict()
 
-    def new_room(self):
+    def new_room(self, req=None):
         room_id = str(uuid.uuid4())
         room = {
             "id": room_id,
             "proxy": None,
             "client": None,
             "forwarder": None,
-            "request": self.make_coco_request(),
-            "cols": 80,
-            "rows": 24
+            "request": req,
         }
         self.connections[request.sid][room_id] = room
         return room
 
-    @staticmethod
-    def get_win_size():
-        cols_request = request.cookies.get('cols')
-        rows_request = request.cookies.get('rows')
-        if cols_request and cols_request.isdigit():
-            cols = int(cols_request)
-        else:
-            cols = 80
-
-        if rows_request and rows_request.isdigit():
-            rows = int(rows_request)
-        else:
-            rows = 24
-        return cols, rows
-
-    def make_coco_request(self):
+    def make_coco_request(self, cols=80, rows=24):
         x_forwarded_for = request.headers.get("X-Forwarded-For", '').split(',')
         if x_forwarded_for and x_forwarded_for[0]:
             remote_ip = x_forwarded_for[0]
         else:
             remote_ip = request.remote_addr
 
-        width, height = self.get_win_size()
         req = Request((remote_ip, 0))
         req.user = self.current_user
         req.meta = {
-            "width": width,
-            "height": height,
+            "width": cols,
+            "height": rows,
         }
         return req
 
@@ -122,19 +105,20 @@ class ProxyNamespace(BaseNamespace):
         asset_id = message.get('uuid', None)
         user_id = message.get('userid', None)
         secret = message.get('secret', None)
-        room = self.new_room()
+        self.win_size = message.get('size', (80, 24))
+
+        req = self.make_coco_request(*self.win_size)
+        room = self.new_room(req)
 
         self.emit('room', {'room': room["id"], 'secret': secret})
         join_room(room["id"])
         if not asset_id or not user_id:
-            # self.on_connect()
             return
 
         asset = app_service.get_asset(asset_id)
         system_user = app_service.get_system_user(user_id)
 
         if not asset or not system_user:
-            self.on_connect()
             return
 
         child, parent = socket.socketpair()
@@ -143,7 +127,6 @@ class ProxyNamespace(BaseNamespace):
         room["client"] = client
         room["forwarder"] = forwarder
         room["proxy"] = WSProxy(self, child, room["id"])
-        room["cols"], room["rows"] = self.get_win_size()
         self.socketio.start_background_task(
             forwarder.proxy, asset, system_user
         )
@@ -165,6 +148,7 @@ class ProxyNamespace(BaseNamespace):
         logger.debug("On token trigger")
         token = message.get('token', None)
         secret = message.get('secret', None)
+        win_size = message.get('size', (80, 24))
         room = self.new_room()
         self.emit('room', {'room': room["id"], 'secret': secret})
         if not token or not secret:
@@ -186,21 +170,19 @@ class ProxyNamespace(BaseNamespace):
         user_id = info.get('user', None)
         self.current_user = app_service.get_user_profile(user_id)
         room["request"].user = self.current_user
-        logger.debug(self.current_user)
         self.on_host({
             'secret': secret,
             'uuid': info['asset'],
             'userid': info['system_user'],
+            'size': win_size,
         })
 
     def on_resize(self, message):
         cols, rows = message.get('cols', None), message.get('rows', None)
         logger.debug("On resize event trigger: {}*{}".format(cols, rows))
         rooms = self.connections.get(request.sid)
-        if not rooms:
-            return
-        room = list(rooms.values())[0]
-        if rooms and (room["cols"], room["rows"]) != (cols, rows):
+        if self.win_size != (cols, rows):
+            logger.debug("Start change win size: {}*{}".format(cols, rows))
             for room in rooms.values():
                 room["request"].meta.update({
                     'width': cols, 'height': rows

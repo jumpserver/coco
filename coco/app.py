@@ -25,7 +25,7 @@ from .utils import get_logger, register_app, register_service
 eventlet.monkey_patch()
 hub_prevent_multiple_readers(False)
 
-__version__ = '1.3.1'
+__version__ = '1.3.2'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
@@ -184,7 +184,7 @@ class Coco:
                         ok = recorder.upload_replay(session_id, 1)
                         if not ok and os.path.getsize(full_path) == 0:
                             os.unlink(full_path)
-
+                    time.sleep(1)
                 time.sleep(interval)
         thread = threading.Thread(target=func)
         thread.start()
