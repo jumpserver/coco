@@ -18,6 +18,8 @@ from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
 logger = get_logger(__file__)
 TIMEOUT = 10
 BUF_SIZE = 4096
+MANUAL_LOGIN = 'manual'
+AUTO_LOGIN = 'auto'
 
 
 class ProxyServer:
@@ -34,13 +36,17 @@ class ProxyServer:
         """
         password, private_key = \
             app_service.get_system_user_auth_info(system_user)
-        if not password and not private_key:
+        if system_user.login_mode == MANUAL_LOGIN or (not password and not private_key):
             prompt = "{}'s password: ".format(system_user.username)
             password = net_input(self.client, prompt=prompt, sensitive=True)
         system_user.password = password
         system_user.private_key = private_key
 
     def proxy(self, asset, system_user):
+        if system_user.login_mode == MANUAL_LOGIN and not system_user.username:
+            system_user_name = net_input(self.client, prompt='username: ', before=1)
+            system_user.username = system_user_name
+
         self.get_system_user_auth(system_user)
         self.send_connecting_message(asset, system_user)
         self.server = self.get_server_conn(asset, system_user)
