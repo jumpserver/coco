@@ -101,7 +101,8 @@ class SSHConnection:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             try:
-                ssh.connect(gateway.ip, username=gateway.username,
+                ssh.connect(gateway.ip, port=gateway.port,
+                            username=gateway.username,
                             password=gateway.password,
                             pkey=gateway.private_key_obj)
             except(paramiko.AuthenticationException,
