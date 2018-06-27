@@ -154,15 +154,23 @@ class ProxyNamespace(BaseNamespace):
         secret = message.get('secret', None)
         win_size = message.get('size', (80, 24))
 
+        room = self.new_room()
+        self.emit('room', {'room': room["id"], 'secret': secret})
+        join_room(room['id'])
+
         if not token or not secret:
-            logger.debug("Token or secret is None: {}".format(token, secret))
+            msg = "Token or secret is None: {} {}".format(token, secret)
+            logger.error(msg)
+            self.emit('data',  {'data': msg, 'room': room['id']}, room=room['id'])
             self.emit('disconnect')
-            return None
+            return
 
         info = app_service.get_token_asset(token)
         logger.debug(info)
         if not info:
-            logger.debug("Token info is None")
+            msg = "Token info is none, maybe token expired"
+            logger.error(msg)
+            self.emit('data',  {'data': msg, 'room': room['id']}, room=room['id'])
             self.emit('disconnect')
             return None
 
