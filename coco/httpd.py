@@ -34,6 +34,10 @@ class BaseNamespace(Namespace):
             user = app_service.check_user_cookie(session_id, csrf_token)
         if token:
             user = app_service.check_user_with_token(token)
+        msg = "Get current user: session_id<{}> token<{}> => {}".format(
+            session_id, token, user
+        )
+        logger.debug(msg)
         return user
 
 
@@ -149,12 +153,9 @@ class ProxyNamespace(BaseNamespace):
         token = message.get('token', None)
         secret = message.get('secret', None)
         win_size = message.get('size', (80, 24))
-        room = self.new_room()
-        self.emit('room', {'room': room["id"], 'secret': secret})
+
         if not token or not secret:
             logger.debug("Token or secret is None: {}".format(token, secret))
-            self.emit('data', {'data': "\nOperation not permitted!",
-                               'room': room["id"]})
             self.emit('disconnect')
             return None
 
@@ -162,14 +163,12 @@ class ProxyNamespace(BaseNamespace):
         logger.debug(info)
         if not info:
             logger.debug("Token info is None")
-            self.emit('data', {'data': "\nOperation not permitted!",
-                               'room': room["id"]})
             self.emit('disconnect')
             return None
 
         user_id = info.get('user', None)
         self.current_user = app_service.get_user_profile(user_id)
-        room["request"].user = self.current_user
+        # room["request"].user = self.current_user
         self.on_host({
             'secret': secret,
             'uuid': info['asset'],
