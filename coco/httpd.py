@@ -210,7 +210,7 @@ class ProxyNamespace(BaseNamespace):
     def on_logout(self, room_id):
         room = self.connections.get(request.sid, {}).get(room_id)
         if room:
-            room["proxy"].close()
+            room.get("proxy") and room["proxy"].close()
             self.close_room(room_id)
             del self.connections[request.sid][room_id]
             del room
