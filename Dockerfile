@@ -5,8 +5,8 @@ COPY requirements /opt/coco/requirements
 WORKDIR /opt/coco
 
 RUN yum -y install epel-release
-RUN cd requirements && yum -y install $(cat rpm_requirements.txt) && \
-   pip install -r requirements.txt 
+RUN cd requirements && yum -y install $(cat rpm_requirements.txt)
+RUN cd requiremnets && pip install -r requirements.txt -i https://mirrors.ustc.edu.cn/pypi/web/simple 
 
 ENV LANG=zh_CN.UTF-8
 ENV LC_ALL=zh_CN.UTF-8
