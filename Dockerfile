@@ -6,7 +6,7 @@ WORKDIR /opt/coco
 
 RUN yum -y install epel-release
 RUN cd requirements && yum -y install $(cat rpm_requirements.txt)
-RUN cd requiremnets && pip install -r requirements.txt -i https://mirrors.ustc.edu.cn/pypi/web/simple 
+RUN cd requirements && pip install -r requirements.txt -i https://mirrors.ustc.edu.cn/pypi/web/simple 
 
 ENV LANG=zh_CN.UTF-8
 ENV LC_ALL=zh_CN.UTF-8
