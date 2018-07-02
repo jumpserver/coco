@@ -2,16 +2,22 @@
 #
 
 import os
+import re
 import socket
+import selectors
+import telnetlib
 
 import paramiko
 from paramiko.ssh_exception import SSHException
 
 from .ctx import app_service
-from .utils import get_logger, get_private_key_fingerprint
+from .utils import get_logger, get_private_key_fingerprint, net_input
 
 logger = get_logger(__file__)
 TIMEOUT = 10
+BUF_SIZE = 1024
+MANUAL_LOGIN = 'manual'
+AUTO_LOGIN = 'auto'
 
 
 class SSHConnection:
@@ -148,3 +154,133 @@ class SSHConnection:
                 logger.error(e)
                 continue
         return sock
+
+
+class TelnetConnection:
+
+    def __init__(self, asset, system_user, client):
+        self.client = client
+        self.asset = asset
+        self.system_user = system_user
+        self.sock = None
+        self.sel = selectors.DefaultSelector()
+        self.incorrect_pattern = re.compile(
+            r'incorrect|failed|失败', re.I
+        )
+        self.username_pattern = re.compile(
+            r'login:\s*$|username:\s*$|用户名:\s*$|账\s*号:\s*$', re.I
+        )
+        self.password_pattern = re.compile(
+            r'password:\s*$|passwd:\s*$|密\s*码:\s*$', re.I
+        )
+        self.success_pattern = re.compile(
+            r'Last\s*login|success|成功', re.I
+        )
+
+    def get_socket(self):
+        logger.info('Get telnet server socket. {}'.format(self.client.user))
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((self.asset.ip, self.asset.port))
+        # Send SGA and ECHO options to Telnet Server
+        self.sock.send(telnetlib.IAC + telnetlib.DO + telnetlib.SGA)
+        self.sock.send(telnetlib.IAC + telnetlib.DO + telnetlib.ECHO)
+        self.sel.register(self.sock, selectors.EVENT_READ)
+
+        while True:
+            events = self.sel.select()
+            for sock in [key.fileobj for key, _ in events]:
+                data = sock.recv(BUF_SIZE)
+                if sock == self.sock:
+                    logger.info(b'[Telnet server send]: ' + data)
+
+                    if not data:
+                        self.sock.close()
+                        msg = 'The server <{}> closes the connection.'.format(
+                            self.asset.hostname
+                        )
+                        logger.info(msg)
+                        return None, msg
+
+                    if data.startswith(telnetlib.IAC):
+                        self.option_negotiate(data)
+                    else:
+                        result = self.login_auth(data)
+                        if result:
+                            msg = 'Successful asset connection.<{}>/<{}>/<{}>.'.format(
+                                self.client.user, self.system_user.username,
+                                self.asset.hostname
+                            )
+                            logger.info(msg)
+                            self.client.send(b'\r\n' + data)
+                            return self.sock, None
+                        elif result is False:
+                            self.sock.close()
+                            msg = 'Authentication failed.\r\n'
+                            logger.info(msg)
+                            return None, msg
+                        elif result is None:
+                            continue
+
+    def option_negotiate(self, data):
+        """
+        Telnet server option negotiate before connection
+        :param data: option negotiate data
+        :return:
+        """
+        logger.info(b'[Server options negotiate]: ' + data)
+        data_list = data.split(telnetlib.IAC)
+        new_data_list = []
+        for x in data_list:
+            if x == telnetlib.DO + telnetlib.ECHO:
+                new_data_list.append(telnetlib.WONT + telnetlib.ECHO)
+            elif x == telnetlib.WILL + telnetlib.ECHO:
+                new_data_list.append(telnetlib.DO + telnetlib.ECHO)
+            elif x == telnetlib.WILL + telnetlib.SGA:
+                new_data_list.append(telnetlib.DO + telnetlib.SGA)
+            elif x == telnetlib.DO + telnetlib.TTYPE:
+                new_data_list.append(telnetlib.WILL + telnetlib.TTYPE)
+            elif x == telnetlib.SB + telnetlib.TTYPE + b'\x01':
+                new_data_list.append(telnetlib.SB + telnetlib.TTYPE + b'\x00' + b'XTERM-256COLOR')
+            elif telnetlib.DO in x:
+                new_data_list.append(x.replace(telnetlib.DO, telnetlib.WONT))
+            elif telnetlib.WILL in x:
+                new_data_list.append(x.replace(telnetlib.WILL, telnetlib.DONT))
+            elif telnetlib.WONT in x:
+                new_data_list.append(x.replace(telnetlib.WONT, telnetlib.DONT))
+            elif telnetlib.DONT in x:
+                new_data_list.append(x.replace(telnetlib.DONT, telnetlib.WONT))
+            else:
+                new_data_list.append(x)
+        new_data = telnetlib.IAC.join(new_data_list)
+        logger.info(b'[Client options negotiate]: ' + new_data)
+        self.sock.send(new_data)
+
+    def login_auth(self, raw_data):
+        logger.info('[Telnet login auth]: ({})'.format(self.client.user))
+
+        try:
+            data = raw_data.decode('utf-8')
+        except UnicodeDecodeError:
+            try:
+                data = raw_data.decode('gbk')
+            except UnicodeDecodeError:
+                logger.info(b'[Decode error]: ' + b'>>' + raw_data + b'<<')
+                return None
+
+        if self.incorrect_pattern.search(data):
+            logger.info(b'[Login incorrect prompt]: ' + b'>>' + raw_data + b'<<')
+            return False
+        elif self.username_pattern.search(data):
+            logger.info(b'[Username prompt]: ' + b'>>' + raw_data + b'<<')
+            self.sock.send(self.system_user.username.encode('utf-8') + b'\r\n')
+            return None
+        elif self.password_pattern.search(data):
+            logger.info(b'[Password prompt]: ' + b'>>' + raw_data + b'<<')
+            self.sock.send(self.system_user.password.encode('utf-8') + b'\r\n')
+            return None
+        elif self.success_pattern.search(data):
+            logger.info(b'[Login Success prompt]: ' + b'>>' + raw_data + b'<<')
+            return True
+        else:
+            logger.info(b'[No match]: ' + b'>>' + raw_data + b'<<')
+            return None
