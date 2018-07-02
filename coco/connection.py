@@ -180,6 +180,7 @@ class TelnetConnection:
     def get_socket(self):
         logger.info('Get telnet server socket. {}'.format(self.client.user))
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.settimeout(10)
         self.sock.connect((self.asset.ip, self.asset.port))
         # Send SGA and ECHO options to Telnet Server
         self.sock.send(telnetlib.IAC + telnetlib.DO + telnetlib.SGA)
