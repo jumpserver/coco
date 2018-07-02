@@ -110,7 +110,8 @@ class SSHConnection:
                 ssh.connect(gateway.ip, port=gateway.port,
                             username=gateway.username,
                             password=gateway.password,
-                            pkey=gateway.private_key_obj)
+                            pkey=gateway.private_key_obj,
+                            timeout=TIMEOUT)
             except(paramiko.AuthenticationException,
                    paramiko.BadAuthenticationType,
                    SSHException):
