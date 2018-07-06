@@ -166,7 +166,7 @@ class TelnetConnection:
         self.sock = None
         self.sel = selectors.DefaultSelector()
         self.incorrect_pattern = re.compile(
-            r'incorrect|failed|失败', re.I
+            r'incorrect|failed|失败|错误', re.I
         )
         self.username_pattern = re.compile(
             r'login:\s*$|username:\s*$|用户名:\s*$|账\s*号:\s*$', re.I
