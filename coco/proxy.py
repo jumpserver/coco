@@ -8,8 +8,8 @@ import time
 from paramiko.ssh_exception import SSHException
 
 from .session import Session
-from .models import Server
-from .connection import SSHConnection
+from .models import Server, TelnetServer
+from .connection import SSHConnection, TelnetConnection
 from .ctx import current_app, app_service
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
      get_logger, net_input
@@ -18,12 +18,15 @@ from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
 logger = get_logger(__file__)
 TIMEOUT = 10
 BUF_SIZE = 4096
+MANUAL_LOGIN = 'manual'
+AUTO_LOGIN = 'auto'
 
 
 class ProxyServer:
-    def __init__(self, client):
+    def __init__(self, client, login_from):
         self.client = client
         self.server = None
+        self.login_from = login_from
         self.connecting = True
         self.stop_event = threading.Event()
 
@@ -34,13 +37,24 @@ class ProxyServer:
         """
         password, private_key = \
             app_service.get_system_user_auth_info(system_user)
-        if not password and not private_key:
+        if system_user.login_mode == MANUAL_LOGIN or (not password and not private_key):
             prompt = "{}'s password: ".format(system_user.username)
             password = net_input(self.client, prompt=prompt, sensitive=True)
         system_user.password = password
         system_user.private_key = private_key
 
     def proxy(self, asset, system_user):
+        if asset.protocol != system_user.protocol:
+            msg = 'System user <{}> and asset <{}> protocol are inconsistent.'.format(
+                system_user.name, asset.hostname
+            )
+            self.client.send(warning(wr(msg, before=1, after=0)))
+            return
+
+        if system_user.login_mode == MANUAL_LOGIN or not system_user.username:
+            system_user_name = net_input(self.client, prompt='username: ', before=1)
+            system_user.username = system_user_name
+
         self.get_system_user_auth(system_user)
         self.send_connecting_message(asset, system_user)
         self.server = self.get_server_conn(asset, system_user)
@@ -49,7 +63,7 @@ class ProxyServer:
         command_recorder = current_app.new_command_recorder()
         replay_recorder = current_app.new_replay_recorder()
         session = Session(
-            self.client, self.server,
+            self.client, self.server, self.login_from,
             command_recorder=command_recorder,
             replay_recorder=replay_recorder,
         )
@@ -74,15 +88,26 @@ class ProxyServer:
         if not self.validate_permission(asset, system_user):
             self.client.send(warning('No permission'))
             return None
-        if True:
+        if system_user.protocol == asset.protocol == 'telnet':
+            server = self.get_telnet_server_conn(asset, system_user)
+        elif system_user.protocol == asset.protocol == 'ssh':
             server = self.get_ssh_server_conn(asset, system_user)
         else:
-            server = self.get_ssh_server_conn(asset, system_user)
+            server = None
         return server
 
     # Todo: Support telnet
     def get_telnet_server_conn(self, asset, system_user):
-        pass
+        telnet = TelnetConnection(asset, system_user, self.client)
+        sock, msg = telnet.get_socket()
+        if not sock:
+            self.client.send(warning(wr(msg, before=1, after=0)))
+            server = None
+        else:
+            server = TelnetServer(sock, asset, system_user)
+        # self.client.send(b'\r\n')
+        self.connecting = False
+        return server
 
     def get_ssh_server_conn(self, asset, system_user):
         request = self.client.request
@@ -116,6 +141,8 @@ class ProxyServer:
                 break
 
     def watch_win_size_change_async(self):
+        if not isinstance(self.server, Server):
+            return
         thread = threading.Thread(target=self.watch_win_size_change)
         thread.daemon = True
         thread.start()
