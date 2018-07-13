@@ -23,9 +23,10 @@ AUTO_LOGIN = 'auto'
 
 
 class ProxyServer:
-    def __init__(self, client):
+    def __init__(self, client, login_from):
         self.client = client
         self.server = None
+        self.login_from = login_from
         self.connecting = True
         self.stop_event = threading.Event()
 
@@ -62,7 +63,7 @@ class ProxyServer:
         command_recorder = current_app.new_command_recorder()
         replay_recorder = current_app.new_replay_recorder()
         session = Session(
-            self.client, self.server,
+            self.client, self.server, self.login_from,
             command_recorder=command_recorder,
             replay_recorder=replay_recorder,
         )
