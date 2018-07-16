@@ -127,7 +127,7 @@ class ProxyNamespace(BaseNamespace):
 
         child, parent = socket.socketpair()
         client = Client(parent, room["request"])
-        forwarder = ProxyServer(client)
+        forwarder = ProxyServer(client, login_from='WT')
         room["client"] = client
         room["forwarder"] = forwarder
         room["proxy"] = WSProxy(self, child, room["id"])
