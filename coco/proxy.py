@@ -51,7 +51,7 @@ class ProxyServer:
             self.client.send(warning(wr(msg, before=1, after=0)))
             return
 
-        if system_user.login_mode == MANUAL_LOGIN or not system_user.username:
+        if system_user.login_mode == MANUAL_LOGIN and not system_user.username:
             system_user_name = net_input(self.client, prompt='username: ', before=1)
             system_user.username = system_user_name
 
