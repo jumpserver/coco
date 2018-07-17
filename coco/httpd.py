@@ -21,8 +21,6 @@ class BaseNamespace(Namespace):
 
     def on_connect(self):
         self.current_user = self.get_current_user()
-        if self.current_user is None:
-            return redirect(self.socketio.config['LOGIN_URL'])
         logger.debug("{} connect websocket".format(self.current_user))
 
     def get_current_user(self):
@@ -187,7 +185,7 @@ class ProxyNamespace(BaseNamespace):
     def on_resize(self, message):
         cols, rows = message.get('cols', None), message.get('rows', None)
         logger.debug("On resize event trigger: {}*{}".format(cols, rows))
-        rooms = self.connections.get(request.sid)
+        rooms = self.connections.get(request.sid, {})
         if self.win_size != (cols, rows):
             logger.debug("Start change win size: {}*{}".format(cols, rows))
             for room in rooms.values():
