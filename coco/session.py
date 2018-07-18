@@ -14,10 +14,11 @@ logger = get_logger(__file__)
 
 
 class Session:
-    def __init__(self, client, server, command_recorder=None, replay_recorder=None):
+    def __init__(self, client, server, login_from, command_recorder=None, replay_recorder=None):
         self.id = str(uuid.uuid4())
         self.client = client  # Master of the session, it's a client sock
         self.server = server  # Server channel
+        self.login_from = login_from  # Login from
         self._watchers = []  # Only watch session
         self._sharers = []  # Join to the session, read and write
         self.replaying = True
@@ -174,7 +175,7 @@ class Session:
             "user": self.client.user.username,
             "asset": self.server.asset.hostname,
             "system_user": self.server.system_user.username,
-            "login_from": "ST",
+            "login_from": self.login_from,
             "remote_addr": self.client.addr[0],
             "is_finished": True if self.stop_evt.is_set() else False,
             "date_last_active": self.date_last_active.strftime("%Y-%m-%d %H:%M:%S") + " +0000",

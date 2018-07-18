@@ -21,8 +21,6 @@ class BaseNamespace(Namespace):
 
     def on_connect(self):
         self.current_user = self.get_current_user()
-        if self.current_user is None:
-            return redirect(self.socketio.config['LOGIN_URL'])
         logger.debug("{} connect websocket".format(self.current_user))
 
     def get_current_user(self):
@@ -34,6 +32,10 @@ class BaseNamespace(Namespace):
             user = app_service.check_user_cookie(session_id, csrf_token)
         if token:
             user = app_service.check_user_with_token(token)
+        msg = "Get current user: session_id<{}> token<{}> => {}".format(
+            session_id, token, user
+        )
+        logger.debug(msg)
         return user
 
 
@@ -123,7 +125,7 @@ class ProxyNamespace(BaseNamespace):
 
         child, parent = socket.socketpair()
         client = Client(parent, room["request"])
-        forwarder = ProxyServer(client)
+        forwarder = ProxyServer(client, login_from='WT')
         room["client"] = client
         room["forwarder"] = forwarder
         room["proxy"] = WSProxy(self, child, room["id"])
@@ -149,27 +151,30 @@ class ProxyNamespace(BaseNamespace):
         token = message.get('token', None)
         secret = message.get('secret', None)
         win_size = message.get('size', (80, 24))
+
         room = self.new_room()
         self.emit('room', {'room': room["id"], 'secret': secret})
+        join_room(room['id'])
+
         if not token or not secret:
-            logger.debug("Token or secret is None: {}".format(token, secret))
-            self.emit('data', {'data': "\nOperation not permitted!",
-                               'room': room["id"]})
+            msg = "Token or secret is None: {} {}".format(token, secret)
+            logger.error(msg)
+            self.emit('data',  {'data': msg, 'room': room['id']}, room=room['id'])
             self.emit('disconnect')
-            return None
+            return
 
         info = app_service.get_token_asset(token)
         logger.debug(info)
         if not info:
-            logger.debug("Token info is None")
-            self.emit('data', {'data': "\nOperation not permitted!",
-                               'room': room["id"]})
+            msg = "Token info is none, maybe token expired"
+            logger.error(msg)
+            self.emit('data',  {'data': msg, 'room': room['id']}, room=room['id'])
             self.emit('disconnect')
             return None
 
         user_id = info.get('user', None)
         self.current_user = app_service.get_user_profile(user_id)
-        room["request"].user = self.current_user
+        # room["request"].user = self.current_user
         self.on_host({
             'secret': secret,
             'uuid': info['asset'],
@@ -180,7 +185,7 @@ class ProxyNamespace(BaseNamespace):
     def on_resize(self, message):
         cols, rows = message.get('cols', None), message.get('rows', None)
         logger.debug("On resize event trigger: {}*{}".format(cols, rows))
-        rooms = self.connections.get(request.sid)
+        rooms = self.connections.get(request.sid, {})
         if self.win_size != (cols, rows):
             logger.debug("Start change win size: {}*{}".format(cols, rows))
             for room in rooms.values():
@@ -203,7 +208,7 @@ class ProxyNamespace(BaseNamespace):
     def on_logout(self, room_id):
         room = self.connections.get(request.sid, {}).get(room_id)
         if room:
-            room["proxy"].close()
+            room.get("proxy") and room["proxy"].close()
             self.close_room(room_id)
             del self.connections[request.sid][room_id]
             del room

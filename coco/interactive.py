@@ -260,7 +260,7 @@ class InteractiveServer:
         if system_user is None:
             self.client.send(_("没有系统用户"))
             return
-        forwarder = ProxyServer(self.client)
+        forwarder = ProxyServer(self.client, login_from='ST')
         forwarder.proxy(asset, system_user)
 
     def interact(self):
