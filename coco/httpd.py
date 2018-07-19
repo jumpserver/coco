@@ -69,19 +69,23 @@ class ProxyNamespace(BaseNamespace):
     def new_connection(self):
         self.connections[request.sid] = dict()
 
-    def new_room(self, req=None):
+    def new_room(self, current_user, cols=80, rows=24):
         room_id = str(uuid.uuid4())
+        req = self.make_coco_request(current_user, cols=cols, rows=rows)
         room = {
             "id": room_id,
             "proxy": None,
             "client": None,
             "forwarder": None,
             "request": req,
+            "cols": cols,
+            "rows": rows
         }
         self.connections[request.sid][room_id] = room
         return room
 
-    def make_coco_request(self, cols=80, rows=24):
+    @staticmethod
+    def make_coco_request(user, cols=80, rows=24):
         x_forwarded_for = request.headers.get("X-Forwarded-For", '').split(',')
         if x_forwarded_for and x_forwarded_for[0]:
             remote_ip = x_forwarded_for[0]
@@ -89,11 +93,8 @@ class ProxyNamespace(BaseNamespace):
             remote_ip = request.remote_addr
 
         req = Request((remote_ip, 0))
-        req.user = self.current_user
-        req.meta = {
-            "width": cols,
-            "height": rows,
-        }
+        req.user = user
+        req.meta = {"width": cols, "height": rows}
         return req
 
     def on_connect(self):
@@ -104,21 +105,23 @@ class ProxyNamespace(BaseNamespace):
     def on_host(self, message):
         # 此处获取主机的信息
         logger.debug("On host event trigger")
-        asset_id = message.get('uuid', None)
-        user_id = message.get('userid', None)
-        secret = message.get('secret', None)
-        self.win_size = message.get('size', (80, 24))
+        current_user = self.get_current_user()
+        self.connect_host(current_user, message)
 
-        req = self.make_coco_request(*self.win_size)
-        room = self.new_room(req)
+    def connect_host(self, current_user, message):
+        asset_id = message.get('uuid', None)
+        system_user_id = message.get('userid', None)
+        secret = message.get('secret', None)
+        cols, rows = message.get('size', (80, 24))
+        room = self.new_room(current_user, cols=cols, rows=rows)
 
         self.emit('room', {'room': room["id"], 'secret': secret})
         join_room(room["id"])
-        if not asset_id or not user_id:
+        if not asset_id or not system_user_id:
             return
 
         asset = app_service.get_asset(asset_id)
-        system_user = app_service.get_system_user(user_id)
+        system_user = app_service.get_system_user(system_user_id)
 
         if not asset or not system_user:
             return
@@ -149,10 +152,10 @@ class ProxyNamespace(BaseNamespace):
         # 此处获取token含有的主机的信息
         logger.debug("On token trigger")
         token = message.get('token', None)
-        secret = message.get('secret', None)
+        secret = message.get("secret", None)
         win_size = message.get('size', (80, 24))
 
-        room = self.new_room()
+        room = self.new_room(None)
         self.emit('room', {'room': room["id"], 'secret': secret})
         join_room(room['id'])
 
@@ -173,27 +176,28 @@ class ProxyNamespace(BaseNamespace):
             return None
 
         user_id = info.get('user', None)
-        self.current_user = app_service.get_user_profile(user_id)
-        # room["request"].user = self.current_user
-        self.on_host({
+        current_user = app_service.get_user_profile(user_id)
+        message = {
             'secret': secret,
             'uuid': info['asset'],
             'userid': info['system_user'],
             'size': win_size,
-        })
+        }
+        self.connect_host(current_user, message)
 
     def on_resize(self, message):
         cols, rows = message.get('cols', None), message.get('rows', None)
         logger.debug("On resize event trigger: {}*{}".format(cols, rows))
         rooms = self.connections.get(request.sid, {})
-        if self.win_size != (cols, rows):
-            logger.debug("Start change win size: {}*{}".format(cols, rows))
-            for room in rooms.values():
-                room["request"].meta.update({
-                    'width': cols, 'height': rows
-                })
-                room["request"].change_size_event.set()
-                room.update({"cols": cols, "rows": rows})
+        logger.debug("Start change win size: {}*{}".format(cols, rows))
+        for room in rooms.values():
+            if (room["cols"], room["rows"]) == (cols, rows):
+                continue
+            room["request"].meta.update({
+                'width': cols, 'height': rows
+            })
+            room["request"].change_size_event.set()
+            room.update({"cols": cols, "rows": rows})
 
     def on_disconnect(self):
         logger.debug("On disconnect event trigger")
