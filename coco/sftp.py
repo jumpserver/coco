@@ -93,6 +93,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
         data = {
             "user": self.server.request.user.username,
             "asset": host,
+            "org_id": self.server.asset.org_id,
             "system_user": su,
             "remote_addr": self.server.request.addr[0],
             "operate": operate,

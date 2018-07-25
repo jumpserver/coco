@@ -104,7 +104,6 @@ class SSHInterface(paramiko.ServerInterface):
         token = info.get('token', None)
         if seed and not token:
             self.otp_auth = True
-
         return user
 
     def check_channel_direct_tcpip_request(self, chanid, origin, destination):
