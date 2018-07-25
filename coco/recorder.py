@@ -67,7 +67,9 @@ class ReplayRecorder(metaclass=abc.ABCMeta):
             if self.storage.type == 'jms':
                 return False
             else:
-                self.storage = jms_storage.JMSReplayStorage(app_service)
+                self.storage = jms_storage.JMSReplayStorage(
+                    {"SERVICE": app_service}
+                )
                 self.upload_replay(session_id, times=3)
 
         ok, msg = self.push_to_storage(session_id)
