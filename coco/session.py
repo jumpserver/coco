@@ -83,6 +83,7 @@ class Session:
             return
         self._command_recorder.record({
             "session": self.id,
+            "org_id": self.server.asset.org_id,
             "input": _input,
             "output": _output,
             "user": self.client.user.username,
@@ -174,6 +175,7 @@ class Session:
             "id": self.id,
             "user": self.client.user.username,
             "asset": self.server.asset.hostname,
+            "org_id": self.server.asset.org_id,
             "system_user": self.server.system_user.username,
             "login_from": self.login_from,
             "remote_addr": self.client.addr[0],

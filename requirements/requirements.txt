@@ -19,10 +19,10 @@ itsdangerous==0.24
 Jinja2==2.10
 jmespath==0.9.3
 jms-storage==0.0.18
-jumpserver-python-sdk==0.0.44
+jumpserver-python-sdk==0.0.47
 MarkupSafe==1.0
 oss2==2.4.0
-paramiko==2.4.0
+paramiko==2.4.1
 psutil==5.4.1
 pyasn1==0.4.2
 pycparser==2.18
