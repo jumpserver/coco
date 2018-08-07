@@ -51,10 +51,16 @@ class SFTPServer(paramiko.SFTPServerInterface):
             return self._sftp[host]['sftp']
 
     def get_perm_hosts(self):
+        hosts = {}
         assets = app_service.get_user_assets(
             self.server.request.user
         )
-        return {asset.hostname: asset for asset in assets}
+        for asset in assets:
+            key = asset.hostname
+            if asset.org_id:
+                key = "{}.{}".format(asset.hostname, asset.org_name)
+            hosts[key] = asset
+        return hosts
 
     def parse_path(self, path):
         data = path.lstrip('/').split('/')
@@ -89,10 +95,12 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
     def create_ftp_log(self, path, operate, is_success=True, filename=None):
         host, su, rpath = self.parse_path(path)
+        asset = self.hosts.get(host)
         date_start = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S") + " +0000",
         data = {
             "user": self.server.request.user.username,
             "asset": host,
+            "org_id": asset.org_id,
             "system_user": su,
             "remote_addr": self.server.request.addr[0],
             "operate": operate,
