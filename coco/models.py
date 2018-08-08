@@ -97,6 +97,7 @@ class BaseServer:
         self.send_bytes = 0
         self.recv_bytes = 0
         self.stop_evt = threading.Event()
+        self.chan = None
 
         self.input_data = SizedList(maxsize=1024)
         self.output_data = SizedList(maxsize=1024)
@@ -160,64 +161,6 @@ class BaseServer:
         parser = utils.TtyIOParser()
         return parser.parse_input(self.input_data)
 
-
-class TelnetServer(BaseServer):
-    """
-    Telnet server
-    """
-
-    def __init__(self, sock, asset, system_user):
-        super(TelnetServer, self).__init__()
-        self.sock = sock
-        self.asset = asset
-        self.system_user = system_user
-
-    def fileno(self):
-        return self.sock.fileno()
-
-    def send(self, b):
-        self.parse(b)
-        return self.sock.send(b)
-
-    def recv(self, size):
-        data = self.sock.recv(size)
-        self.session.put_replay(data)
-        if self._input_initial:
-            if self._in_input_state:
-                self.input_data.append(data)
-            else:
-                self.output_data.append(data)
-        return data
-
-    def close(self):
-        logger.info("Closed server {}".format(self))
-        self.parse(b'')
-        self.stop_evt.set()
-        self.sock.close()
-
-    def __getattr__(self, item):
-        return getattr(self.sock, item)
-
-    def __str__(self):
-        return "<To: {}>".format(str(self.asset))
-
-
-class Server(BaseServer):
-    """
-    SSH Server
-    Server object like client, a wrapper object, a connection to the asset,
-    Because we don't want to using python dynamic feature, such asset
-    have the chan and system_user attr.
-    """
-
-    # Todo: Server name is not very suitable
-    def __init__(self, chan, sock, asset, system_user):
-        super(Server, self).__init__()
-        self.chan = chan
-        self.sock = sock
-        self.asset = asset
-        self.system_user = system_user
-
     def fileno(self):
         return self.chan.fileno()
 
@@ -240,15 +183,46 @@ class Server(BaseServer):
         self.parse(b'')
         self.stop_evt.set()
         self.chan.close()
-        self.chan.transport.close()
-        if self.sock:
-            self.sock.transport.close()
 
     def __getattr__(self, item):
         return getattr(self.chan, item)
 
     def __str__(self):
         return "<To: {}>".format(str(self.asset))
+
+
+class TelnetServer(BaseServer):
+    """
+    Telnet server
+    """
+    def __init__(self, sock, asset, system_user):
+        super(TelnetServer, self).__init__()
+        self.chan = sock
+        self.asset = asset
+        self.system_user = system_user
+
+
+class Server(BaseServer):
+    """
+    SSH Server
+    Server object like client, a wrapper object, a connection to the asset,
+    Because we don't want to using python dynamic feature, such asset
+    have the chan and system_user attr.
+    """
+
+    # Todo: Server name is not very suitable
+    def __init__(self, chan, sock, asset, system_user):
+        super(Server, self).__init__()
+        self.chan = chan
+        self.sock = sock
+        self.asset = asset
+        self.system_user = system_user
+
+    def close(self):
+        super().close()
+        self.chan.transport.close()
+        if self.sock:
+            self.sock.transport.close()
 
     # def __del__(self):
     #     print("GC: Server object has been gc")
