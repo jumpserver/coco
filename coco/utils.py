@@ -19,6 +19,9 @@ from .ctx import stack
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
+APP_NAME = "coco"
+LOCALE_DIR = os.path.join(BASE_DIR, 'locale')
+
 
 class Singleton(type):
     def __init__(cls, *args, **kwargs):
@@ -276,6 +279,13 @@ def _gettext():
     return gettext.gettext
 
 
+def _get_trans():
+    gettext.install(APP_NAME, LOCALE_DIR)
+    zh = gettext.translation(APP_NAME, LOCALE_DIR, ["zh_CN"])
+    en = gettext.translation(APP_NAME, LOCALE_DIR, ["en"])
+    return zh, en
+
+
 def get_private_key_fingerprint(key):
     line = hexlify(key.get_fingerprint())
     return b':'.join([line[i:i+2] for i in range(0, len(line), 2)])
@@ -420,4 +430,4 @@ def int_length(i):
 
 
 ugettext = _gettext()
-
+trans_zh, trans_en = _get_trans()

@@ -66,5 +66,8 @@ class Config:
         "TYPE": "server"
     }
 
+    # LANGUAGE_CODE = en
+    LANGUAGE_CODE = 'zh'
+
 
 config = Config()
