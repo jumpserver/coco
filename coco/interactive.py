@@ -129,22 +129,13 @@ class InteractiveServer:
 
         id_length = max(len(str(len(self.nodes))), 5)
         name_length = item_max_length(self.nodes, 15, key=lambda x: x.name)
-        amount_length = item_max_length(self.nodes, 10,
-                                        key=lambda x: x.assets_amount)
+        amount_length = item_max_length(self.nodes, 10, key=lambda x: x.assets_amount)
         size_list = [id_length, name_length, amount_length]
         fake_data = ['ID', _("Name"), _("Assets")]
-        header_without_comment = format_with_zh(size_list, *fake_data)
-        comment_length = max(
-            self.request.meta["width"] -
-            size_of_str_with_zh(header_without_comment) - 1,
-            2
-        )
-        size_list.append(comment_length)
-        fake_data.append(_("Comment"))
 
-        self.client.send(title(format_with_zh(size_list, *fake_data)))
-        for index, group in enumerate(self.nodes, 1):
-            data = [index, group.name, group.assets_amount, group.comment]
+        self.client.send(wr(title(format_with_zh(size_list, *fake_data))))
+        for index, node in enumerate(self.nodes, 1):
+            data = [index, node.name, node.assets_amount]
             self.client.send(wr(format_with_zh(size_list, *data)))
         self.client.send(wr(_("总共: {}").format(len(self.nodes)), before=1))
 
