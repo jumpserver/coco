@@ -9,8 +9,8 @@ import os
 from . import char
 from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
     wrap_with_warning as warning, is_obj_attr_has, is_obj_attr_eq, \
-    sort_assets, ugettext, get_logger, net_input, format_with_zh, \
-    item_max_length, size_of_str_with_zh
+    sort_assets, ugettext as _, get_logger, net_input, format_with_zh, \
+    item_max_length, size_of_str_with_zh, switch_lang
 from .ctx import current_app, app_service
 from .proxy import ProxyServer
 
@@ -28,10 +28,6 @@ class InteractiveServer:
         self.nodes = None
         self.get_user_assets_async()
         self.get_user_nodes_async()
-
-    @property
-    def _(self):
-        return self.client.request.gettext
 
     @property
     def search_result(self):
@@ -58,16 +54,16 @@ class InteractiveServer:
                         continue
                     self.client.send(i.decode('utf-8').replace('\n', '\r\n'))
 
-        banner_header = self._("\n{T}{T}{title} {user}, Welcome to use Jumpserver open source fortress system {end}{R}{R}")
+        banner_header = _("\n{T}{T}{title} {user}, Welcome to use Jumpserver open source fortress system {end}{R}{R}")
         banners = [
-            self._("{T}1) Enter {green}ID{end} directly login or enter {green}part IP, Hostname, Comment{end} to search login(if unique).{R}"),
-            self._("{T}2) Enter {green}/{end} + {green}IP, Hostname{end} or {green}Comment {end} search, such as: /ip.{R}"),
-            self._("{T}3) Enter {green}p{end} to display the host you have permission.{R}"),
-            self._("{T}4) Enter {green}g{end} to display the node that you have permission.{R}"),
-            self._("{T}5) Enter {green}g{end} + {green}Group ID{end} to display the host under the node, such as g1.{R}"),
-            self._("{T}6) Enter {green}s{end} Chinese-english switch.{R}"),
-            self._("{T}7) Enter {green}h{end} help.{R}"),
-            self._("{T}0) Enter {green}q{end} exit.{R}\n")
+            _("{T}1) Enter {green}ID{end} directly login or enter {green}part IP, Hostname, Comment{end} to search login(if unique).{R}"),
+            _("{T}2) Enter {green}/{end} + {green}IP, Hostname{end} or {green}Comment {end} search, such as: /ip.{R}"),
+            _("{T}3) Enter {green}p{end} to display the host you have permission.{R}"),
+            _("{T}4) Enter {green}g{end} to display the node that you have permission.{R}"),
+            _("{T}5) Enter {green}g{end} + {green}Group ID{end} to display the host under the node, such as g1.{R}"),
+            _("{T}6) Enter {green}s{end} Chinese-english switch.{R}"),
+            _("{T}7) Enter {green}h{end} help.{R}"),
+            _("{T}0) Enter {green}q{end} exit.{R}\n")
         ]
         self.client.send(banner_header.format(
             title="\033[1;32m", user=self.client.user, end="\033[0m",
@@ -93,15 +89,12 @@ class InteractiveServer:
         elif opt in ['q', 'Q', 'exit', 'quit']:
             return self._sentinel
         elif opt in ['s', 'S']:
-            self.switch_lang()
+            switch_lang()
             self.display_banner()
         elif opt in ['h', 'H']:
             self.display_banner()
         else:
             self.search_and_proxy(opt)
-
-    def switch_lang(self):
-        self.client.request.trans_install()
 
     def search_assets(self, q):
         if self.assets is None:
@@ -142,24 +135,24 @@ class InteractiveServer:
             self.get_user_nodes()
 
         if len(self.nodes) == 0:
-            self.client.send(warning(self._("No")))
+            self.client.send(warning(_("No")))
             return
 
         id_length = max(len(str(len(self.nodes))), 5)
         name_length = item_max_length(self.nodes, 15, key=lambda x: x.name)
         amount_length = item_max_length(self.nodes, 10, key=lambda x: x.assets_amount)
         size_list = [id_length, name_length, amount_length]
-        fake_data = ['ID', self._("Name"), self._("Assets")]
+        fake_data = ['ID', _("Name"), _("Assets")]
 
         self.client.send(wr(title(format_with_zh(size_list, *fake_data))))
         for index, node in enumerate(self.nodes, 1):
             data = [index, node.name, node.assets_amount]
             self.client.send(wr(format_with_zh(size_list, *data)))
-        self.client.send(wr(self._("Total: {}").format(len(self.nodes)), before=1))
+        self.client.send(wr(_("Total: {}").format(len(self.nodes)), before=1))
 
     def display_node_assets(self, _id):
         if _id > len(self.nodes) or _id <= 0:
-            self.client.send(wr(warning(self._("There is no matching group, please re-enter"))))
+            self.client.send(wr(warning(_("There is no matching group, please re-enter"))))
             self.display_nodes()
             return
 
@@ -169,7 +162,7 @@ class InteractiveServer:
     def display_search_result(self):
         sort_by = current_app.config["ASSET_LIST_SORT_BY"]
         self.search_result = sort_assets(self.search_result, sort_by)
-        fake_data = [self._("ID"), self._("Hostname"), self._("IP"), self._("LoginAs")]
+        fake_data = [_("ID"), _("Hostname"), _("IP"), _("LoginAs")]
         id_length = max(len(str(len(self.search_result))), 4)
         hostname_length = item_max_length(self.search_result, 15,
                                           key=lambda x: x.hostname)
@@ -183,7 +176,7 @@ class InteractiveServer:
             2
         )
         size_list.append(comment_length)
-        fake_data.append(self._("Comment"))
+        fake_data.append(_("Comment"))
         self.client.send(wr(title(format_with_zh(size_list, *fake_data))))
         for index, asset in enumerate(self.search_result, 1):
             data = [
@@ -191,7 +184,7 @@ class InteractiveServer:
                 asset.system_users_name_list, asset.comment
             ]
             self.client.send(wr(format_with_zh(size_list, *data)))
-        self.client.send(wr(self._("Total: {} Match: {}").format(
+        self.client.send(wr(_("Total: {} Match: {}").format(
             len(self.assets), len(self.search_result)), before=1)
         )
 
@@ -234,7 +227,7 @@ class InteractiveServer:
             return None
 
         while True:
-            self.client.send(wr(self._("Select a login:: "), after=1))
+            self.client.send(wr(_("Select a login:: "), after=1))
             self.display_system_users(system_users)
             opt = net_input(self.client, prompt="ID> ")
             if opt.isdigit() and len(system_users) > int(opt):
@@ -257,7 +250,7 @@ class InteractiveServer:
             self.search_result = None
             if asset.platform == "Windows":
                 self.client.send(warning(
-                    self._("Terminal does not support login Windows, please use web terminal to access"))
+                    _("Terminal does not support login Windows, please use web terminal to access"))
                 )
                 return
             self.proxy(asset)
@@ -267,7 +260,7 @@ class InteractiveServer:
     def proxy(self, asset):
         system_user = self.choose_system_user(asset.system_users_granted)
         if system_user is None:
-            self.client.send(self._("No system user"))
+            self.client.send(_("No system user"))
             return
         forwarder = ProxyServer(self.client, login_from='ST')
         forwarder.proxy(asset, system_user)

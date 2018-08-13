@@ -4,12 +4,9 @@ import threading
 import datetime
 import weakref
 import time
-import builtins
 
 from . import char
 from . import utils
-from .utils import trans_en, trans_zh
-from .ctx import current_app
 
 BUF_SIZE = 4096
 logger = utils.get_logger(__file__)
@@ -24,25 +21,9 @@ class Request:
         self.remote_ip = self.addr[0]
         self.change_size_event = threading.Event()
         self.date_start = datetime.datetime.now()
-        self.trans = self.get_default_trans()
-        self.gettext = self.trans_install()
 
     # def __del__(self):
     #     print("GC: Request object gc")
-
-    @staticmethod
-    def get_default_trans():
-        lang = current_app.config['LANGUAGE_CODE']
-        trans = [trans_zh, trans_en]
-        if lang == 'en':
-            trans[0], trans[1] = trans[1], trans[0]
-        return trans
-
-    def trans_install(self):
-        self.trans[0].install()
-        self.trans[0], self.trans[1] = self.trans[1], self.trans[0]
-        self.gettext = builtins.__dict__['_']
-        return self.gettext
 
 
 class SizedList(list):

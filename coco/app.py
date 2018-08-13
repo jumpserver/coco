@@ -56,6 +56,7 @@ class Coco:
         'ADMINS': '',
         'COMMAND_STORAGE': {'TYPE': 'server'},   # server
         'REPLAY_STORAGE': {'TYPE': 'server'},
+        'LANGUAGE_CODE': 'zh',
     }
 
     def __init__(self, root_path=None):

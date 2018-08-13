@@ -10,12 +10,15 @@ import os
 import gettext
 from io import StringIO
 from binascii import hexlify
+from werkzeug.local import Local, LocalProxy
+from functools import partial
+import builtins
 
 import paramiko
 import pyte
 
 from . import char
-from .ctx import stack
+from .ctx import stack, current_app
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -273,19 +276,6 @@ def sort_assets(assets, order_by='hostname'):
     return assets
 
 
-def _gettext():
-    gettext.bindtextdomain("coco", os.path.join(BASE_DIR, "locale"))
-    gettext.textdomain("coco")
-    return gettext.gettext
-
-
-def _get_trans():
-    gettext.install(APP_NAME, LOCALE_DIR)
-    zh = gettext.translation(APP_NAME, LOCALE_DIR, ["zh_CN"])
-    en = gettext.translation(APP_NAME, LOCALE_DIR, ["en"])
-    return zh, en
-
-
 def get_private_key_fingerprint(key):
     line = hexlify(key.get_fingerprint())
     return b':'.join([line[i:i+2] for i in range(0, len(line), 2)])
@@ -429,5 +419,47 @@ def int_length(i):
     return len(str(i))
 
 
-ugettext = _gettext()
+def _get_trans():
+    gettext.install(APP_NAME, LOCALE_DIR)
+    zh = gettext.translation(APP_NAME, LOCALE_DIR, ["zh_CN"])
+    en = gettext.translation(APP_NAME, LOCALE_DIR, ["en"])
+    return zh, en
+
+
 trans_zh, trans_en = _get_trans()
+_thread_locals = Local()
+
+
+def set_current_lang(lang):
+    setattr(_thread_locals, 'LANGUAGE_CODE', lang)
+
+
+def get_current_lang(attr):
+    return getattr(_thread_locals, attr, None)
+
+
+def _gettext(lang):
+    if lang == 'en':
+        trans_en.install()
+    else:
+        trans_zh.install()
+    return builtins.__dict__['_']
+
+
+def _find(attr):
+    lang = get_current_lang(attr)
+    if lang is None:
+        lang = current_app.config['LANGUAGE_CODE']
+        set_current_lang(lang)
+    return _gettext(lang)
+
+
+def switch_lang():
+    lang = get_current_lang('LANGUAGE_CODE')
+    if lang == 'zh':
+        set_current_lang('en')
+    elif lang == 'en':
+        set_current_lang('zh')
+
+
+ugettext = LocalProxy(partial(_find, 'LANGUAGE_CODE'))
