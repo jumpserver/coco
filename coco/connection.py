@@ -10,11 +10,11 @@ import telnetlib
 import paramiko
 from paramiko.ssh_exception import SSHException
 
-from .ctx import app_service
+from .ctx import app_service, current_app
 from .utils import get_logger, get_private_key_fingerprint, net_input
 
 logger = get_logger(__file__)
-TIMEOUT = 10
+
 BUF_SIZE = 1024
 MANUAL_LOGIN = 'manual'
 AUTO_LOGIN = 'auto'
@@ -46,7 +46,8 @@ class SSHConnection:
             ssh.connect(
                 asset.ip, port=asset.port, username=system_user.username,
                 password=system_user.password, pkey=system_user.private_key,
-                timeout=TIMEOUT, compress=True, auth_timeout=TIMEOUT,
+                timeout=current_app.config['SSH_TIMEOUT'],
+                compress=True, auth_timeout=current_app.config['SSH_TIMEOUT'],
                 look_for_keys=False, sock=sock
             )
         except (paramiko.AuthenticationException,
@@ -111,7 +112,7 @@ class SSHConnection:
                             username=gateway.username,
                             password=gateway.password,
                             pkey=gateway.private_key_obj,
-                            timeout=TIMEOUT)
+                            timeout=current_app.config['SSH_TIMEOUT'])
             except(paramiko.AuthenticationException,
                    paramiko.BadAuthenticationType,
                    SSHException):
