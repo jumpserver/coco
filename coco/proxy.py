@@ -16,7 +16,6 @@ from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
 
 
 logger = get_logger(__file__)
-TIMEOUT = 10
 BUF_SIZE = 4096
 MANUAL_LOGIN = 'manual'
 AUTO_LOGIN = 'auto'
@@ -156,8 +155,11 @@ class ProxyServer:
             self.client.send('Connecting to {}@{} {:.1f}'.format(
                 system_user, asset, delay)
             )
-            while self.connecting and delay < TIMEOUT:
-                self.client.send('\x08\x08\x08{:.1f}'.format(delay).encode())
+            while self.connecting and delay < current_app.config['SSH_TIMEOUT']:
+                if 0 <= delay < 10:
+                    self.client.send('\x08\x08\x08{:.1f}'.format(delay).encode())
+                else:
+                    self.client.send('\x08\x08\x08\x08{:.1f}'.format(delay).encode())
                 time.sleep(0.1)
                 delay += 0.1
         thread = threading.Thread(target=func)

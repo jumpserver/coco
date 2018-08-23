@@ -66,5 +66,8 @@ class Config:
         "TYPE": "server"
     }
 
+    # SSH connection timeout (default 15 seconds)
+    # SSH_TIMEOUT = 15
+
 
 config = Config()
