@@ -20,7 +20,7 @@ from .httpd import HttpServer
 from .logger import create_logger
 from .tasks import TaskHandler
 from .recorder import ReplayRecorder, CommandRecorder
-from .utils import get_logger, register_app, register_service
+from .utils import get_logger, register_app, register_service, ugettext as _
 
 eventlet.monkey_patch()
 hub_prevent_multiple_readers(False)
@@ -57,6 +57,7 @@ class Coco:
         'COMMAND_STORAGE': {'TYPE': 'server'},   # server
         'REPLAY_STORAGE': {'TYPE': 'server'},
         'LANGUAGE_CODE': 'zh',
+        'SECURITY_MAX_IDLE_TIME': 60,
     }
 
     def __init__(self, root_path=None):
@@ -193,19 +194,26 @@ class Coco:
     def monitor_sessions(self):
         interval = self.config["HEARTBEAT_INTERVAL"]
 
+        def check_session_idle_too_long(s):
+            delta = datetime.datetime.utcnow() - s.date_last_active
+            max_idle_seconds = self.config['SECURITY_MAX_IDLE_TIME'] * 60
+            if delta.seconds > max_idle_seconds:
+                msg = _(
+                    "Connect idle more than {} minutes, disconnect").format(
+                    self.config['SECURITY_MAX_IDLE_TIME']
+                )
+                s.terminate(msg=msg)
+                return True
+
         def func():
             while not self.stop_evt.is_set():
-                for s in self.sessions:
-                    if not s.stop_evt.is_set():
-                        continue
-                    if s.date_end is None:
+                sessions_copy = [s for s in self.sessions]
+                for s in sessions_copy:
+                    if s.stop_evt.is_set() or s.date_end:
                         self.remove_session(s)
-                        continue
-                    delta = datetime.datetime.now() - s.date_end
-                    if delta > datetime.timedelta(seconds=interval*5):
-                        self.remove_session(s)
+                    else:
+                        check_session_idle_too_long(s)
                 time.sleep(interval)
-
         thread = threading.Thread(target=func)
         thread.start()
 
@@ -281,8 +289,8 @@ class Coco:
         with self.lock:
             try:
                 logger.info("Remove session: {}".format(session))
-                self.sessions.remove(session)
                 self.service.finish_session(session.to_json())
+                self.sessions.remove(session)
             except ValueError:
                 msg = "Remove session: {} fail, maybe already removed"
                 logger.warning(msg.format(session))

@@ -63,7 +63,7 @@ class InteractiveServer:
             _("{T}5) Enter {green}g{end} + {green}Group ID{end} to display the host under the node, such as g1.{R}"),
             _("{T}6) Enter {green}s{end} Chinese-english switch.{R}"),
             _("{T}7) Enter {green}h{end} help.{R}"),
-            _("{T}0) Enter {green}q{end} exit.{R}\n")
+            _("{T}0) Enter {green}q{end} exit.{R}")
         ]
         self.client.send(banner_header.format(
             title="\033[1;32m", user=self.client.user, end="\033[0m",
@@ -273,7 +273,8 @@ class InteractiveServer:
                 rv = self.dispatch(opt)
                 if rv is self._sentinel:
                     break
-            except socket.error:
+            except socket.error as e:
+                logger.debug("Socket error: {}".format(e))
                 break
         self.close()
 

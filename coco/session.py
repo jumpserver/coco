@@ -7,7 +7,8 @@ import datetime
 import selectors
 import time
 
-from .utils import get_logger
+from .utils import get_logger, wrap_with_warning as warn, \
+    wrap_with_line_feed as wr, ugettext as _
 
 BUF_SIZE = 1024
 logger = get_logger(__file__)
@@ -107,10 +108,11 @@ class Session:
         self._replay_recorder.session_end(self.id)
         self._command_recorder.session_end(self.id)
 
-    def terminate(self):
-        msg = b"Terminate by administrator\r\n"
+    def terminate(self, msg=None):
+        if not msg:
+            msg = _("Terminated by administrator")
         try:
-            self.client.send(msg)
+            self.client.send(wr(warn(msg), before=1))
         except OSError:
             pass
         self.close()
@@ -165,10 +167,10 @@ class Session:
 
     def close(self):
         logger.info("Close the session: {} ".format(self.id))
-        self.stop_evt.set()
         self.post_bridge()
         self.date_end = datetime.datetime.utcnow()
         self.server.close()
+        self.stop_evt.set()
 
     def to_json(self):
         return {

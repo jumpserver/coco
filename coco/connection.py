@@ -49,6 +49,8 @@ class SSHConnection:
                 timeout=TIMEOUT, compress=True, auth_timeout=TIMEOUT,
                 look_for_keys=False, sock=sock
             )
+            transport = ssh.get_transport()
+            transport.set_keepalive(30)
         except (paramiko.AuthenticationException,
                 paramiko.BadAuthenticationType,
                 SSHException) as e:
