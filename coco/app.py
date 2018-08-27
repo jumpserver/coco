@@ -209,7 +209,7 @@ class Coco:
             while not self.stop_evt.is_set():
                 sessions_copy = [s for s in self.sessions]
                 for s in sessions_copy:
-                    if s.stop_evt.is_set() or s.date_end:
+                    if s.closed or s.stop_evt.is_set() or s.date_end:
                         self.remove_session(s)
                     else:
                         check_session_idle_too_long(s)
