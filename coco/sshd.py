@@ -4,7 +4,11 @@
 
 import os
 import socket
+import random
+import multiprocessing
+from multiprocessing.reduction import recv_handle, send_handle
 import threading
+
 import paramiko
 
 from .utils import ssh_key_gen, get_logger
@@ -16,6 +20,8 @@ from .ctx import current_app
 
 logger = get_logger(__file__)
 BACKLOG = 5
+
+current_socks = []
 
 
 class SSHServer:
@@ -38,27 +44,65 @@ class SSHServer:
         with open(key_path, 'w') as f:
             f.write(ssh_key)
 
-    def run(self):
+    def start_master(self, in_p, out_p, workers):
+        in_p.close()
         host = current_app.config["BIND_HOST"]
         port = current_app.config["SSHD_PORT"]
         print('Starting ssh server at {}:{}'.format(host, port))
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
         sock.bind((host, port))
         sock.listen(BACKLOG)
-        while not self.stop_evt.is_set():
+        while True:
             try:
                 client, addr = sock.accept()
                 logger.info("Get ssh request from {}: {}".format(*addr))
-                thread = threading.Thread(target=self.handle_connection,
-                                          args=(client, addr))
-                thread.daemon = True
-                thread.start()
+                worker = random.choice(workers)
+                send_handle(out_p, client.fileno(), worker.pid)
+                # client.close()
             except IndexError as e:
                 logger.error("Start SSH server error: {}".format(e))
 
+    def start_worker(self, in_p, out_p):
+        out_p.close()
+        while True:
+            fd = recv_handle(in_p)
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM, fileno=fd) as s:
+                print(s._closed)
+                addr = s.getpeername()
+                thread = threading.Thread(target=self.handle_connection, args=(s, addr))
+                thread.daemon = True
+                thread.start()
+
+    def start_workers(self, in_p, out_p):
+        workers = []
+        for i in range(4):
+            worker = multiprocessing.Process(target=self.start_worker, args=(in_p, out_p))
+            workers.append(worker)
+            worker.start()
+        return workers
+
+    def run(self):
+        c1, c2 = multiprocessing.Pipe()
+        self.pipe = (c1, c2)
+        workers = self.start_workers(c1, c2)
+        self.workers = workers
+        server_p = multiprocessing.Process(
+            target=self.start_master, args=(c1, c2, workers), name='master'
+        )
+        server_p.start()
+        c1.close()
+        c2.close()
+
     def handle_connection(self, sock, addr):
+        print("Handle connection: {}".format(sock._closed))
+        current_socks.append(sock)
+        sock.send(b"hello world\r\n")
         transport = paramiko.Transport(sock, gss_kex=False)
+        print(transport)
+        print("Handle2 connection: {}".format(sock._closed))
+        sock.send(b"hello world2\r\n")
+        sock.close()
         try:
             transport.load_server_moduli()
         except IOError:
@@ -70,14 +114,17 @@ class SSHServer:
         )
         request = Request(addr)
         server = SSHInterface(request)
+        print("2.................")
         try:
             transport.start_server(server=server)
+            print("3.................")
         except paramiko.SSHException:
             logger.warning("SSH negotiation failed")
             return
         except EOFError:
             logger.warning("Handle EOF Error")
             return
+        print("1aaaaaaaaaaaaaaaa3y")
 
         while True:
             if not transport.is_active():

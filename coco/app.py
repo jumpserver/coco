@@ -23,8 +23,8 @@ from .recorder import ReplayRecorder, CommandRecorder
 from .utils import get_logger, register_app, register_service, ugettext as _, \
     ignore_error
 
-eventlet.monkey_patch()
-hub_prevent_multiple_readers(False)
+# eventlet.monkey_patch(socket=False)
+# hub_prevent_multiple_readers(False)
 
 __version__ = '1.4.0'
 
