@@ -8,7 +8,7 @@ import selectors
 import time
 
 from .utils import get_logger, wrap_with_warning as warn, \
-    wrap_with_line_feed as wr, ugettext as _
+    wrap_with_line_feed as wr, ugettext as _, ignore_error
 
 BUF_SIZE = 1024
 logger = get_logger(__file__)
@@ -174,6 +174,7 @@ class Session:
         logger.debug("Resize server chan size {}*{}".format(width, height))
         self.server.resize_pty(width=width, height=height)
 
+    @ignore_error
     def close(self):
         logger.info("Close the session: {} ".format(self.id))
         if self.closed:

@@ -20,7 +20,8 @@ from .httpd import HttpServer
 from .logger import create_logger
 from .tasks import TaskHandler
 from .recorder import ReplayRecorder, CommandRecorder
-from .utils import get_logger, register_app, register_service, ugettext as _
+from .utils import get_logger, register_app, register_service, ugettext as _, \
+    ignore_error
 
 eventlet.monkey_patch()
 hub_prevent_multiple_readers(False)
@@ -139,6 +140,7 @@ class Coco:
         self.monitor_sessions()
         self.monitor_sessions_replay()
 
+    @ignore_error
     def heartbeat(self):
         _sessions = [s.to_json() for s in self.sessions]
         tasks = self.service.terminal_heartbeat(_sessions)

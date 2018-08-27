@@ -11,7 +11,7 @@ import gettext
 from io import StringIO
 from binascii import hexlify
 from werkzeug.local import Local, LocalProxy
-from functools import partial
+from functools import partial, wraps
 import builtins
 
 import paramiko
@@ -460,6 +460,21 @@ def switch_lang():
         set_current_lang('en')
     elif lang == 'en':
         set_current_lang('zh')
+
+
+logger = get_logger(__file__)
+
+
+def ignore_error(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            resp = func(*args, **kwargs)
+            return resp
+        except Exception as e:
+            logger.error("Error occur: {} {}".format(func.__name__, e))
+            raise e
+    return wrapper
 
 
 ugettext = LocalProxy(partial(_find, 'LANGUAGE_CODE'))
