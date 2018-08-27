@@ -250,7 +250,8 @@ class InteractiveServer:
             self.search_result = None
             if asset.platform == "Windows":
                 self.client.send(warning(
-                    _("Terminal does not support login Windows, please use web terminal to access"))
+                    _("Terminal does not support login Windows, "
+                      "please use web terminal to access"))
                 )
                 return
             self.proxy(asset)

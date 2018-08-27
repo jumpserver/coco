@@ -65,6 +65,14 @@ class Session:
         self.sel.register(sharer, selectors.EVENT_READ)
         self._sharers.append(sharer)
 
+    @property
+    def closed_unexpected(self):
+        return not self.closed and (self.client.closed or self.server.closed)
+
+    @property
+    def closed(self):
+        return self.stop_evt.is_set()
+
     def remove_sharer(self, sharer):
         logger.info("Session %s remove sharer %s" % (self.id, sharer))
         sharer.send("Leave session {} at {}"
@@ -116,6 +124,7 @@ class Session:
         except OSError:
             pass
         self.close()
+        self.client.close()
 
     def bridge(self):
         """
@@ -127,7 +136,7 @@ class Session:
         self.sel.register(self.client, selectors.EVENT_READ)
         self.sel.register(self.server, selectors.EVENT_READ)
         while not self.stop_evt.is_set():
-            events = self.sel.select()
+            events = self.sel.select(timeout=60)
             for sock in [key.fileobj for key, _ in events]:
                 data = sock.recv(BUF_SIZE)
                 # self.put_replay(data)
@@ -167,10 +176,13 @@ class Session:
 
     def close(self):
         logger.info("Close the session: {} ".format(self.id))
+        if self.closed:
+            logger.info("Session has been closed: {} ".format(self.id))
+            return
+        self.stop_evt.set()
         self.post_bridge()
         self.date_end = datetime.datetime.utcnow()
         self.server.close()
-        self.stop_evt.set()
 
     def to_json(self):
         return {
