@@ -17,8 +17,12 @@ import os
 import types
 import errno
 import json
+import socket
 
 from werkzeug.utils import import_string
+
+
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
 class ConfigAttribute(object):
@@ -266,4 +270,30 @@ class Config(dict):
         return '<%s %s>' % (self.__class__.__name__, dict.__repr__(self))
 
 
+default_config = {
+    'NAME': socket.gethostname(),
+    'CORE_HOST': 'http://127.0.0.1:8080',
+    'DEBUG': True,
+    'BIND_HOST': '0.0.0.0',
+    'SSHD_PORT': 2222,
+    'HTTPD_PORT': 5000,
+    'ACCESS_KEY': '',
+    'ACCESS_KEY_ENV': 'COCO_ACCESS_KEY',
+    'ACCESS_KEY_FILE': os.path.join(BASE_DIR, 'keys', '.access_key'),
+    'SECRET_KEY': None,
+    'LOG_LEVEL': 'DEBUG',
+    'LOG_DIR': os.path.join(BASE_DIR, 'logs'),
+    'SESSION_DIR': os.path.join(BASE_DIR, 'sessions'),
+    'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
+    'PASSWORD_AUTH': True,
+    'PUBLIC_KEY_AUTH': True,
+    'HEARTBEAT_INTERVAL': 5,
+    'MAX_CONNECTIONS': 500,
+    'ADMINS': '',
+    'COMMAND_STORAGE': {'TYPE': 'server'},   # server
+    'REPLAY_STORAGE': {'TYPE': 'server'},
+    'LANGUAGE_CODE': 'zh',
+    'SECURITY_MAX_IDLE_TIME': 60,
+}
 
+config = Config(BASE_DIR, default_config)

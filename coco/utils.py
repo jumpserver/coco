@@ -19,6 +19,7 @@ import pyte
 
 from . import char
 from .ctx import stack, current_app
+from .service import init_service, init_db_service
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -360,8 +361,14 @@ def register_app(app):
     stack['app'] = app
 
 
-def register_service(service):
+def register_service():
+    service = init_service()
     stack['service'] = service
+
+
+def register_db_engine():
+    db_engine = init_db_service()
+    stack['db_engine'] = db_engine
 
 
 zh_pattern = re.compile(r'[\u4e00-\u9fa5]')
@@ -475,6 +482,14 @@ def ignore_error(func):
             logger.error("Error occur: {} {}".format(func.__name__, e))
             raise e
     return wrapper
+
+
+def new_db_session():
+    from .ctx import db_engine
+    from sqlalchemy.orm import sessionmaker
+    Session = sessionmaker(bind=db_engine)
+    session = Session()
+    return session
 
 
 ugettext = LocalProxy(partial(_find, 'LANGUAGE_CODE'))

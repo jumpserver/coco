@@ -4,6 +4,7 @@
 
 import threading
 import time
+import os
 
 from paramiko.ssh_exception import SSHException
 
@@ -12,7 +13,8 @@ from .models import Server, TelnetServer
 from .connection import SSHConnection, TelnetConnection
 from .ctx import current_app, app_service
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
-     get_logger, net_input
+     get_logger, net_input, new_db_session
+from .service import User
 
 
 logger = get_logger(__file__)
@@ -67,6 +69,8 @@ class ProxyServer:
             command_recorder=command_recorder,
             replay_recorder=replay_recorder,
         )
+        db_session = new_db_session()
+        print("In worker process: {} {}".format(os.getpid(), db_session.query(User).all()))
         current_app.add_session(session)
         self.watch_win_size_change_async()
         session.bridge()

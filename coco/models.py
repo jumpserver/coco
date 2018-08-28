@@ -5,11 +5,14 @@ import datetime
 import weakref
 import time
 
+from sqlalchemy.ext.declarative import declarative_base
+
 from . import char
 from . import utils
 
 BUF_SIZE = 4096
 logger = utils.get_logger(__file__)
+Base = declarative_base()
 
 
 class Request:
@@ -21,9 +24,6 @@ class Request:
         self.remote_ip = self.addr[0]
         self.change_size_event = threading.Event()
         self.date_start = datetime.datetime.now()
-
-    # def __del__(self):
-    #     print("GC: Request object gc")
 
 
 class SizedList(list):
@@ -341,4 +341,8 @@ class WSProxy:
         except (OSError, EOFError):
             pass
         logger.debug("Proxy {} closed".format(self))
+
+
+class Session(Base):
+    __tablename__ = 'session'
 
