@@ -6,7 +6,7 @@ import os
 import socket
 import random
 import multiprocessing
-from multiprocessing.reduction import recv_handle, send_handle, DupFd
+from multiprocessing.reduction import recv_handle, send_handle
 import threading
 
 import paramiko
@@ -25,7 +25,7 @@ BACKLOG = 5
 class SSHServer:
 
     def __init__(self):
-        self.stop_evt = threading.Event()
+        self.stop_evt = multiprocessing.Event()
         self.workers = []
         self.pipe = None
 
@@ -75,10 +75,9 @@ class SSHServer:
 
     def start_worker(self, in_p, out_p):
         out_p.close()
-        while True:
+        while not self.stop_evt.is_set():
             fd = recv_handle(in_p)
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, fileno=fd)
-            # print("Recv sock: {}".format(sock))
             addr = sock.getpeername()
             thread = threading.Thread(
                 target=self.handle_connection, args=(sock, addr)
@@ -87,14 +86,14 @@ class SSHServer:
             thread.start()
 
     def run(self):
-        c1, c2 = multiprocessing.Pipe()
-        workers = self.start_workers(c1, c2)
-        server_p = multiprocessing.Process(
-            target=self.start_master, args=(c1, c2, workers), name='master'
+        in_p, out_p = multiprocessing.Pipe()
+        workers = self.start_workers(in_p, out_p)
+        master = multiprocessing.Process(
+            target=self.start_master, args=(in_p, out_p, workers), name='master'
         )
-        server_p.start()
-        c1.close()
-        c2.close()
+        master.start()
+        in_p.close()
+        out_p.close()
 
     def handle_connection(self, sock, addr):
         transport = paramiko.Transport(sock, gss_kex=False)
@@ -117,14 +116,8 @@ class SSHServer:
         except EOFError as e:
             logger.warning("Handle EOF Error: {}".format(e))
             return
-        print("3333334")
-        while True:
-            if not transport.is_active():
-                print("IS closed")
-                transport.close()
-                sock.close()
-                break
-            chan = transport.accept()
+        while transport.is_active():
+            chan = transport.accept(timeout=60)
             server.event.wait(5)
 
             if chan is None:
