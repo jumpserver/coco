@@ -53,6 +53,9 @@ class Config:
 
     # 登录是否支持秘钥认证
     # PUBLIC_KEY_AUTH = True
+    
+    # 允许SSH登陆的用户列表
+    ALLOW_SSH_USER = ['']
 
     # 和Jumpserver 保持心跳时间间隔
     # HEARTBEAT_INTERVAL = 5
