@@ -278,6 +278,7 @@ default_config = {
     'SSHD_PORT': 2222,
     'HTTPD_PORT': 5000,
     'ACCESS_KEY': '',
+    'DB_FILE': os.path.join(BASE_DIR, 'sqlite3.db'),
     'ACCESS_KEY_ENV': 'COCO_ACCESS_KEY',
     'ACCESS_KEY_FILE': os.path.join(BASE_DIR, 'keys', '.access_key'),
     'SECRET_KEY': None,
@@ -296,4 +297,10 @@ default_config = {
     'SECURITY_MAX_IDLE_TIME': 60,
 }
 
-config = Config(BASE_DIR, default_config)
+root_path = os.environ.get("COCO_PATH")
+if not root_path:
+    root_path = BASE_DIR
+
+config = Config(root_path, default_config)
+config['ROOT_PATH'] = root_path
+config.from_pyfile('conf.py')

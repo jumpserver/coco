@@ -11,6 +11,7 @@ import paramiko
 from paramiko.ssh_exception import SSHException
 
 from .ctx import app_service
+from .config import config
 from .utils import get_logger, get_private_key_fingerprint, net_input
 
 logger = get_logger(__file__)
@@ -144,7 +145,7 @@ class SSHConnection:
                 proxy_command.insert(0, "sshpass -p {}".format(gateway.password))
 
             if gateway.private_key:
-                gateway.set_key_dir(os.path.join(self.app.root_path, 'keys'))
+                gateway.set_key_dir(os.path.join(config['ROOT_PATH'], 'keys'))
                 proxy_command.append("-i {}".format(gateway.private_key_file))
             proxy_command = ' '.join(proxy_command)
 

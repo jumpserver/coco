@@ -14,8 +14,18 @@ BUF_SIZE = 1024
 logger = get_logger(__file__)
 
 
+class SessionManager:
+    sessions = []
+
+    @classmethod
+    def create_session(cls, *args, **kwargs):
+        session = Session(*args, **kwargs)
+        cls.sessions.append(session)
+        return session
+
+
 class Session:
-    def __init__(self, client, server, login_from, command_recorder=None, replay_recorder=None):
+    def __init__(self, client, server, login_from):
         self.id = str(uuid.uuid4())
         self.client = client  # Master of the session, it's a client sock
         self.server = server  # Server channel
@@ -23,12 +33,12 @@ class Session:
         self._watchers = []  # Only watch session
         self._sharers = []  # Join to the session, read and write
         self.replaying = True
-        self.date_created = datetime.datetime.utcnow()
+        self.date_start = datetime.datetime.utcnow()
         self.date_end = None
-        self.stop_evt = threading.Event()
+        self.is_finished = False
         self.sel = selectors.DefaultSelector()
-        self._command_recorder = command_recorder
-        self._replay_recorder = replay_recorder
+        self._command_recorder = None
+        self._replay_recorder = None
         self.server.set_session(self)
         self.date_last_active = datetime.datetime.utcnow()
 
@@ -67,11 +77,7 @@ class Session:
 
     @property
     def closed_unexpected(self):
-        return not self.closed and (self.client.closed or self.server.closed)
-
-    @property
-    def closed(self):
-        return self.stop_evt.is_set()
+        return not self.is_finished and (self.client.closed or self.server.closed)
 
     def remove_sharer(self, sharer):
         logger.info("Session %s remove sharer %s" % (self.id, sharer))
@@ -135,7 +141,7 @@ class Session:
         self.pre_bridge()
         self.sel.register(self.client, selectors.EVENT_READ)
         self.sel.register(self.server, selectors.EVENT_READ)
-        while not self.stop_evt.is_set():
+        while not self.is_finished:
             events = self.sel.select(timeout=60)
             for sock in [key.fileobj for key, _ in events]:
                 data = sock.recv(BUF_SIZE)
@@ -177,10 +183,10 @@ class Session:
     @ignore_error
     def close(self):
         logger.info("Close the session: {} ".format(self.id))
-        if self.closed:
+        if self.is_finished:
             logger.info("Session has been closed: {} ".format(self.id))
             return
-        self.stop_evt.set()
+        self.is_finished = True
         self.post_bridge()
         self.date_end = datetime.datetime.utcnow()
         self.server.close()
@@ -194,9 +200,8 @@ class Session:
             "system_user": self.server.system_user.username,
             "login_from": self.login_from,
             "remote_addr": self.client.addr[0],
-            "is_finished": True if self.stop_evt.is_set() else False,
-            "date_last_active": self.date_last_active.strftime("%Y-%m-%d %H:%M:%S") + " +0000",
-            "date_start": self.date_created.strftime("%Y-%m-%d %H:%M:%S") + " +0000",
+            "is_finished": self.is_finished,
+            "date_start": self.date_start.strftime("%Y-%m-%d %H:%M:%S") + " +0000",
             "date_end": self.date_end.strftime("%Y-%m-%d %H:%M:%S") + " +0000" if self.date_end else None
         }
 

@@ -4,7 +4,9 @@ import threading
 import datetime
 import weakref
 import time
+import uuid
 
+from sqlalchemy import Column, String, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 
 from . import char
@@ -345,4 +347,13 @@ class WSProxy:
 
 class Session(Base):
     __tablename__ = 'session'
-
+    id = Column(String, primary_key=True, default=uuid.uuid4)
+    user = Column(String(128))
+    asset = Column(String(1024))
+    org_id = Column(String(64))
+    system_user = Column(String(128))
+    login_from = Column(String(16))
+    remote_addr = Column(String(16))
+    is_finished = Column(Boolean, default=False)
+    date_start = Column(DateTime, default=datetime.datetime.utcnow)
+    date_end = Column(DateTime, nullable=True, default=None)

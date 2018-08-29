@@ -13,8 +13,8 @@ from .models import Server, TelnetServer
 from .connection import SSHConnection, TelnetConnection
 from .ctx import current_app, app_service
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
-     get_logger, net_input, new_db_session
-from .service import User
+     get_logger, net_input
+from .alignment import sessions
 
 
 logger = get_logger(__file__)
@@ -62,21 +62,13 @@ class ProxyServer:
         self.server = self.get_server_conn(asset, system_user)
         if self.server is None:
             return
-        command_recorder = current_app.new_command_recorder()
-        replay_recorder = current_app.new_replay_recorder()
         session = Session(
             self.client, self.server, self.login_from,
-            command_recorder=command_recorder,
-            replay_recorder=replay_recorder,
         )
-        db_session = new_db_session()
-        print("In worker process: {} {}".format(os.getpid(), db_session.query(User).all()))
-        current_app.add_session(session)
-        self.watch_win_size_change_async()
+        # self.watch_win_size_change_async()
         session.bridge()
         self.stop_event.set()
-        self.end_watch_win_size_change()
-        current_app.remove_session(session)
+        # self.end_watch_win_size_change()
 
     def validate_permission(self, asset, system_user):
         """
@@ -131,28 +123,28 @@ class ProxyServer:
         self.client.send(b'\r\n')
         return server
 
-    def watch_win_size_change(self):
-        while self.client.request.change_size_event.wait():
-            if self.stop_event.is_set():
-                break
-            self.client.request.change_size_event.clear()
-            width = self.client.request.meta.get('width', 80)
-            height = self.client.request.meta.get('height', 24)
-            logger.debug("Change win size: %s - %s" % (width, height))
-            try:
-                self.server.chan.resize_pty(width=width, height=height)
-            except SSHException:
-                break
+    # def watch_win_size_change(self):
+    #     while self.client.request.change_size_event.wait():
+    #         if self.stop_event.is_set():
+    #             break
+    #         self.client.request.change_size_event.clear()
+    #         width = self.client.request.meta.get('width', 80)
+    #         height = self.client.request.meta.get('height', 24)
+    #         logger.debug("Change win size: %s - %s" % (width, height))
+    #         try:
+    #             self.server.chan.resize_pty(width=width, height=height)
+    #         except SSHException:
+    #             break
 
-    def watch_win_size_change_async(self):
-        if not isinstance(self.server, Server):
-            return
-        thread = threading.Thread(target=self.watch_win_size_change)
-        thread.daemon = True
-        thread.start()
-
-    def end_watch_win_size_change(self):
-        self.client.request.change_size_event.set()
+    # def watch_win_size_change_async(self):
+    #     if not isinstance(self.server, Server):
+    #         return
+    #     thread = threading.Thread(target=self.watch_win_size_change)
+    #     thread.daemon = True
+    #     thread.start()
+    #
+    # def end_watch_win_size_change(self):
+    #     self.client.request.change_size_event.set()
 
     def send_connecting_message(self, asset, system_user):
         def func():

@@ -16,6 +16,7 @@ from .interface import SSHInterface
 from .interactive import InteractiveServer
 from .models import Client, Request
 from .sftp import SFTPServer
+from .config import config
 from .ctx import current_app
 
 logger = get_logger(__file__)
@@ -31,7 +32,7 @@ class SSHServer:
 
     @property
     def host_key(self):
-        host_key_path = os.path.join(current_app.root_path, 'keys', 'host_rsa_key')
+        host_key_path = os.path.join(config['ROOT_PATH'], 'keys', 'host_rsa_key')
         if not os.path.isfile(host_key_path):
             self.gen_host_key(host_key_path)
         return paramiko.RSAKey(filename=host_key_path)

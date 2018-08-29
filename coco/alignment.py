@@ -3,6 +3,7 @@
 #
 
 import queue
+import multiprocessing
 
 
 class MultiQueueMixin:
@@ -37,3 +38,5 @@ def get_queue(config):
 
     return replay_queue, command_queue
 
+
+sessions = multiprocessing.Manager().dict()

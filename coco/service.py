@@ -1,38 +1,27 @@
 # -*- coding: utf-8 -*-
 #
-import sqlalchemy
-from sqlalchemy import create_engine
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
 
+from .ctx import stack, db_session
+from . import models
+from sqlalchemy import create_engine
+
+from .config import config
 
 from jms.service import AppService
 
-Base = declarative_base()
-
-
-class User(Base):
-    __tablename__ = 'users'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    fullname = Column(String)
-    password = Column(String)
-
-    def __repr__(self):
-       return "<User(name='%s', fullname='%s', password='%s')>" % (
-                            self.name, self.fullname, self.password)
-
 
 def init_service():
-    from .config import config
     service = AppService(config)
-    return service
+    stack['app_service'] = service
 
 
-def init_db_service():
-    engine = create_engine('sqlite:///:memory:', echo=True)
-    Base.metadata.create_all(engine)
-    return engine
+def init_app(app):
+    stack['current_app'] = app
+
+
+def init_db():
+    db_path = config['DB_FILE']
+    engine = create_engine('sqlite:///{}'.format(db_path), echo=False)
+    models.Base.metadata.create_all(engine)
+    stack['db_engine'] = engine
 

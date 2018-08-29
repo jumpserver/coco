@@ -7,6 +7,7 @@ import threading
 import os
 
 from . import char
+from .config import config
 from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
     wrap_with_warning as warning, is_obj_attr_has, is_obj_attr_eq, \
     sort_assets, ugettext as _, get_logger, net_input, format_with_zh, \
@@ -46,7 +47,7 @@ class InteractiveServer:
 
     def display_banner(self):
         self.client.send(char.CLEAR_CHAR)
-        logo_path = os.path.join(current_app.root_path, "logo.txt")
+        logo_path = os.path.join(config['ROOT_PATH'], "logo.txt")
         if os.path.isfile(logo_path):
             with open(logo_path, 'rb') as f:
                 for i in f:
