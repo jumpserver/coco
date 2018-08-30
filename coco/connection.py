@@ -257,7 +257,7 @@ class TelnetConnection:
             else:
                 new_data_list.append(x)
         new_data = telnetlib.IAC.join(new_data_list)
-        logger.info(b'[Client options negotiate]: ' + new_data)
+        logger.info(b'[Channel options negotiate]: ' + new_data)
         self.sock.send(new_data)
 
     def login_auth(self, raw_data):

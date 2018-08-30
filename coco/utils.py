@@ -342,7 +342,7 @@ def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
             input_data.append(data[:-1])
             multi_char_with_enter = True
 
-        # If user type ENTER we should get user input
+        # If user types ENTER we should get user input
         if data in char.ENTER_CHAR or multi_char_with_enter:
             client.send(wrap_with_line_feed(b'', after=2))
             option = parser.parse_input(input_data)

@@ -17,17 +17,6 @@ logger = utils.get_logger(__file__)
 Base = declarative_base()
 
 
-class Request:
-    def __init__(self, addr):
-        self.type = []
-        self.meta = {"width": 80, "height": 24}
-        self.user = None
-        self.addr = addr
-        self.remote_ip = self.addr[0]
-        self.change_size_event = threading.Event()
-        self.date_start = datetime.datetime.now()
-
-
 class SizedList(list):
     def __init__(self, maxsize=0):
         self.maxsize = maxsize
@@ -44,20 +33,55 @@ class SizedList(list):
         del self[:]
 
 
+class Connection:
+    def __init__(self, sock=None, addr=None):
+        self.id = str(uuid.uuid4())
+        self.sock = sock
+        self.addr = addr
+        self.user = None
+        self.otp_auth = False
+        self.login_from = 'T'
+        self.clients = {}
+
+    def new_client(self, chan_id):
+        client = Client(chan_id=chan_id, user=self.user,
+                        addr=self.addr, login_from=self.login_from)
+        client.connection_id = self.id
+        self.clients[chan_id] = client
+        return client
+
+    def get_client(self, chan_id):
+        if not isinstance(chan_id, int):
+            chan_id = chan_id.get_id()
+        client = self.clients.get(chan_id)
+        return client
+
+
+class Request:
+    def __init__(self):
+        self.types = []
+        self.kind = None
+        self.meta = {}
+
+
 class Client:
     """
-    Client is the request client. Nothing more to say
+    Channel is the request client. Nothing more to say
 
     ```
-    client = Client(chan, addr, user)
+    client = Channel(chan, user, addr)
     ```
     """
 
-    def __init__(self, chan, request):
-        self.chan = chan
-        self.request = request
-        self.user = request.user
-        self.addr = request.addr
+    def __init__(self, chan_id=None, user=None, addr=None, login_from=None):
+        self.id = str(uuid.uuid4())
+        self.chan_id = chan_id
+        self.user = user
+        self.addr = addr
+        self.chan = None
+        self.request = Request()
+        self.connection_id = None
+        self.login_from = login_from
 
     def fileno(self):
         return self.chan.fileno()
@@ -75,7 +99,7 @@ class Client:
         return self.chan.recv(size)
 
     def close(self):
-        logger.info("Client {} close".format(self))
+        logger.info("Channel {} close".format(self))
         return self.chan.close()
 
     def __getattr__(self, item):
@@ -85,7 +109,7 @@ class Client:
         return "<%s from %s:%s>" % (self.user, self.addr[0], self.addr[1])
 
     # def __del__(self):
-    #     print("GC: Client object has been gc")
+    #     print("GC: Channel object has been gc")
 
 
 class BaseServer:
@@ -284,7 +308,7 @@ class WSProxy:
 
     # self must have write_message method, write message to ws
     proxy = WSProxy(self, child)
-    client = Client(parent, user)
+    client = Channel(parent, user)
 
     ```
     """

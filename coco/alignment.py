@@ -5,6 +5,8 @@
 import queue
 import multiprocessing
 
+session_queue = multiprocessing.Queue()
+
 
 class MultiQueueMixin:
     def mget(self, size=1, block=True, timeout=5):

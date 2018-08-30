@@ -24,7 +24,7 @@ from .utils import get_logger, ugettext as _, \
 from .service import init_service, init_app, init_db
 from .ctx import app_service, db_session
 from .models import Session
-from .alignment import sessions
+from .alignment import session_queue
 
 # eventlet.monkey_patch(socket=False)
 # hub_prevent_multiple_readers(False)
@@ -47,8 +47,8 @@ class Coco:
         self.command_recorder_class = None
         self._task_handler = None
         self.config = config
+        self.sessions = {}
         init_app(self)
-        # init_db()
         init_service()
 
     @property
@@ -63,9 +63,13 @@ class Coco:
             self._httpd = HttpServer()
         return self._httpd
 
-    @property
-    def sessions(self):
-        return db_session.query(Session).all()
+    def watch_session(self):
+        while not self.stop_evt.is_set():
+            action, session = session_queue.get()
+            if action == "create":
+                self.sessions[session['id']] = session
+            elif action == 'delete':
+                del self.sessions[session]
 
     @property
     def task_handler(self):
@@ -154,36 +158,38 @@ class Coco:
     #     thread = threading.Thread(target=func)
     #     thread.start()
 
-    # def monitor_sessions(self):
-    #     interval = config["HEARTBEAT_INTERVAL"]
-    #
-    #     def check_session_idle_too_long(s):
-    #         delta = datetime.datetime.utcnow() - s.date_last_active
-    #         max_idle_seconds = config['SECURITY_MAX_IDLE_TIME'] * 60
-    #         if delta.seconds > max_idle_seconds:
-    #             msg = _(
-    #                 "Connect idle more than {} minutes, disconnect").format(
-    #                 config['SECURITY_MAX_IDLE_TIME']
-    #             )
-    #             s.terminate(msg=msg)
-    #             return True
-    #
-    #     def func():
-    #         while not self.stop_evt.is_set():
-    #             sessions_copy = sessions.values()
-    #             for s in sessions_copy:
-    #                 # Session 没有正常关闭,
-    #                 if s.closed_unexpected:
-    #                     s.close()
-    #                     continue
-    #                 # Session已正常关闭
-    #                 if s.closed:
-    #                     self.remove_session(s)
-    #                 else:
-    #                     check_session_idle_too_long(s)
-    #             time.sleep(interval)
-    #     thread = threading.Thread(target=func)
-    #     thread.start()
+    def monitor_sessions(self):
+        interval = config["HEARTBEAT_INTERVAL"]
+
+        def check_session_idle_too_long(s):
+            delta = datetime.datetime.utcnow() - s.date_last_active
+            max_idle_seconds = config['SECURITY_MAX_IDLE_TIME'] * 60
+            if delta.seconds > max_idle_seconds:
+                msg = _(
+                    "Connect idle more than {} minutes, disconnect").format(
+                    config['SECURITY_MAX_IDLE_TIME']
+                )
+                s.terminate(msg=msg)
+                return True
+
+        def func():
+            while not self.stop_evt.is_set():
+                sessions_copy = self.sessions.values()
+                print("All sessions =================>")
+                print(sessions_copy)
+                #for s in sessions_copy:
+                #    # Session 没有正常关闭,
+                #    if s.closed_unexpected:
+                #        s.close()
+                #        continue
+                #    # Session已正常关闭
+                #    if s.closed:
+                #        self.remove_session(s)
+                #    else:
+                #        check_session_idle_too_long(s)
+                time.sleep(interval)
+        thread = threading.Thread(target=func)
+        thread.start()
 
     def run_forever(self):
         self.bootstrap()
@@ -205,7 +211,6 @@ class Coco:
                     break
                 time.sleep(3)
         except KeyboardInterrupt:
-            self.stop_evt.set()
             self.shutdown()
 
     def run_sshd(self):

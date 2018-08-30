@@ -14,7 +14,7 @@ import paramiko
 from .utils import ssh_key_gen, get_logger
 from .interface import SSHInterface
 from .interactive import InteractiveServer
-from .models import Client, Request
+from .models import Client, Request, Connection
 from .sftp import SFTPServer
 from .config import config
 from .ctx import current_app
@@ -29,6 +29,7 @@ class SSHServer:
         self.stop_evt = multiprocessing.Event()
         self.workers = []
         self.pipe = None
+        self.connections = []
 
     @property
     def host_key(self):
@@ -88,13 +89,19 @@ class SSHServer:
 
     def run(self):
         in_p, out_p = multiprocessing.Pipe()
-        workers = self.start_workers(in_p, out_p)
+        self.workers = self.start_workers(in_p, out_p)
         master = multiprocessing.Process(
-            target=self.start_master, args=(in_p, out_p, workers), name='master'
+            target=self.start_master, args=(in_p, out_p, self.workers),
+            name='master'
         )
         master.start()
         in_p.close()
         out_p.close()
+
+    def new_connection(self, addr, sock):
+        connection = Connection(addr=addr, sock=sock)
+        self.connections.append(connection)
+        return connection
 
     def handle_connection(self, sock, addr):
         transport = paramiko.Transport(sock, gss_kex=False)
@@ -107,8 +114,8 @@ class SSHServer:
         transport.set_subsystem_handler(
             'sftp', paramiko.SFTPServer, SFTPServer
         )
-        request = Request(addr)
-        server = SSHInterface(request)
+        connection = self.new_connection(addr, sock)
+        server = SSHInterface(connection)
         try:
             transport.start_server(server=server)
         except paramiko.SSHException:
@@ -128,27 +135,24 @@ class SSHServer:
                 logger.warning("Client not request a valid request, exiting")
                 return
 
-            t = threading.Thread(target=self.handle_chan, args=(chan, request))
+            channel = connection.clients.get(chan.get_id())
+            channel.chan = chan
+            t = threading.Thread(target=self.dispatch, args=(channel,))
             t.daemon = True
             t.start()
-
-    def handle_chan(self, chan, request):
-        client = Client(chan, request)
-        current_app.add_client(client)
-        self.dispatch(client)
 
     @staticmethod
     def dispatch(client):
         supported = {'pty', 'x11', 'forward-agent'}
-        request_type = set(client.request.type)
-        if supported & request_type:
-            logger.info("Request type `pty`, dispatch to interactive mode")
+        chan_types = set(client.request.types)
+        if supported & chan_types:
+            logger.info("Request types `{}`, dispatch to interactive mode".format(chan_types))
             InteractiveServer(client).interact()
-        elif 'subsystem' in request_type:
+        elif 'subsystem' in chan_types:
             pass
         else:
-            logger.info("Request type `{}`".format(request_type))
-            client.send("Not support request type: %s" % request_type)
+            logger.info("Request types `{}`".format(chan_types))
+            client.client.send("Not support request types: %s" % chan_types)
 
     def shutdown(self):
         self.stop_evt.set()

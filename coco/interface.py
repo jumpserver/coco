@@ -6,7 +6,9 @@ import paramiko
 import threading
 
 from .utils import get_logger
-from .ctx import current_app, app_service
+from .config import config
+from .ctx import app_service
+from .models import Request
 
 logger = get_logger(__file__)
 
@@ -19,12 +21,13 @@ class SSHInterface(paramiko.ServerInterface):
     https://github.com/paramiko/paramiko/blob/master/demos/demo_server.py
     """
 
-    def __init__(self, request):
-        self.request = request
+    def __init__(self, connection):
+        self.connection = connection
         self.event = threading.Event()
         self.auth_valid = False
         self.otp_auth = False
         self.info = None
+        self.user = None
 
     def check_auth_interactive(self, username, submethods):
         logger.info("Check auth interactive: %s %s" % (username, submethods))
@@ -58,9 +61,9 @@ class SSHInterface(paramiko.ServerInterface):
         supported = []
         if self.otp_auth:
             return 'keyboard-interactive'
-        if current_app.config["PASSWORD_AUTH"]:
+        if config["PASSWORD_AUTH"]:
             supported.append("password")
-        if current_app.config["PUBLIC_KEY_AUTH"]:
+        if config["PUBLIC_KEY_AUTH"]:
             supported.append("publickey")
         return ",".join(supported)
 
@@ -93,47 +96,69 @@ class SSHInterface(paramiko.ServerInterface):
     def validate_auth(self, username, password="", public_key=""):
         info = app_service.authenticate(
             username, password=password, public_key=public_key,
-            remote_addr=self.request.remote_ip
+            remote_addr=self.connection.addr[0]
         )
         user = info.get('user', None)
         if user:
-            self.request.user = user
+            self.connection.user = user
             self.info = info
 
         seed = info.get('seed', None)
         token = info.get('token', None)
         if seed and not token:
+            self.connection.otp_auth = True
             self.otp_auth = True
         return user
 
-    def check_channel_direct_tcpip_request(self, chanid, origin, destination):
+    def check_channel_direct_tcpip_request(self, chan_id, origin, destination):
         logger.debug("Check channel direct tcpip request: %d %s %s" %
-                     (chanid, origin, destination))
-        self.request.type.append('direct-tcpip')
-        self.request.meta.update({
-            'chanid': chanid, 'origin': origin,
-            'destination': destination,
+                     (chan_id, origin, destination))
+        client = self.connection.new_client()
+        client.request.kind = 'direct-tcpip'
+        client.request.types.append('direct-tcpip')
+        client.request.meta.update({
+            'origin': origin, 'destination': destination
         })
         self.event.set()
         return 0
 
+    def check_port_forward_request(self, address, port):
+        logger.info(
+            "Check channel port forward request: %s %s" % (address, port)
+        )
+        self.event.set()
+        return False
+
+    def check_channel_request(self, kind, chan_id):
+        logger.info("Check channel request: %s %d" % (kind, chan_id))
+        client = self.connection.new_client(chan_id)
+        client.request.kind = kind
+        return paramiko.OPEN_SUCCEEDED
+
     def check_channel_env_request(self, channel, name, value):
         logger.debug("Check channel env request: %s, %s, %s" %
                      (channel, name, value))
-        self.request.type.append('env')
+        client = self.connection.get_client(channel)
+        client.request.types.append('env')
+        client.request.meta.update({
+            'name': name, 'value': value
+        })
         return False
 
     def check_channel_exec_request(self, channel, command):
         logger.debug("Check channel exec request:  `%s`" % command)
-        self.request.type.append('exec')
-        self.request.meta.update({'channel': channel.get_id(), 'command': command})
+        client = self.connection.get_client(channel)
+        client.request.types.append('exec')
+        client.request.meta.update({
+            'command': command
+        })
         self.event.set()
         return False
 
     def check_channel_forward_agent_request(self, channel):
         logger.debug("Check channel forward agent request: %s" % channel)
-        self.request.type.append("forward-agent")
-        self.request.meta.update({'channel': channel.get_id()})
+        client = self.connection.get_client(channel)
+        client.request.types.append('forward-agent')
         self.event.set()
         return False
 
@@ -141,9 +166,10 @@ class SSHInterface(paramiko.ServerInterface):
             self, channel, term, width, height,
             pixelwidth, pixelheight, modes):
         logger.info("Check channel pty request: %s %s %s %s %s" %
-                     (term, width, height, pixelwidth, pixelheight))
-        self.request.type.append('pty')
-        self.request.meta.update({
+                    (term, width, height, pixelwidth, pixelheight))
+        client = self.connection.get_client(channel)
+        client.request.types.append('pty')
+        client.request.meta.update({
             'channel': channel, 'term': term, 'width': width,
             'height': height, 'pixelwidth': pixelwidth,
             'pixelheight': pixelheight,
@@ -151,31 +177,30 @@ class SSHInterface(paramiko.ServerInterface):
         self.event.set()
         return True
 
-    def check_channel_request(self, kind, chanid):
-        logger.info("Check channel request: %s %d" % (kind, chanid))
-        return paramiko.OPEN_SUCCEEDED
-
     def check_channel_shell_request(self, channel):
         logger.info("Check channel shell request: %s" % channel.get_id())
+        client = self.connection.get_client(channel)
+        client.request.types.append('shell')
         self.event.set()
         return True
 
     def check_channel_subsystem_request(self, channel, name):
         logger.info("Check channel subsystem request: %s %s" % (channel, name))
-        self.request.type.append('subsystem')
-        self.request.meta.update({'channel': channel.get_id(), 'name': name})
+        client = self.connection.get_client(channel)
+        client.request.types.append('subsystem')
         self.event.set()
         return super().check_channel_subsystem_request(channel, name)
 
     def check_channel_window_change_request(self, channel, width, height,
                                             pixelwidth, pixelheight):
-        self.request.meta.update({
+        client = self.connection.get_client(channel)
+        client.request.meta.update({
             'width': width,
             'height': height,
             'pixelwidth': pixelwidth,
             'pixelheight': pixelheight,
         })
-        self.request.change_size_event.set()
+        client.change_size_event.set()
         return True
 
     def check_channel_x11_request(self, channel, single_connection,
@@ -183,19 +208,14 @@ class SSHInterface(paramiko.ServerInterface):
         logger.info("Check channel x11 request %s %s %s %s %s" %
                     (channel, single_connection, auth_protocol,
                      auth_cookie, screen_number))
-        self.request.type.append('x11')
-        self.request.meta.update({
-            'channel': channel.get_id(), 'single_connection': single_connection,
-            'auth_protocol': auth_protocol, 'auth_cookie': auth_cookie,
+        client = self.connection.get_client(channel)
+        client.request.types.append('x11')
+        client.request.meta.update({
+            'single_connection': single_connection,
+            'auth_protocol': auth_protocol,
+            'auth_cookie': auth_cookie,
             'screen_number': screen_number,
         })
-        self.event.set()
-        return False
-
-    def check_port_forward_request(self, address, port):
-        logger.info("Check channel port forward request: %s %s" % (address, port))
-        self.request.type.append('port-forward')
-        self.request.meta.update({'address': address, 'port': port})
         self.event.set()
         return False
 

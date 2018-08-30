@@ -237,7 +237,7 @@ class Config(dict):
         The resulting dictionary `image_store_config` would look like::
 
             {
-                'type': 'fs',
+                'types': 'fs',
                 'path': '/var/app/images',
                 'base_url': 'http://img.website.com'
             }

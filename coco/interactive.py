@@ -12,7 +12,7 @@ from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
     wrap_with_warning as warning, is_obj_attr_has, is_obj_attr_eq, \
     sort_assets, ugettext as _, get_logger, net_input, format_with_zh, \
     item_max_length, size_of_str_with_zh, switch_lang
-from .ctx import current_app, app_service
+from .ctx import app_service
 from .proxy import ProxyServer
 
 logger = get_logger(__file__)
@@ -23,7 +23,6 @@ class InteractiveServer:
 
     def __init__(self, client):
         self.client = client
-        self.request = client.request
         self.assets = None
         self._search_result = None
         self.nodes = None
@@ -45,18 +44,21 @@ class InteractiveServer:
         value = self.filter_system_users(value)
         self._search_result = value
 
+    def display_logo(self):
+        logo_path = os.path.join(config['ROOT_PATH'], "logo.txt")
+        if not os.path.isfile(logo_path):
+            return
+        with open(logo_path, 'rb') as f:
+            for i in f:
+                if i.decode('utf-8').startswith('#'):
+                    continue
+                self.client.send(i.decode('utf-8').replace('\n', '\r\n'))
+
     def display_banner(self):
         self.client.send(char.CLEAR_CHAR)
-        logo_path = os.path.join(config['ROOT_PATH'], "logo.txt")
-        if os.path.isfile(logo_path):
-            with open(logo_path, 'rb') as f:
-                for i in f:
-                    if i.decode('utf-8').startswith('#'):
-                        continue
-                    self.client.send(i.decode('utf-8').replace('\n', '\r\n'))
-
-        banner_header = _("\n{T}{T}{title} {user}, Welcome to use Jumpserver open source fortress system {end}{R}{R}")
-        banners = [
+        self.display_logo()
+        header = _("\n{T}{T}{title} {user}, Welcome to use Jumpserver open source fortress system {end}{R}{R}")
+        menus = [
             _("{T}1) Enter {green}ID{end} directly login or enter {green}part IP, Hostname, Comment{end} to search login(if unique).{R}"),
             _("{T}2) Enter {green}/{end} + {green}IP, Hostname{end} or {green}Comment {end} search, such as: /ip.{R}"),
             _("{T}3) Enter {green}p{end} to display the host you have permission.{R}"),
@@ -66,12 +68,12 @@ class InteractiveServer:
             _("{T}7) Enter {green}h{end} help.{R}"),
             _("{T}0) Enter {green}q{end} exit.{R}")
         ]
-        self.client.send(banner_header.format(
+        self.client.send(header.format(
             title="\033[1;32m", user=self.client.user, end="\033[0m",
             T='\t', R='\r\n\r'
         ))
-        for banner in banners:
-            self.client.send(banner.format(
+        for menu in menus:
+            self.client.send(menu.format(
                 green="\033[32m", end="\033[0m",
                 T='\t', R='\r\n\r'
             ))
@@ -153,7 +155,8 @@ class InteractiveServer:
 
     def display_node_assets(self, _id):
         if _id > len(self.nodes) or _id <= 0:
-            self.client.send(wr(warning(_("There is no matching group, please re-enter"))))
+            msg = wr(warning(_("There is no matched node, please re-enter")))
+            self.client.send(msg)
             self.display_nodes()
             return
 
@@ -161,7 +164,7 @@ class InteractiveServer:
         self.display_search_result()
 
     def display_search_result(self):
-        sort_by = current_app.config["ASSET_LIST_SORT_BY"]
+        sort_by = config["ASSET_LIST_SORT_BY"]
         self.search_result = sort_assets(self.search_result, sort_by)
         fake_data = [_("ID"), _("Hostname"), _("IP"), _("LoginAs")]
         id_length = max(len(str(len(self.search_result))), 4)
@@ -172,7 +175,7 @@ class InteractiveServer:
         size_list = [id_length, hostname_length, 16, sysuser_length]
         header_without_comment = format_with_zh(size_list, *fake_data)
         comment_length = max(
-            self.request.meta["width"] -
+            self.client.request.meta["width"] -
             size_of_str_with_zh(header_without_comment) - 1,
             2
         )
@@ -264,7 +267,7 @@ class InteractiveServer:
         if system_user is None:
             self.client.send(_("No system user"))
             return
-        forwarder = ProxyServer(self.client, login_from='ST')
+        forwarder = ProxyServer(self.client)
         forwarder.proxy(asset, system_user)
 
     def interact(self):
@@ -286,7 +289,9 @@ class InteractiveServer:
         thread.start()
 
     def close(self):
-        current_app.remove_client(self.client)
+        self.client.close()
+        return
+        # current_app.remove_client(self.client)
 
     # def __del__(self):
     #     print("GC: Interactive class been gc")

@@ -8,10 +8,10 @@ import os
 
 from paramiko.ssh_exception import SSHException
 
-from .session import Session
+from .session import SessionManager
 from .models import Server, TelnetServer
 from .connection import SSHConnection, TelnetConnection
-from .ctx import current_app, app_service
+from .ctx import app_service
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
      get_logger, net_input
 from .alignment import sessions
@@ -25,10 +25,9 @@ AUTO_LOGIN = 'auto'
 
 
 class ProxyServer:
-    def __init__(self, client, login_from):
+    def __init__(self, client):
         self.client = client
         self.server = None
-        self.login_from = login_from
         self.connecting = True
         self.stop_event = threading.Event()
 
@@ -62,9 +61,7 @@ class ProxyServer:
         self.server = self.get_server_conn(asset, system_user)
         if self.server is None:
             return
-        session = Session(
-            self.client, self.server, self.login_from,
-        )
+        session = SessionManager.create_session(self.client, self.server)
         # self.watch_win_size_change_async()
         session.bridge()
         self.stop_event.set()
