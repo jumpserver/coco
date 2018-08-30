@@ -9,7 +9,7 @@ import threading
 import socket
 import json
 import signal
-import eventlet
+# import eventlet
 from eventlet.debug import hub_prevent_multiple_readers
 from multiprocessing import Array
 
@@ -23,7 +23,6 @@ from .utils import get_logger, ugettext as _, \
     ignore_error
 from .service import init_service, init_app, init_db
 from .ctx import app_service, db_session
-from .models import Session
 from .alignment import session_queue
 
 # eventlet.monkey_patch(socket=False)
@@ -64,12 +63,17 @@ class Coco:
         return self._httpd
 
     def watch_session(self):
-        while not self.stop_evt.is_set():
-            action, session = session_queue.get()
-            if action == "create":
-                self.sessions[session['id']] = session
-            elif action == 'delete':
-                del self.sessions[session]
+        def func():
+            while not self.stop_evt.is_set():
+                action, session = session_queue.get()
+                if action in ["create", "update"]:
+                    self.sessions[session['id']] = session
+                elif action == 'delete':
+                    del self.sessions[session]
+
+        t = threading.Thread(target=func)
+        t.daemon = True
+        t.start()
 
     @property
     def task_handler(self):
@@ -101,7 +105,8 @@ class Coco:
         app_service.initial()
         self.load_extra_conf_from_server()
         # self.keep_heartbeat()
-        # self.monitor_sessions()
+        self.watch_session()
+        self.monitor_sessions()
         # self.monitor_sessions_replay()
 
     # @ignore_error

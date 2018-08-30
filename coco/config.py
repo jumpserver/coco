@@ -281,7 +281,7 @@ default_config = {
     'DB_FILE': os.path.join(BASE_DIR, 'sqlite3.db'),
     'ACCESS_KEY_ENV': 'COCO_ACCESS_KEY',
     'ACCESS_KEY_FILE': os.path.join(BASE_DIR, 'keys', '.access_key'),
-    'SECRET_KEY': None,
+    'SECRET_KEY': 'SDK29K03%MM0ksf&#2',
     'LOG_LEVEL': 'DEBUG',
     'LOG_DIR': os.path.join(BASE_DIR, 'logs'),
     'SESSION_DIR': os.path.join(BASE_DIR, 'sessions'),

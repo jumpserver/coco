@@ -5,6 +5,8 @@ import datetime
 import weakref
 import time
 import uuid
+import socket
+from io import StringIO
 
 from sqlalchemy import Column, String, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
@@ -34,8 +36,10 @@ class SizedList(list):
 
 
 class Connection:
-    def __init__(self, sock=None, addr=None):
-        self.id = str(uuid.uuid4())
+    def __init__(self, cid=None, sock=None, addr=None):
+        if not cid:
+            cid = str(uuid.uuid4())
+        self.id = cid
         self.sock = sock
         self.addr = addr
         self.user = None
@@ -59,9 +63,10 @@ class Connection:
 
 class Request:
     def __init__(self):
-        self.types = []
+        self.type = None
+        self.x11 = None
         self.kind = None
-        self.meta = {}
+        self.meta = {'env': {}}
 
 
 class Client:
@@ -81,6 +86,8 @@ class Client:
         self.chan = None
         self.request = Request()
         self.connection_id = None
+        self.change_size_event = threading.Event()
+        self.request_x11_event = threading.Event()
         self.login_from = login_from
 
     def fileno(self):
@@ -293,6 +300,23 @@ class Server(BaseServer):
             self.sock.transport.close()
 
 
+class WSProxy2:
+    def __init__(self, ws, client_id):
+        self.ws = ws
+        self.client_id = client_id
+        self.sock, self.proxy = socket.socketpair()
+
+    def send(self, data):
+        _data = {'data': data.decode(errors="ignore"), 'room': self.client_id},
+        self.ws.emit("data", _data, room=self.client_id)
+
+    def write(self, data):
+        self.proxy.send(data.encode())
+
+    def __getattr__(self, item):
+        return getattr(self.sock, item)
+
+
 class WSProxy:
     """
     WSProxy is websocket proxy channel object.
@@ -368,16 +392,3 @@ class WSProxy:
             pass
         logger.debug("Proxy {} closed".format(self))
 
-
-class Session(Base):
-    __tablename__ = 'session'
-    id = Column(String, primary_key=True, default=uuid.uuid4)
-    user = Column(String(128))
-    asset = Column(String(1024))
-    org_id = Column(String(64))
-    system_user = Column(String(128))
-    login_from = Column(String(16))
-    remote_addr = Column(String(16))
-    is_finished = Column(Boolean, default=False)
-    date_start = Column(DateTime, default=datetime.datetime.utcnow)
-    date_end = Column(DateTime, nullable=True, default=None)

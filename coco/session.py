@@ -20,7 +20,7 @@ class SessionManager:
     @classmethod
     def create_session(cls, *args, **kwargs):
         session = Session(*args, **kwargs)
-        session_queue.put('create', session.to_json())
+        session_queue.put(('create', session.to_json()))
         cls.sessions.append(session)
         return session
 
@@ -36,7 +36,7 @@ class Session:
         self.date_start = datetime.datetime.utcnow()
         self.date_end = None
         self.is_finished = False
-        # self.sel = selectors.DefaultSelector()
+        self.sel = selectors.DefaultSelector()
         self._command_recorder = None
         self._replay_recorder = None
         self.server.set_session(self)
@@ -143,11 +143,10 @@ class Session:
         """
         logger.info("Start bridge session: {}".format(self.id))
         self.pre_bridge()
-        sel = selectors.DefaultSelector()
-        sel.register(self.client, selectors.EVENT_READ)
-        sel.register(self.server, selectors.EVENT_READ)
+        self.sel.register(self.client, selectors.EVENT_READ)
+        self.sel.register(self.server, selectors.EVENT_READ)
         while not self.is_finished:
-            events = sel.select(timeout=60)
+            events = self.sel.select(timeout=60)
             for sock in [key.fileobj for key, _ in events]:
                 data = sock.recv(BUF_SIZE)
                 # self.put_replay(data)
@@ -195,7 +194,7 @@ class Session:
         self.post_bridge()
         self.date_end = datetime.datetime.utcnow()
         self.server.close()
-        session_queue.put('delete', self.id)
+        session_queue.put(('delete', self.id))
 
     def to_json(self):
         return {

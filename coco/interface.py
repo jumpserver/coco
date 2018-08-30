@@ -8,7 +8,6 @@ import threading
 from .utils import get_logger
 from .config import config
 from .ctx import app_service
-from .models import Request
 
 logger = get_logger(__file__)
 
@@ -115,7 +114,7 @@ class SSHInterface(paramiko.ServerInterface):
                      (chan_id, origin, destination))
         client = self.connection.new_client()
         client.request.kind = 'direct-tcpip'
-        client.request.types.append('direct-tcpip')
+        client.request.type = 'direct-tcpip'
         client.request.meta.update({
             'origin': origin, 'destination': destination
         })
@@ -137,18 +136,15 @@ class SSHInterface(paramiko.ServerInterface):
 
     def check_channel_env_request(self, channel, name, value):
         logger.debug("Check channel env request: %s, %s, %s" %
-                     (channel, name, value))
+                     (channel.get_id(), name, value))
         client = self.connection.get_client(channel)
-        client.request.types.append('env')
-        client.request.meta.update({
-            'name': name, 'value': value
-        })
+        client.request.meta['env'][name] = value
         return False
 
     def check_channel_exec_request(self, channel, command):
         logger.debug("Check channel exec request:  `%s`" % command)
         client = self.connection.get_client(channel)
-        client.request.types.append('exec')
+        client.request.type = 'exec'
         client.request.meta.update({
             'command': command
         })
@@ -158,9 +154,9 @@ class SSHInterface(paramiko.ServerInterface):
     def check_channel_forward_agent_request(self, channel):
         logger.debug("Check channel forward agent request: %s" % channel)
         client = self.connection.get_client(channel)
-        client.request.types.append('forward-agent')
+        client.request.meta['forward-agent'] = True
         self.event.set()
-        return False
+        return True
 
     def check_channel_pty_request(
             self, channel, term, width, height,
@@ -168,9 +164,9 @@ class SSHInterface(paramiko.ServerInterface):
         logger.info("Check channel pty request: %s %s %s %s %s" %
                     (term, width, height, pixelwidth, pixelheight))
         client = self.connection.get_client(channel)
-        client.request.types.append('pty')
+        client.request.type = 'pty'
         client.request.meta.update({
-            'channel': channel, 'term': term, 'width': width,
+            'term': term, 'width': width,
             'height': height, 'pixelwidth': pixelwidth,
             'pixelheight': pixelheight,
         })
@@ -180,14 +176,14 @@ class SSHInterface(paramiko.ServerInterface):
     def check_channel_shell_request(self, channel):
         logger.info("Check channel shell request: %s" % channel.get_id())
         client = self.connection.get_client(channel)
-        client.request.types.append('shell')
-        self.event.set()
+        client.request.meta['shell'] = True
         return True
 
     def check_channel_subsystem_request(self, channel, name):
-        logger.info("Check channel subsystem request: %s %s" % (channel, name))
+        logger.info("Check channel subsystem request: %s" % name)
         client = self.connection.get_client(channel)
-        client.request.types.append('subsystem')
+        client.request.type = 'subsystem'
+        client.request.meta['subsystem'] = name
         self.event.set()
         return super().check_channel_subsystem_request(channel, name)
 
@@ -205,18 +201,17 @@ class SSHInterface(paramiko.ServerInterface):
 
     def check_channel_x11_request(self, channel, single_connection,
                                   auth_protocol, auth_cookie, screen_number):
-        logger.info("Check channel x11 request %s %s %s %s %s" %
-                    (channel, single_connection, auth_protocol,
+        logger.info("Check channel x11 request %s %s %s %s" %
+                    (single_connection, auth_protocol,
                      auth_cookie, screen_number))
         client = self.connection.get_client(channel)
-        client.request.types.append('x11')
+        # client.request_x11_event.set()
         client.request.meta.update({
             'single_connection': single_connection,
             'auth_protocol': auth_protocol,
             'auth_cookie': auth_cookie,
             'screen_number': screen_number,
         })
-        self.event.set()
         return False
 
     def get_banner(self):

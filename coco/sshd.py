@@ -14,10 +14,9 @@ import paramiko
 from .utils import ssh_key_gen, get_logger
 from .interface import SSHInterface
 from .interactive import InteractiveServer
-from .models import Client, Request, Connection
+from .models import Connection
 from .sftp import SFTPServer
 from .config import config
-from .ctx import current_app
 
 logger = get_logger(__file__)
 BACKLOG = 5
@@ -47,8 +46,8 @@ class SSHServer:
     @staticmethod
     def start_master(in_p, out_p, workers):
         in_p.close()
-        host = current_app.config["BIND_HOST"]
-        port = current_app.config["SSHD_PORT"]
+        host = config["BIND_HOST"]
+        port = config["SSHD_PORT"]
         print('Starting ssh server at {}:{}'.format(host, port))
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
@@ -88,6 +87,7 @@ class SSHServer:
             thread.start()
 
     def run(self):
+        print(socket.__name__)
         in_p, out_p = multiprocessing.Pipe()
         self.workers = self.start_workers(in_p, out_p)
         master = multiprocessing.Process(
@@ -125,34 +125,38 @@ class SSHServer:
             logger.warning("Handle EOF Error: {}".format(e))
             return
         while transport.is_active():
-            chan = transport.accept(timeout=60)
+            chan = transport.accept()
             server.event.wait(5)
-
             if chan is None:
                 continue
 
             if not server.event.is_set():
                 logger.warning("Client not request a valid request, exiting")
+                sock.close()
                 return
+            else:
+                server.event.clear()
 
-            channel = connection.clients.get(chan.get_id())
-            channel.chan = chan
-            t = threading.Thread(target=self.dispatch, args=(channel,))
+            client = connection.clients.get(chan.get_id())
+            client.chan = chan
+            t = threading.Thread(target=self.dispatch, args=(client,))
             t.daemon = True
             t.start()
 
     @staticmethod
     def dispatch(client):
         supported = {'pty', 'x11', 'forward-agent'}
-        chan_types = set(client.request.types)
-        if supported & chan_types:
-            logger.info("Request types `{}`, dispatch to interactive mode".format(chan_types))
+        chan_type = client.request.type
+        kind = client.request.kind
+        if kind == 'session' and chan_type in supported:
+            logger.info("Request type `{}:{}`, dispatch to interactive mode".format(kind, chan_type))
             InteractiveServer(client).interact()
-        elif 'subsystem' in chan_types:
+        elif chan_type == 'subsystem':
             pass
         else:
-            logger.info("Request types `{}`".format(chan_types))
-            client.client.send("Not support request types: %s" % chan_types)
+            msg = "Request type `{}:{}` not support now".format(kind, chan_type)
+            logger.info(msg)
+            client.send(msg)
 
     def shutdown(self):
         self.stop_evt.set()
