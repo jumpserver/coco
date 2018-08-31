@@ -53,7 +53,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
     def get_perm_hosts(self):
         hosts = {}
         assets = app_service.get_user_assets(
-            self.server.request.user
+            self.server.connection.user
         )
         for asset in assets:
             key = asset.hostname

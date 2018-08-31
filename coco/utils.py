@@ -18,7 +18,7 @@ import paramiko
 import pyte
 
 from . import char
-from .ctx import stack, current_app
+from .config import config
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -342,7 +342,7 @@ def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
             input_data.append(data[:-1])
             multi_char_with_enter = True
 
-        # If user type ENTER we should get user input
+        # If user types ENTER we should get user input
         if data in char.ENTER_CHAR or multi_char_with_enter:
             client.send(wrap_with_line_feed(b'', after=2))
             option = parser.parse_input(input_data)
@@ -354,14 +354,6 @@ def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
             else:
                 client.send(data)
             input_data.append(data)
-
-
-def register_app(app):
-    stack['app'] = app
-
-
-def register_service(service):
-    stack['service'] = service
 
 
 zh_pattern = re.compile(r'[\u4e00-\u9fa5]')
@@ -449,7 +441,7 @@ def _gettext(lang):
 def _find(attr):
     lang = get_current_lang(attr)
     if lang is None:
-        lang = current_app.config['LANGUAGE_CODE']
+        lang = config['LANGUAGE_CODE']
         set_current_lang(lang)
     return _gettext(lang)
 

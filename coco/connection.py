@@ -10,7 +10,8 @@ import telnetlib
 import paramiko
 from paramiko.ssh_exception import SSHException
 
-from .ctx import app_service, current_app
+from .ctx import app_service
+from .config import config
 from .utils import get_logger, get_private_key_fingerprint, net_input
 
 logger = get_logger(__file__)
@@ -46,8 +47,8 @@ class SSHConnection:
             ssh.connect(
                 asset.ip, port=asset.port, username=system_user.username,
                 password=system_user.password, pkey=system_user.private_key,
-                timeout=current_app.config['SSH_TIMEOUT'],
-                compress=True, auth_timeout=current_app.config['SSH_TIMEOUT'],
+                timeout=config['SSH_TIMEOUT'],
+                compress=True, auth_timeout=config['SSH_TIMEOUT'],
                 look_for_keys=False, sock=sock
             )
             transport = ssh.get_transport()
@@ -114,7 +115,7 @@ class SSHConnection:
                             username=gateway.username,
                             password=gateway.password,
                             pkey=gateway.private_key_obj,
-                            timeout=current_app.config['SSH_TIMEOUT'])
+                            timeout=config['SSH_TIMEOUT'])
             except(paramiko.AuthenticationException,
                    paramiko.BadAuthenticationType,
                    SSHException):
@@ -145,7 +146,7 @@ class SSHConnection:
                 proxy_command.insert(0, "sshpass -p {}".format(gateway.password))
 
             if gateway.private_key:
-                gateway.set_key_dir(os.path.join(self.app.root_path, 'keys'))
+                gateway.set_key_dir(os.path.join(config['ROOT_PATH'], 'keys'))
                 proxy_command.append("-i {}".format(gateway.private_key_file))
             proxy_command = ' '.join(proxy_command)
 

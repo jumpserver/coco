@@ -5,12 +5,11 @@
 import threading
 import time
 
-from paramiko.ssh_exception import SSHException
-
 from .session import Session
 from .models import Server, TelnetServer
 from .connection import SSHConnection, TelnetConnection
-from .ctx import current_app, app_service
+from .ctx import app_service
+from .config import config
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
      get_logger, net_input
 
@@ -22,140 +21,116 @@ AUTO_LOGIN = 'auto'
 
 
 class ProxyServer:
-    def __init__(self, client, login_from):
+    def __init__(self, client, asset, system_user):
         self.client = client
+        self.asset = asset
+        self.system_user = system_user
         self.server = None
-        self.login_from = login_from
         self.connecting = True
-        self.stop_event = threading.Event()
 
-    def get_system_user_auth(self, system_user):
+    def get_system_user_auth_or_manual_set(self):
         """
         获取系统用户的认证信息，密码或秘钥
         :return: system user have full info
         """
         password, private_key = \
-            app_service.get_system_user_auth_info(system_user)
-        if system_user.login_mode == MANUAL_LOGIN or (not password and not private_key):
-            prompt = "{}'s password: ".format(system_user.username)
+            app_service.get_system_user_auth_info(self.system_user)
+        if self.system_user.login_mode == MANUAL_LOGIN \
+                or (not password and not private_key):
+            prompt = "{}'s password: ".format(self.system_user.username)
             password = net_input(self.client, prompt=prompt, sensitive=True)
-        system_user.password = password
-        system_user.private_key = private_key
+        self.system_user.password = password
+        self.system_user.private_key = private_key
 
-    def proxy(self, asset, system_user):
-        if asset.protocol != system_user.protocol:
+    def check_protocol(self):
+        if self.asset.protocol != self.system_user.protocol:
             msg = 'System user <{}> and asset <{}> protocol are inconsistent.'.format(
-                system_user.name, asset.hostname
+                self.system_user.name, self.asset.hostname
             )
             self.client.send(warning(wr(msg, before=1, after=0)))
+            return False
+        return True
+
+    def manual_set_system_user_username_if_need(self):
+        if self.system_user.login_mode == MANUAL_LOGIN and \
+                not self.system_user.username:
+            username = net_input(self.client, prompt='username: ', before=1)
+            self.system_user.username = username
+            return True
+        return False
+
+    def proxy(self):
+        if not self.check_protocol():
             return
-
-        if system_user.login_mode == MANUAL_LOGIN and not system_user.username:
-            system_user_name = net_input(self.client, prompt='username: ', before=1)
-            system_user.username = system_user_name
-
-        self.get_system_user_auth(system_user)
-        self.send_connecting_message(asset, system_user)
-        self.server = self.get_server_conn(asset, system_user)
+        self.manual_set_system_user_username_if_need()
+        self.get_system_user_auth_or_manual_set()
+        self.server = self.get_server_conn()
         if self.server is None:
             return
-        command_recorder = current_app.new_command_recorder()
-        replay_recorder = current_app.new_replay_recorder()
-        session = Session(
-            self.client, self.server, self.login_from,
-            command_recorder=command_recorder,
-            replay_recorder=replay_recorder,
-        )
-        current_app.add_session(session)
-        self.watch_win_size_change_async()
+        session = Session.new_session(self.client, self.server)
         session.bridge()
-        self.stop_event.set()
-        self.end_watch_win_size_change()
-        current_app.remove_session(session)
+        Session.remove_session(session.id)
+        self.server.close()
 
-    def validate_permission(self, asset, system_user):
+    def validate_permission(self):
         """
         验证用户是否有连接改资产的权限
         :return: True or False
         """
         return app_service.validate_user_asset_permission(
-            self.client.user.id, asset.id, system_user.id
+            self.client.user.id, self.asset.id, self.system_user.id
         )
 
-    def get_server_conn(self, asset, system_user):
-        logger.info("Connect to {}".format(asset.hostname))
-        if not self.validate_permission(asset, system_user):
+    def get_server_conn(self):
+        logger.info("Connect to {}".format(self.asset.hostname))
+        self.send_connecting_message()
+        if not self.validate_permission():
             self.client.send(warning('No permission'))
-            return None
-        if system_user.protocol == asset.protocol == 'telnet':
-            server = self.get_telnet_server_conn(asset, system_user)
-        elif system_user.protocol == asset.protocol == 'ssh':
-            server = self.get_ssh_server_conn(asset, system_user)
+            server = None
+        elif self.system_user.protocol == self.asset.protocol == 'telnet':
+            server = self.get_telnet_server_conn()
+        elif self.system_user.protocol == self.asset.protocol == 'ssh':
+            server = self.get_ssh_server_conn()
         else:
             server = None
+        self.connecting = False
+        self.client.send(b'\r\n')
         return server
 
-    # Todo: Support telnet
-    def get_telnet_server_conn(self, asset, system_user):
-        telnet = TelnetConnection(asset, system_user, self.client)
+    def get_telnet_server_conn(self):
+        telnet = TelnetConnection(self.asset, self.system_user, self.client)
         sock, msg = telnet.get_socket()
         if not sock:
             self.client.send(warning(wr(msg, before=1, after=0)))
             server = None
         else:
-            server = TelnetServer(sock, asset, system_user)
-        # self.client.send(b'\r\n')
-        self.connecting = False
+            server = TelnetServer(sock, self.asset, self.system_user)
         return server
 
-    def get_ssh_server_conn(self, asset, system_user):
+    def get_ssh_server_conn(self):
         request = self.client.request
         term = request.meta.get('term', 'xterm')
         width = request.meta.get('width', 80)
         height = request.meta.get('height', 24)
         ssh = SSHConnection()
         chan, sock, msg = ssh.get_channel(
-            asset, system_user, term=term, width=width, height=height
+            self.asset, self.system_user, term=term,
+            width=width, height=height
         )
         if not chan:
             self.client.send(warning(wr(msg, before=1, after=0)))
             server = None
         else:
-            server = Server(chan, sock, asset, system_user)
-        self.connecting = False
-        self.client.send(b'\r\n')
+            server = Server(chan, sock, self.asset, self.system_user)
         return server
 
-    def watch_win_size_change(self):
-        while self.client.request.change_size_event.wait():
-            if self.stop_event.is_set():
-                break
-            self.client.request.change_size_event.clear()
-            width = self.client.request.meta.get('width', 80)
-            height = self.client.request.meta.get('height', 24)
-            logger.debug("Change win size: %s - %s" % (width, height))
-            try:
-                self.server.chan.resize_pty(width=width, height=height)
-            except SSHException:
-                break
-
-    def watch_win_size_change_async(self):
-        if not isinstance(self.server, Server):
-            return
-        thread = threading.Thread(target=self.watch_win_size_change)
-        thread.daemon = True
-        thread.start()
-
-    def end_watch_win_size_change(self):
-        self.client.request.change_size_event.set()
-
-    def send_connecting_message(self, asset, system_user):
+    def send_connecting_message(self):
         def func():
             delay = 0.0
             self.client.send('Connecting to {}@{} {:.1f}'.format(
-                system_user, asset, delay)
+                self.system_user, self.asset, delay)
             )
-            while self.connecting and delay < current_app.config['SSH_TIMEOUT']:
+            while self.connecting and delay < config['SSH_TIMEOUT']:
                 if 0 <= delay < 10:
                     self.client.send('\x08\x08\x08{:.1f}'.format(delay).encode())
                 else:
