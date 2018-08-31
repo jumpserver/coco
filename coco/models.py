@@ -94,8 +94,6 @@ class BaseServer:
     """
 
     def __init__(self):
-        self.send_bytes = 0
-        self.recv_bytes = 0
         self.stop_evt = threading.Event()
         self.chan = None
 
@@ -108,6 +106,13 @@ class BaseServer:
         self._input = ""
         self._output = ""
         self._session_ref = None
+        self._zmodem_recv_start_mark = b'rz waiting to receive.**\x18B0100'
+        self._zmodem_send_start_mark = b'**\x18B00000000000000'
+        self._zmodem_cancel_mark = b'\x18\x18\x18\x18\x18'
+        self._zmodem_end_mark = b'**\x18B0800000000022d'
+        self._zmodem_state_send = 'send'
+        self._zmodem_state_recv = 'recv'
+        self._zmodem_state = ''
 
     def set_session(self, session):
         self._session_ref = weakref.ref(session)
@@ -119,28 +124,79 @@ class BaseServer:
         else:
             return None
 
-    def parse(self, b):
-        if isinstance(b, str):
-            b = b.encode("utf-8")
+    def initial_filter(self):
         if not self._input_initial:
             self._input_initial = True
 
-        if self._have_enter_char(b):
+    def parse_cmd_filter(self, data):
+        # 输入了回车键, 开始计算输入的内容
+        if self._have_enter_char(data):
             self._in_input_state = False
             self._input = self._parse_input()
-        else:
-            if not self._in_input_state:
-                self._output = self._parse_output()
-                logger.debug("\n{}\nInput: {}\nOutput: {}\n{}".format(
-                    "#" * 30 + " Command " + "#" * 30,
-                    self._input, self._output,
-                    "#" * 30 + " End " + "#" * 30,
-                ))
-                if self._input:
-                    self.session.put_command(self._input, self._output)
-                self.input_data.clean()
-                self.output_data.clean()
+            return data
+        # 用户输入了内容，但是如果没在输入状态，也就是用户刚开始输入了，结算上次输出内容
+        if not self._in_input_state:
+            self._output = self._parse_output()
+            logger.debug("\n{}\nInput: {}\nOutput: {}\n{}".format(
+                "#" * 30 + " Command " + "#" * 30,
+                self._input, self._output,
+                "#" * 30 + " End " + "#" * 30,
+            ))
+            if self._input:
+                self.session.put_command(self._input, self._output)
+            self.input_data.clean()
+            self.output_data.clean()
             self._in_input_state = True
+        return data
+
+    def send(self, data):
+        self.initial_filter()
+        self.parse_cmd_filter(data)
+        return self.chan.send(data)
+
+    def replay_filter(self, data):
+        if not self._zmodem_state:
+            self.session.put_replay(data)
+
+    def input_output_filter(self, data):
+        if not self._input_initial:
+            return
+        if self._zmodem_state:
+            return
+        if self._in_input_state:
+            self.input_data.append(data)
+        else:
+            self.output_data.append(data)
+
+    def zmodem_state_filter(self, data):
+        if not self._zmodem_state:
+            if data[:50].find(self._zmodem_recv_start_mark) != -1:
+                logger.debug("Zmodem state => recv")
+                self._zmodem_state = self._zmodem_state_recv
+            elif data[:24].find(self._zmodem_send_start_mark) != -1:
+                logger.debug("Zmodem state => send")
+                self._zmodem_state = self._zmodem_state_send
+        if self._zmodem_state:
+            if data[:24].find(self._zmodem_end_mark) != -1:
+                logger.debug("Zmodem state => end")
+                self._zmodem_state = ''
+            elif data[:24].find(self._zmodem_cancel_mark) != -1:
+                logger.debug("Zmodem state => cancel")
+                self._zmodem_state = ''
+
+    def zmodem_cancel_filter(self):
+        if self._zmodem_state:
+            pass
+            # self.chan.send(self._zmodem_cancel_mark)
+            # self.chan.send("Zmodem disabled")
+
+    def recv(self, size):
+        data = self.chan.recv(size)
+        self.zmodem_state_filter(data)
+        self.zmodem_cancel_filter()
+        self.replay_filter(data)
+        self.input_output_filter(data)
+        return data
 
     @staticmethod
     def _have_enter_char(s):
@@ -156,7 +212,7 @@ class BaseServer:
         return parser.parse_output(self.output_data)
 
     def _parse_input(self):
-        if not self.input_data or self.input_data[0] == char.RZ_PROTOCOL_CHAR:
+        if not self.input_data:
             return
         parser = utils.TtyIOParser()
         return parser.parse_input(self.input_data)
@@ -164,23 +220,9 @@ class BaseServer:
     def fileno(self):
         return self.chan.fileno()
 
-    def send(self, b):
-        self.parse(b)
-        return self.chan.send(b)
-
-    def recv(self, size):
-        data = self.chan.recv(size)
-        self.session.put_replay(data)
-        if self._input_initial:
-            if self._in_input_state:
-                self.input_data.append(data)
-            else:
-                self.output_data.append(data)
-        return data
-
     def close(self):
         logger.info("Closed server {}".format(self))
-        self.parse(b'')
+        self.input_output_filter(b'')
         self.stop_evt.set()
         self.chan.close()
 
@@ -223,127 +265,6 @@ class Server(BaseServer):
         self.chan.transport.close()
         if self.sock:
             self.sock.transport.close()
-
-    # def __del__(self):
-    #     print("GC: Server object has been gc")
-
-
-'''
-class Server:
-    """
-    SSH Server
-    Server object like client, a wrapper object, a connection to the asset,
-    Because we don't want to using python dynamic feature, such asset
-    have the chan and system_user attr.
-    """
-
-    # Todo: Server name is not very suitable
-    def __init__(self, chan, sock, asset, system_user):
-        self.chan = chan
-        self.sock = sock
-        self.asset = asset
-        self.system_user = system_user
-        self.send_bytes = 0
-        self.recv_bytes = 0
-        self.stop_evt = threading.Event()
-
-        self.input_data = SizedList(maxsize=1024)
-        self.output_data = SizedList(maxsize=1024)
-        self._in_input_state = True
-        self._input_initial = False
-        self._in_vim_state = False
-
-        self._input = ""
-        self._output = ""
-        self._session_ref = None
-
-    def fileno(self):
-        return self.chan.fileno()
-
-    def set_session(self, session):
-        self._session_ref = weakref.ref(session)
-
-    @property
-    def session(self):
-        if self._session_ref:
-            return self._session_ref()
-        else:
-            return None
-
-    def parse(self, b):
-        if isinstance(b, str):
-            b = b.encode("utf-8")
-        if not self._input_initial:
-            self._input_initial = True
-
-        if self._have_enter_char(b):
-            self._in_input_state = False
-            self._input = self._parse_input()
-        else:
-            if not self._in_input_state:
-                self._output = self._parse_output()
-                logger.debug("\n{}\nInput: {}\nOutput: {}\n{}".format(
-                    "#" * 30 + " Command " + "#" * 30,
-                    self._input, self._output,
-                    "#" * 30 + " End " + "#" * 30,
-                ))
-                if self._input:
-                    self.session.put_command(self._input, self._output)
-                self.input_data.clean()
-                self.output_data.clean()
-            self._in_input_state = True
-
-    def send(self, b):
-        self.parse(b)
-        return self.chan.send(b)
-
-    def recv(self, size):
-        data = self.chan.recv(size)
-        self.session.put_replay(data)
-        if self._input_initial:
-            if self._in_input_state:
-                self.input_data.append(data)
-            else:
-                self.output_data.append(data)
-        return data
-
-    def close(self):
-        logger.info("Closed server {}".format(self))
-        self.parse(b'')
-        self.stop_evt.set()
-        self.chan.close()
-        self.chan.transport.close()
-        if self.sock:
-            self.sock.transport.close()
-
-    @staticmethod
-    def _have_enter_char(s):
-        for c in char.ENTER_CHAR:
-            if c in s:
-                return True
-        return False
-
-    def _parse_output(self):
-        if not self.output_data:
-            return ''
-        parser = utils.TtyIOParser()
-        return parser.parse_output(self.output_data)
-
-    def _parse_input(self):
-        if not self.input_data or self.input_data[0] == char.RZ_PROTOCOL_CHAR:
-            return
-        parser = utils.TtyIOParser()
-        return parser.parse_input(self.input_data)
-
-    def __getattr__(self, item):
-        return getattr(self.chan, item)
-
-    def __str__(self):
-        return "<To: {}>".format(str(self.asset))
-
-    # def __del__(self):
-    #     print("GC: Server object has been gc")
-'''
 
 
 class WSProxy:

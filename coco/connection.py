@@ -50,6 +50,8 @@ class SSHConnection:
                 compress=True, auth_timeout=current_app.config['SSH_TIMEOUT'],
                 look_for_keys=False, sock=sock
             )
+            transport = ssh.get_transport()
+            transport.set_keepalive(300)
         except (paramiko.AuthenticationException,
                 paramiko.BadAuthenticationType,
                 SSHException) as e:
