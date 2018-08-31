@@ -4,6 +4,7 @@
 
 import paramiko
 import threading
+from collections import Iterable
 
 from .utils import get_logger
 from .config import config
@@ -71,6 +72,7 @@ class SSHInterface(paramiko.ServerInterface):
 
     def check_auth_password(self, username, password):
         user = self.validate_auth(username, password=password)
+
         if not user:
             logger.warning("Password and public key auth <%s> failed, reject it" % username)
             return paramiko.AUTH_FAILED
@@ -83,6 +85,7 @@ class SSHInterface(paramiko.ServerInterface):
     def check_auth_publickey(self, username, key):
         key = key.get_base64()
         user = self.validate_auth(username, public_key=key)
+
         if not user:
             logger.debug("Public key auth <%s> failed, try to password" % username)
             return paramiko.AUTH_FAILED
@@ -92,7 +95,31 @@ class SSHInterface(paramiko.ServerInterface):
                 return paramiko.AUTH_PARTIALLY_SUCCESSFUL
             return paramiko.AUTH_SUCCESSFUL
 
+    @staticmethod
+    def check_block_ssh_user(username):
+        block_ssh_user = config['BLOCK_SSH_USER']
+        if not block_ssh_user or not isinstance(block_ssh_user, Iterable):
+            return False
+        if username in block_ssh_user:
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def check_allow_ssh_user(username):
+        allow_ssh_user = config["ALLOW_SSH_USER"]
+        if not allow_ssh_user or not isinstance(allow_ssh_user, Iterable):
+            return True
+        if username in allow_ssh_user:
+            return True
+        else:
+            return False
+        
     def validate_auth(self, username, password="", public_key=""):
+        if self.check_block_ssh_user(username) or \
+                not self.check_allow_ssh_user(username):
+            logger.warn("User in black list or not allowed: {}".format(username))
+            return None
         info = app_service.authenticate(
             username, password=password, public_key=public_key,
             remote_addr=self.connection.addr[0]

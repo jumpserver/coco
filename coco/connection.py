@@ -15,7 +15,7 @@ from .config import config
 from .utils import get_logger, get_private_key_fingerprint, net_input
 
 logger = get_logger(__file__)
-TIMEOUT = 10
+
 BUF_SIZE = 1024
 MANUAL_LOGIN = 'manual'
 AUTO_LOGIN = 'auto'
@@ -47,7 +47,8 @@ class SSHConnection:
             ssh.connect(
                 asset.ip, port=asset.port, username=system_user.username,
                 password=system_user.password, pkey=system_user.private_key,
-                timeout=TIMEOUT, compress=True, auth_timeout=TIMEOUT,
+                timeout=config['SSH_TIMEOUT'],
+                compress=True, auth_timeout=config['SSH_TIMEOUT'],
                 look_for_keys=False, sock=sock
             )
             transport = ssh.get_transport()
@@ -114,7 +115,7 @@ class SSHConnection:
                             username=gateway.username,
                             password=gateway.password,
                             pkey=gateway.private_key_obj,
-                            timeout=TIMEOUT)
+                            timeout=config['SSH_TIMEOUT'])
             except(paramiko.AuthenticationException,
                    paramiko.BadAuthenticationType,
                    SSHException):
@@ -257,7 +258,7 @@ class TelnetConnection:
             else:
                 new_data_list.append(x)
         new_data = telnetlib.IAC.join(new_data_list)
-        logger.info(b'[Channel options negotiate]: ' + new_data)
+        logger.info(b'[Client options negotiate]: ' + new_data)
         self.sock.send(new_data)
 
     def login_auth(self, raw_data):

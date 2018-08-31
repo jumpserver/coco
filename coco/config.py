@@ -288,6 +288,9 @@ default_config = {
     'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
     'PASSWORD_AUTH': True,
     'PUBLIC_KEY_AUTH': True,
+    'SSH_TIMEOUT': 10,
+    'ALLOW_SSH_USER': ['admin'],
+    'BLOCK_SSH_USER': [],
     'HEARTBEAT_INTERVAL': 5,
     'MAX_CONNECTIONS': 500,
     'ADMINS': '',

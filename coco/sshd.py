@@ -105,7 +105,6 @@ class SSHServer:
 
     @staticmethod
     def dispatch(client):
-        print("Dispatch client {}".format(client.id))
         supported = {'pty', 'x11', 'forward-agent'}
         chan_type = client.request.type
         kind = client.request.kind
