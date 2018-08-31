@@ -12,9 +12,10 @@ from copy import deepcopy
 
 import jms_storage
 
+from .config import config
 from .utils import get_logger, Singleton
 from .alignment import MemoryQueue
-from .ctx import current_app, app_service
+from .ctx import app_service
 
 logger = get_logger(__file__)
 BUF_SIZE = 1024
@@ -48,7 +49,7 @@ class ReplayRecorder(metaclass=abc.ABCMeta):
     def session_start(self, session_id):
         self.time_start = time.time()
         filename = session_id + '.replay.gz'
-        self.file_path = os.path.join(current_app.config['LOG_DIR'], filename)
+        self.file_path = os.path.join(config['LOG_DIR'], filename)
         self.file = gzip.open(self.file_path, 'at')
         self.file.write('{')
 
@@ -58,9 +59,9 @@ class ReplayRecorder(metaclass=abc.ABCMeta):
         self.upload_replay(session_id)
 
     def get_storage(self):
-        config = deepcopy(current_app.config["REPLAY_STORAGE"])
-        config["SERVICE"] = app_service
-        self.storage = jms_storage.get_object_storage(config)
+        conf = deepcopy(config["REPLAY_STORAGE"])
+        conf["SERVICE"] = app_service
+        self.storage = jms_storage.get_object_storage(conf)
 
     def upload_replay(self, session_id, times=3):
         if times < 1:
@@ -130,9 +131,9 @@ class CommandRecorder(metaclass=Singleton):
             self.queue.put(data)
 
     def get_storage(self):
-        config = deepcopy(current_app.config["COMMAND_STORAGE"])
-        config['SERVICE'] = app_service
-        self.storage = jms_storage.get_log_storage(config)
+        conf = deepcopy(config["COMMAND_STORAGE"])
+        conf['SERVICE'] = app_service
+        self.storage = jms_storage.get_log_storage(conf)
 
     def push_to_server_async(self):
         def func():

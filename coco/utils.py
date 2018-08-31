@@ -18,7 +18,7 @@ import paramiko
 import pyte
 
 from . import char
-from .ctx import current_app
+from .config import config
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -441,7 +441,7 @@ def _gettext(lang):
 def _find(attr):
     lang = get_current_lang(attr)
     if lang is None:
-        lang = current_app.config['LANGUAGE_CODE']
+        lang = config['LANGUAGE_CODE']
         set_current_lang(lang)
     return _gettext(lang)
 

@@ -9,9 +9,8 @@ import threading
 import socket
 import json
 import signal
-# import eventlet
+import eventlet
 from eventlet.debug import hub_prevent_multiple_readers
-from multiprocessing import Array
 
 from .config import config
 from .sshd import SSHServer
@@ -21,12 +20,12 @@ from .tasks import TaskHandler
 from .recorder import ReplayRecorder, CommandRecorder
 from .utils import get_logger, ugettext as _, \
     ignore_error
-from .service import init_service, init_app, init_db
-from .ctx import app_service, db_session
+from .service import init_app
+from .ctx import app_service
 from .alignment import session_queue
 
-# eventlet.monkey_patch(socket=False)
-# hub_prevent_multiple_readers(False)
+eventlet.monkey_patch(socket=False)
+hub_prevent_multiple_readers(False)
 
 __version__ = '1.4.0'
 
@@ -48,7 +47,6 @@ class Coco:
         self.config = config
         self.sessions = {}
         init_app(self)
-        init_service()
 
     @property
     def sshd(self):
@@ -224,9 +222,10 @@ class Coco:
         thread.start()
 
     def run_httpd(self):
-        thread = threading.Thread(target=self.httpd.run, args=())
-        thread.daemon = True
-        thread.start()
+        self.httpd.run()
+        # thread = threading.Thread(target=self.httpd.run, args=())
+        # thread.daemon = True
+        # thread.start()
 
     def shutdown(self):
         # for client in self.clients:

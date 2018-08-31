@@ -87,7 +87,6 @@ class SSHServer:
             thread.start()
 
     def run(self):
-        print(socket.__name__)
         in_p, out_p = multiprocessing.Pipe()
         self.workers = self.start_workers(in_p, out_p)
         master = multiprocessing.Process(
@@ -95,8 +94,6 @@ class SSHServer:
             name='master'
         )
         master.start()
-        in_p.close()
-        out_p.close()
 
     def new_connection(self, addr, sock):
         connection = Connection(addr=addr, sock=sock)

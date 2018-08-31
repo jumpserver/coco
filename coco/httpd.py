@@ -8,7 +8,8 @@ import subprocess
 import uuid
 from flask_socketio import SocketIO, Namespace, join_room
 from flask import Flask, request
-# import gunicorn.app.wsgiapp as wsgi
+import gunicorn.app.wsgiapp as wsgi
+from gunicorn.app.base import BaseApplication
 
 from .models import WSProxy, Connection, WSProxy2
 from .proxy import ProxyServer
@@ -49,19 +50,7 @@ class ProxyNamespace(BaseNamespace):
         :param kwargs:
 
         self.connections = {
-            "request_sid": {
-                "room_id": {
-                    "id": room_id,
-                    "proxy": None,
-                    "client": None,
-                    "forwarder": None,
-                    "request": None,
-                    "cols": 80,
-                    "rows": 24
-                },
-
-                ...
-            },
+            "request_sid": connection,
             ...
         }
         """
@@ -79,34 +68,6 @@ class ProxyNamespace(BaseNamespace):
         connection.user = request.current_user
         connection.login_from = 'WT'
         self.connections[request.sid] = connection
-
-    # def new_client(self, current_user, cols=80, rows=24):
-    #     room_id = str(uuid.uuid4())
-    #     req = self.make_coco_request(current_user, cols=cols, rows=rows)
-    #     room = {
-    #         "id": room_id,
-    #         "proxy": None,
-    #         "client": None,
-    #         "forwarder": None,
-    #         "request": req,
-    #         "cols": cols,
-    #         "rows": rows
-    #     }
-    #     self.connections[request.sid][room_id] = room
-    #     return room
-
-    # @staticmethod
-    # def make_coco_request(user, cols=80, rows=24):
-    #     x_forwarded_for = request.headers.get("X-Forwarded-For", '').split(',')
-    #     if x_forwarded_for and x_forwarded_for[0]:
-    #         remote_ip = x_forwarded_for[0]
-    #     else:
-    #         remote_ip = request.remote_addr
-    #
-    #     req = Request((remote_ip, 0))
-    #     req.user = user
-    #     req.meta = {"width": cols, "height": rows}
-    #     return req
 
     def on_connect(self):
         logger.debug("On connect event trigger")
@@ -247,51 +208,6 @@ class ProxyNamespace(BaseNamespace):
 
     def on_ping(self):
         self.emit('pong')
-
-
-def on_error_default(e):
-    logger.exception(e)
-
-
-# app = Flask(__name__, template_folder='dist')
-# app.config.update(config)
-# socket_io = SocketIO(app)
-# socket_io.on_error_default(on_error_default)
-# socket_io.on_namespace(ProxyNamespace('/ssh'))
-
-
-class HttpServer2:
-    config = {
-        'SECRET_KEY': 'someWOrkSD20KMS9330)&#',
-        'coco': None,
-        'LOGIN_URL': '/login'
-    }
-    init_kwargs = dict(
-        async_mode="eventlet",
-        # async_mode="threading",
-        # ping_timeout=20,
-        # ping_interval=10,
-        # engineio_logger=True,
-        # logger=True
-    )
-
-    def __init__(self):
-        config.update(self.config)
-        self.flask_app = Flask(__name__, template_folder='dist')
-        self.flask_app.config.update(config)
-        self.socket_io = SocketIO()
-
-    def run(self):
-        host = config["BIND_HOST"]
-        port = config["HTTPD_PORT"]
-        print('Starting websocket server at {}:{}'.format(host, port))
-        command = [
-            'gunicorn',
-            '--workers', '2',
-            '--bind', '{}:{}'.format(host, port),
-            'coco.httpd:app'
-        ]
-        subprocess.call(command, stderr=sys.stderr, stdout=sys.stdout)
 
 
 class HttpServer:
