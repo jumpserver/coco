@@ -21,4 +21,3 @@ def _find(name):
 app_service = AppService(config)
 current_app = LocalProxy(partial(_find, 'current_app'))
 # app_service = LocalProxy(partial(_find, 'app_service'))
-db_engine = LocalProxy(partial(_find, 'db_engine'))

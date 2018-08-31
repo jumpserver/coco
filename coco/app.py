@@ -2,30 +2,31 @@
 # -*- coding: utf-8 -*-
 #
 
+import eventlet
+from eventlet.debug import hub_prevent_multiple_readers
+eventlet.monkey_patch()
+hub_prevent_multiple_readers(False)
+
 import datetime
 import os
 import time
 import threading
-import socket
 import json
 import signal
-import eventlet
-from eventlet.debug import hub_prevent_multiple_readers
 
 from .config import config
 from .sshd import SSHServer
 from .httpd import HttpServer
 from .logger import create_logger
 from .tasks import TaskHandler
-from .recorder import ReplayRecorder, CommandRecorder
 from .utils import get_logger, ugettext as _, \
     ignore_error
 from .service import init_app
 from .ctx import app_service
-from .alignment import session_queue
+from .recorder import get_replay_recorder
+from .session import Session
+from .models import Connection
 
-eventlet.monkey_patch(socket=False)
-hub_prevent_multiple_readers(False)
 
 __version__ = '1.4.0'
 
@@ -35,7 +36,6 @@ logger = get_logger(__file__)
 
 class Coco:
     def __init__(self):
-        self.clients = []
         self.lock = threading.Lock()
         self.stop_evt = threading.Event()
         self._service = None
@@ -45,7 +45,6 @@ class Coco:
         self.command_recorder_class = None
         self._task_handler = None
         self.config = config
-        self.sessions = {}
         init_app(self)
 
     @property
@@ -59,19 +58,6 @@ class Coco:
         if self._httpd is None:
             self._httpd = HttpServer()
         return self._httpd
-
-    def watch_session(self):
-        def func():
-            while not self.stop_evt.is_set():
-                action, session = session_queue.get()
-                if action in ["create", "update"]:
-                    self.sessions[session['id']] = session
-                elif action == 'delete':
-                    del self.sessions[session]
-
-        t = threading.Thread(target=func)
-        t.daemon = True
-        t.start()
 
     @property
     def task_handler(self):
@@ -90,76 +76,65 @@ class Coco:
         ))
         config.update(configs)
 
-    @staticmethod
-    def new_command_recorder():
-        return CommandRecorder()
-
-    @staticmethod
-    def new_replay_recorder():
-        return ReplayRecorder()
-
     def bootstrap(self):
         self.make_logger()
         app_service.initial()
         self.load_extra_conf_from_server()
-        # self.keep_heartbeat()
-        self.watch_session()
+        self.keep_heartbeat()
         self.monitor_sessions()
-        # self.monitor_sessions_replay()
+        self.monitor_sessions_replay()
 
-    # @ignore_error
-    # def heartbeat(self):
-    #     # _sessions = [sessions.values()]
-    #     _sessions = []
-    #     tasks = app_service.terminal_heartbeat(_sessions)
-    #     if tasks:
-    #         self.handle_task(tasks)
-    #     if tasks is False:
-    #         return False
-    #     else:
-    #         return True
+    @ignore_error
+    def heartbeat(self):
+        _sessions = [s.to_json() for s in Session.sessions.values()]
+        tasks = app_service.terminal_heartbeat(_sessions)
+        if tasks:
+            self.handle_task(tasks)
+        if tasks is False:
+            return False
+        else:
+            return True
 
-    # def heartbeat_async(self):
-    #     t = threading.Thread(target=self.heartbeat)
-    #     t.start()
-    #
-    # def handle_task(self, tasks):
-    #     for task in tasks:
-    #         self.task_handler.handle(task)
-    #
-    # def keep_heartbeat(self):
-    #     def func():
-    #         while not self.stop_evt.is_set():
-    #             self.heartbeat()
-    #             time.sleep(config["HEARTBEAT_INTERVAL"])
-    #
-    #     thread = threading.Thread(target=func)
-    #     thread.start()
+    def heartbeat_async(self):
+        t = threading.Thread(target=self.heartbeat)
+        t.start()
 
-    # def monitor_sessions_replay(self):
-    #     interval = 10
-    #     recorder = self.new_replay_recorder()
-    #     log_dir = os.path.join(config['LOG_DIR'])
-    #
-    #     def func():
-    #         while not self.stop_evt.is_set():
-    #             active_sessions = [str(session.id) for session in self.sessions]
-    #             for filename in os.listdir(log_dir):
-    #                 session_id = filename.split('.')[0]
-    #                 full_path = os.path.join(log_dir, filename)
-    #
-    #                 if len(session_id) != 36:
-    #                     continue
-    #
-    #                 if session_id not in active_sessions:
-    #                     recorder.file_path = full_path
-    #                     ok = recorder.upload_replay(session_id, 1)
-    #                     if not ok and os.path.getsize(full_path) == 0:
-    #                         os.unlink(full_path)
-    #                 time.sleep(1)
-    #             time.sleep(interval)
-    #     thread = threading.Thread(target=func)
-    #     thread.start()
+    def handle_task(self, tasks):
+        for task in tasks:
+            self.task_handler.handle(task)
+
+    def keep_heartbeat(self):
+        def func():
+            while not self.stop_evt.is_set():
+                self.heartbeat()
+                time.sleep(config["HEARTBEAT_INTERVAL"])
+        thread = threading.Thread(target=func)
+        thread.start()
+
+    def monitor_sessions_replay(self):
+        interval = 10
+        log_dir = os.path.join(config['LOG_DIR'])
+
+        def func():
+            while not self.stop_evt.is_set():
+                active_sessions = [sid for sid in Session.sessions]
+                for filename in os.listdir(log_dir):
+                    session_id = filename.split('.')[0]
+                    full_path = os.path.join(log_dir, filename)
+
+                    if len(session_id) != 36:
+                        continue
+
+                    recorder = get_replay_recorder()
+                    if session_id not in active_sessions:
+                        recorder.file_path = full_path
+                        ok = recorder.upload_replay(session_id, 1)
+                        if not ok and os.path.getsize(full_path) == 0:
+                            os.unlink(full_path)
+                    time.sleep(1)
+                time.sleep(interval)
+        thread = threading.Thread(target=func)
+        thread.start()
 
     def monitor_sessions(self):
         interval = config["HEARTBEAT_INTERVAL"]
@@ -177,19 +152,17 @@ class Coco:
 
         def func():
             while not self.stop_evt.is_set():
-                sessions_copy = self.sessions.values()
-                print("All sessions =================>")
-                print(sessions_copy)
-                #for s in sessions_copy:
-                #    # Session 没有正常关闭,
-                #    if s.closed_unexpected:
-                #        s.close()
-                #        continue
-                #    # Session已正常关闭
-                #    if s.closed:
-                #        self.remove_session(s)
-                #    else:
-                #        check_session_idle_too_long(s)
+                sessions_copy = [s for s in Session.sessions.values()]
+                for s in sessions_copy:
+                    # Session 没有正常关闭,
+                    if s.closed_unexpected:
+                        Session.remove_session(s.id)
+                        continue
+                    # Session已正常关闭
+                    if s.closed:
+                        Session.remove_session(s)
+                    else:
+                        check_session_idle_too_long(s)
                 time.sleep(interval)
         thread = threading.Thread(target=func)
         thread.start()
@@ -222,54 +195,16 @@ class Coco:
         thread.start()
 
     def run_httpd(self):
-        self.httpd.run()
-        # thread = threading.Thread(target=self.httpd.run, args=())
-        # thread.daemon = True
-        # thread.start()
+        thread = threading.Thread(target=self.httpd.run, args=())
+        thread.daemon = True
+        thread.start()
 
     def shutdown(self):
-        # for client in self.clients:
-        #     self.remove_client(client)
-        # time.sleep(1)
-        # self.heartbeat()
+        logger.info("Grace shutdown the server")
+        for connection in Connection.connections.values():
+            connection.close()
+        time.sleep(1)
+        self.heartbeat()
         self.stop_evt.set()
         self.sshd.shutdown()
         self.httpd.shutdown()
-        logger.info("Grace shutdown the server")
-
-    # def add_client(self, client):
-    #     with self.lock:
-    #         self.clients.append(client)
-    #         logger.info("New client {} join, total {} now".format(
-    #                 client, len(self.clients)
-    #             )
-    #         )
-    #
-    # def remove_client(self, client):
-    #     with self.lock:
-    #         try:
-    #             self.clients.remove(client)
-    #             logger.info("Client {} leave, total {} now".format(
-    #                    client, len(self.clients)
-    #                 )
-    #             )
-    #             client.close()
-    #         except:
-    #             pass
-    #
-    # def add_session(self, session):
-    #     print('Sessions in {}: {}'.format(os.getpid(), id(session)))
-    #     with self.lock:
-    #         s = Session(**session.to_json())
-    #         db_session.add(s)
-    #         app_service.create_session(session.to_json())
-    #
-    # def remove_session(self, session):
-    #     with self.lock:
-    #         try:
-    #             logger.info("Remove session: {}".format(session))
-    #             app_service.finish_session(session.to_json())
-    #             db_session.query(Session).filter(id=session.id).delete()
-    #         except ValueError:
-    #             msg = "Remove session: {} fail, maybe already removed"
-    #             logger.warning(msg.format(session))

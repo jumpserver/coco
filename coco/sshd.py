@@ -4,9 +4,6 @@
 
 import os
 import socket
-import random
-import multiprocessing
-from multiprocessing.reduction import recv_handle, send_handle
 import threading
 
 import paramiko
@@ -25,7 +22,7 @@ BACKLOG = 5
 class SSHServer:
 
     def __init__(self):
-        self.stop_evt = multiprocessing.Event()
+        self.stop_evt = threading.Event()
         self.workers = []
         self.pipe = None
         self.connections = []
@@ -43,9 +40,7 @@ class SSHServer:
         with open(key_path, 'w') as f:
             f.write(ssh_key)
 
-    @staticmethod
-    def start_master(in_p, out_p, workers):
-        in_p.close()
+    def run(self):
         host = config["BIND_HOST"]
         port = config["SSHD_PORT"]
         print('Starting ssh server at {}:{}'.format(host, port))
@@ -53,50 +48,17 @@ class SSHServer:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
         sock.bind((host, port))
         sock.listen(BACKLOG)
-        while True:
+        while not self.stop_evt.is_set():
             try:
                 client, addr = sock.accept()
-                logger.info("Get ssh request from {}: {}".format(*addr))
-                worker = random.choice(workers)
-                send_handle(out_p, client.fileno(), worker.pid)
-                client.close()
+                t = threading.Thread(target=self.handle_connection, args=(client, addr))
+                t.daemon = True
+                t.start()
             except IndexError as e:
                 logger.error("Start SSH server error: {}".format(e))
 
-    def start_workers(self, in_p, out_p):
-        workers = []
-        for i in range(4):
-            worker = multiprocessing.Process(
-                target=self.start_worker, args=(in_p, out_p)
-            )
-            worker.daemon = True
-            workers.append(worker)
-            worker.start()
-        return workers
-
-    def start_worker(self, in_p, out_p):
-        out_p.close()
-        while not self.stop_evt.is_set():
-            fd = recv_handle(in_p)
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, fileno=fd)
-            addr = sock.getpeername()
-            thread = threading.Thread(
-                target=self.handle_connection, args=(sock, addr)
-            )
-            thread.daemon = True
-            thread.start()
-
-    def run(self):
-        in_p, out_p = multiprocessing.Pipe()
-        self.workers = self.start_workers(in_p, out_p)
-        master = multiprocessing.Process(
-            target=self.start_master, args=(in_p, out_p, self.workers),
-            name='master'
-        )
-        master.start()
-
     def new_connection(self, addr, sock):
-        connection = Connection(addr=addr, sock=sock)
+        connection = Connection.new_connection(addr=addr, sock=sock)
         self.connections.append(connection)
         return connection
 
@@ -111,7 +73,7 @@ class SSHServer:
         transport.set_subsystem_handler(
             'sftp', paramiko.SFTPServer, SFTPServer
         )
-        connection = self.new_connection(addr, sock)
+        connection = self.new_connection(addr, sock=sock)
         server = SSHInterface(connection)
         try:
             transport.start_server(server=server)
@@ -139,9 +101,11 @@ class SSHServer:
             t = threading.Thread(target=self.dispatch, args=(client,))
             t.daemon = True
             t.start()
+        Connection.remove_connection(connection.id)
 
     @staticmethod
     def dispatch(client):
+        print("Dispatch client {}".format(client.id))
         supported = {'pty', 'x11', 'forward-agent'}
         chan_type = client.request.type
         kind = client.request.kind
@@ -154,6 +118,8 @@ class SSHServer:
             msg = "Request type `{}:{}` not support now".format(kind, chan_type)
             logger.info(msg)
             client.send(msg)
+        connection = Connection.get_connection(client.connection_id)
+        connection.remove_client(client.id)
 
     def shutdown(self):
         self.stop_evt.set()

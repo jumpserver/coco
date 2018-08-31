@@ -112,7 +112,7 @@ class SSHInterface(paramiko.ServerInterface):
     def check_channel_direct_tcpip_request(self, chan_id, origin, destination):
         logger.debug("Check channel direct tcpip request: %d %s %s" %
                      (chan_id, origin, destination))
-        client = self.connection.new_client()
+        client = self.connection.new_client(chan_id)
         client.request.kind = 'direct-tcpip'
         client.request.type = 'direct-tcpip'
         client.request.meta.update({
@@ -196,7 +196,7 @@ class SSHInterface(paramiko.ServerInterface):
             'pixelwidth': pixelwidth,
             'pixelheight': pixelheight,
         })
-        client.change_size_event.set()
+        client.change_size_evt.set()
         return True
 
     def check_channel_x11_request(self, channel, single_connection,

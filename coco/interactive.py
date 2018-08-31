@@ -24,6 +24,7 @@ class InteractiveServer:
     def __init__(self, client):
         self.client = client
         self.assets = None
+        self.closed = False
         self._search_result = None
         self.nodes = None
         self.get_user_assets_async()
@@ -267,12 +268,12 @@ class InteractiveServer:
         if system_user is None:
             self.client.send(_("No system user"))
             return
-        forwarder = ProxyServer(self.client)
-        forwarder.proxy(asset, system_user)
+        forwarder = ProxyServer(self.client, asset, system_user)
+        forwarder.proxy()
 
     def interact(self):
         self.display_banner()
-        while True:
+        while not self.closed:
             try:
                 opt = net_input(self.client, prompt='Opt> ', before=1)
                 rv = self.dispatch(opt)
@@ -289,8 +290,8 @@ class InteractiveServer:
         thread.start()
 
     def close(self):
-        self.client.close()
-        return
+        logger.debug("Interactive server server close: {}".format(self))
+        self.closed = True
         # current_app.remove_client(self.client)
 
     # def __del__(self):

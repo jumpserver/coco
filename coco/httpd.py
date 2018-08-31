@@ -2,16 +2,11 @@
 # -*- coding: utf-8 -*-
 #
 import os
-import socket
-import sys
-import subprocess
 import uuid
 from flask_socketio import SocketIO, Namespace, join_room
 from flask import Flask, request
-import gunicorn.app.wsgiapp as wsgi
-from gunicorn.app.base import BaseApplication
 
-from .models import WSProxy, Connection, WSProxy2
+from .models import Connection, WSProxy
 from .proxy import ProxyServer
 from .utils import get_logger
 from .ctx import app_service
@@ -38,8 +33,7 @@ class BaseNamespace(Namespace):
             session_id, user
         )
         logger.debug(msg)
-        if user:
-            request.current_user = user
+        request.current_user = user
         return user
 
 
@@ -55,7 +49,6 @@ class ProxyNamespace(BaseNamespace):
         }
         """
         super().__init__(*args, **kwargs)
-        self.connections = dict()
         self.win_size = None
 
     def new_connection(self):
@@ -64,10 +57,11 @@ class ProxyNamespace(BaseNamespace):
             remote_ip = x_forwarded_for[0]
         else:
             remote_ip = request.remote_addr
-        connection = Connection(cid=request.sid, addr=(remote_ip, 0))
+        connection = Connection.new_connection(
+            addr=(remote_ip, 0), cid=request.sid, sock=self
+        )
         connection.user = request.current_user
         connection.login_from = 'WT'
-        self.connections[request.sid] = connection
 
     def on_connect(self):
         logger.debug("On connect event trigger")
@@ -86,7 +80,7 @@ class ProxyNamespace(BaseNamespace):
         secret = message.get('secret', None)
         cols, rows = message.get('size', (80, 24))
 
-        connection = self.connections.get(request.sid)
+        connection = Connection.get_connection(request.sid)
         client_id = str(uuid.uuid4())
         client = connection.new_client(client_id)
         client.request.kind = 'session'
@@ -94,7 +88,8 @@ class ProxyNamespace(BaseNamespace):
         client.request.meta.update({
             'pty': b'xterm', 'width': cols, 'height': rows,
         })
-        client.chan = WSProxy2(self, client_id)
+        ws_proxy = WSProxy(self, client_id)
+        client.chan = ws_proxy
         self.emit('room', {'room': client_id, 'secret': secret})
         join_room(client_id)
         if not asset_id or not system_user_id:
@@ -105,11 +100,12 @@ class ProxyNamespace(BaseNamespace):
 
         if not asset or not system_user:
             return
+        forwarder = ProxyServer(client, asset, system_user)
 
-        forwarder = ProxyServer(client)
-        self.socketio.start_background_task(
-            forwarder.proxy, asset, system_user
-        )
+        def proxy():
+            forwarder.proxy()
+            self.logout(client_id, connection)
+        self.socketio.start_background_task(proxy)
 
     def on_data(self, message):
         """
@@ -118,7 +114,7 @@ class ProxyNamespace(BaseNamespace):
         :return:
         """
         client_id = message.get('room')
-        connection = self.connections.get(request.sid)
+        connection = Connection.get_connection(request.sid)
         if not connection:
             return
         client = connection.clients.get(client_id)
@@ -170,7 +166,7 @@ class ProxyNamespace(BaseNamespace):
     def on_resize(self, message):
         cols, rows = message.get('cols', None), message.get('rows', None)
         logger.debug("On resize event trigger: {}*{}".format(cols, rows))
-        connection = self.connections.get(request.sid)
+        connection = Connection.get_connection(request.sid)
         if not connection:
             logger.error("Not connection found")
             return
@@ -181,11 +177,11 @@ class ProxyNamespace(BaseNamespace):
             client.request.meta.update({
                 'width': cols, 'height': rows
             })
-            client.change_size_event.set()
+            client.change_size_evt.set()
 
     def on_disconnect(self):
         logger.debug("On disconnect event trigger")
-        connection = self.connections.get(request.sid)
+        connection = Connection.get_connection(request.sid)
         if not connection:
             return
         for client in connection.clients:
@@ -193,18 +189,22 @@ class ProxyNamespace(BaseNamespace):
                 self.on_logout(client.id)
             except Exception as e:
                 logger.warn(e)
-        del self.connections[request.sid]
+        Connection.remove_connection(connection.id)
+
+    def logout(self, client_id, connection):
+        connection.remove_client(client_id)
+        self.emit('logout', {"room": client_id}, room=client_id)
+        self.emit('data', {"room": client_id, "data": client_id}, room=client_id)
 
     def on_logout(self, client_id):
-        connection = self.connections.get(request.sid)
+        logger.debug("On logout event trigger: {}".format(client_id))
+        connection = Connection.get_connection(request.sid)
         if not connection:
             return
+        self.logout(client_id, connection)
 
-        client = connection.clients.get(client_id)
-        if client:
-            client.close()
-            self.close_room(client_id)
-            del connection[client_id]
+    def close(self):
+        pass
 
     def on_ping(self):
         self.emit('pong')
@@ -218,8 +218,8 @@ class HttpServer:
         'LOGIN_URL': '/login'
     }
     init_kwargs = dict(
-        # async_mode="eventlet",
-        async_mode="threading",
+        async_mode="eventlet",
+        # async_mode="threading",
         # ping_timeout=20,
         # ping_interval=10,
         # engineio_logger=True,

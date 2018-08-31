@@ -14,7 +14,7 @@ import jms_storage
 
 from .config import config
 from .utils import get_logger, Singleton
-from .alignment import MemoryQueue
+from .struct import MemoryQueue
 from .ctx import app_service
 
 logger = get_logger(__file__)
@@ -154,9 +154,19 @@ class CommandRecorder(metaclass=Singleton):
         thread.start()
 
     def session_start(self, session_id):
-        print("Session start: {}".format(session_id))
         pass
 
     def session_end(self, session_id):
-        print("Session end: {}".format(session_id))
         pass
+
+
+def get_command_recorder():
+    return CommandRecorder()
+
+
+def get_replay_recorder():
+    return ReplayRecorder()
+
+
+def get_recorder():
+    return get_command_recorder(), get_replay_recorder()
