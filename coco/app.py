@@ -55,6 +55,7 @@ class Coco:
         'HEARTBEAT_INTERVAL': 5,
         'MAX_CONNECTIONS': 500,
         'ADMINS': '',
+        'SSH_TIMEOUT': 15,
         'COMMAND_STORAGE': {'TYPE': 'server'},   # server
         'REPLAY_STORAGE': {'TYPE': 'server'},
         'LANGUAGE_CODE': 'zh',

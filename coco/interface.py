@@ -69,6 +69,10 @@ class SSHInterface(paramiko.ServerInterface):
 
     def check_auth_password(self, username, password):
         user = self.validate_auth(username, password=password)
+        
+        if not self.check_allow_ssh_user(username):
+            return paramiko.AUTH_FAILED
+        
         if not user:
             logger.warning("Password and public key auth <%s> failed, reject it" % username)
             return paramiko.AUTH_FAILED
@@ -81,6 +85,10 @@ class SSHInterface(paramiko.ServerInterface):
     def check_auth_publickey(self, username, key):
         key = key.get_base64()
         user = self.validate_auth(username, public_key=key)
+        
+        if not self.check_allow_ssh_user(username):
+            return paramiko.AUTH_FAILED
+        
         if not user:
             logger.debug("Public key auth <%s> failed, try to password" % username)
             return paramiko.AUTH_FAILED
@@ -90,6 +98,12 @@ class SSHInterface(paramiko.ServerInterface):
                 return paramiko.AUTH_PARTIALLY_SUCCESSFUL
             return paramiko.AUTH_SUCCESSFUL
 
+    def check_allow_ssh_user(self, username):
+        if username in current_app.config["ALLOW_SSH_USER"]:
+            return True
+        else:
+            return False
+        
     def validate_auth(self, username, password="", public_key=""):
         info = app_service.authenticate(
             username, password=password, public_key=public_key,
