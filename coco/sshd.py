@@ -111,14 +111,14 @@ class SSHServer:
         if kind == 'session' and chan_type in supported:
             logger.info("Request type `{}:{}`, dispatch to interactive mode".format(kind, chan_type))
             InteractiveServer(client).interact()
+            connection = Connection.get_connection(client.connection_id)
+            connection.remove_client(client.id)
         elif chan_type == 'subsystem':
             pass
         else:
             msg = "Request type `{}:{}` not support now".format(kind, chan_type)
             logger.info(msg)
             client.send(msg)
-        connection = Connection.get_connection(client.connection_id)
-        connection.remove_client(client.id)
 
     def shutdown(self):
         self.stop_evt.set()
