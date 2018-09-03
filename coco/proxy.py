@@ -11,7 +11,7 @@ from .connection import SSHConnection, TelnetConnection
 from .ctx import app_service
 from .config import config
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
-     get_logger, net_input
+     get_logger, net_input, ugettext as _
 
 
 logger = get_logger(__file__)
@@ -85,7 +85,7 @@ class ProxyServer:
         logger.info("Connect to {}".format(self.asset.hostname))
         self.send_connecting_message()
         if not self.validate_permission():
-            self.client.send(warning('No permission'))
+            self.client.send(warning(_('No permission')))
             server = None
         elif self.system_user.protocol == self.asset.protocol == 'telnet':
             server = self.get_telnet_server_conn()
@@ -127,7 +127,7 @@ class ProxyServer:
     def send_connecting_message(self):
         def func():
             delay = 0.0
-            self.client.send('Connecting to {}@{} {:.1f}'.format(
+            self.client.send(_('Connecting to {}@{} {:.1f}').format(
                 self.system_user, self.asset, delay)
             )
             while self.connecting and delay < config['SSH_TIMEOUT']:
