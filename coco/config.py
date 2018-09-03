@@ -270,29 +270,33 @@ class Config(dict):
         return '<%s %s>' % (self.__class__.__name__, dict.__repr__(self))
 
 
+root_path = os.environ.get("COCO_PATH")
+if not root_path:
+    root_path = BASE_DIR
+access_key_path = os.path.abspath(os.path.join(root_path, 'keys', '.access_key'))
+
 default_config = {
     'NAME': socket.gethostname(),
     'CORE_HOST': 'http://127.0.0.1:8080',
+    'ROOT_PATH': root_path,
     'DEBUG': True,
     'BIND_HOST': '0.0.0.0',
     'SSHD_PORT': 2222,
     'HTTPD_PORT': 5000,
-    'ACCESS_KEY': '',
-    'DB_FILE': os.path.join(BASE_DIR, 'sqlite3.db'),
-    'ACCESS_KEY_ENV': 'COCO_ACCESS_KEY',
-    'ACCESS_KEY_FILE': os.path.join(BASE_DIR, 'keys', '.access_key'),
+    'COCO_ACCESS_KEY': '',
+    'ACCESS_KEY_FILE': access_key_path,
     'SECRET_KEY': 'SDK29K03%MM0ksf&#2',
     'LOG_LEVEL': 'DEBUG',
-    'LOG_DIR': os.path.join(BASE_DIR, 'logs'),
-    'SESSION_DIR': os.path.join(BASE_DIR, 'sessions'),
+    'LOG_DIR': os.path.join(root_path, 'logs'),
+    'SESSION_DIR': os.path.join(root_path, 'sessions'),
     'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
     'PASSWORD_AUTH': True,
     'PUBLIC_KEY_AUTH': True,
     'SSH_TIMEOUT': 10,
-    'ALLOW_SSH_USER': ['admin'],
+    'ALLOW_SSH_USER': [],
     'BLOCK_SSH_USER': [],
     'HEARTBEAT_INTERVAL': 5,
-    'MAX_CONNECTIONS': 500,
+    'MAX_CONNECTIONS': 500,  # Not use now
     'ADMINS': '',
     'COMMAND_STORAGE': {'TYPE': 'server'},   # server
     'REPLAY_STORAGE': {'TYPE': 'server'},
@@ -300,10 +304,5 @@ default_config = {
     'SECURITY_MAX_IDLE_TIME': 60,
 }
 
-root_path = os.environ.get("COCO_PATH")
-if not root_path:
-    root_path = BASE_DIR
-
 config = Config(root_path, default_config)
-config['ROOT_PATH'] = root_path
 config.from_pyfile('conf.py')
