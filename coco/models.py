@@ -333,15 +333,11 @@ class WSProxy:
     def closed(self):
         return self.sock._closed
 
-    def session_close(self):
-        self.ws.on_logout(self.client_id)
-
     def write(self, data):
         self.proxy.send(data.encode())
 
     def close(self):
         self.proxy.close()
-        self.sock.close()
 
     def __getattr__(self, item):
         return getattr(self.sock, item)

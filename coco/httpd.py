@@ -184,9 +184,10 @@ class ProxyNamespace(BaseNamespace):
         connection = Connection.get_connection(request.sid)
         if not connection:
             return
-        for client in connection.clients:
+        clients_copy = list(connection.clients.keys())
+        for client_id in clients_copy:
             try:
-                self.on_logout(client.id)
+                self.on_logout(client_id)
             except Exception as e:
                 logger.warn(e)
         Connection.remove_connection(connection.id)
