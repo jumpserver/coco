@@ -23,6 +23,9 @@ from werkzeug.utils import import_string
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+root_path = os.environ.get("COCO_PATH")
+if not root_path:
+    root_path = BASE_DIR
 
 
 class ConfigAttribute(object):
@@ -270,11 +273,7 @@ class Config(dict):
         return '<%s %s>' % (self.__class__.__name__, dict.__repr__(self))
 
 
-root_path = os.environ.get("COCO_PATH")
-if not root_path:
-    root_path = BASE_DIR
 access_key_path = os.path.abspath(os.path.join(root_path, 'keys', '.access_key'))
-
 default_config = {
     'NAME': socket.gethostname(),
     'CORE_HOST': 'http://127.0.0.1:8080',
@@ -306,3 +305,9 @@ default_config = {
 
 config = Config(root_path, default_config)
 config.from_pyfile('conf.py')
+
+try:
+    from conf import config as _conf
+    config.from_object(_conf)
+except ImportError:
+    pass

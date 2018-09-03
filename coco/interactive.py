@@ -155,6 +155,8 @@ class InteractiveServer:
         self.client.send(wr(_("Total: {}").format(len(self.nodes)), before=1))
 
     def display_node_assets(self, _id):
+        if self.nodes is None:
+            self.get_user_nodes()
         if _id > len(self.nodes) or _id <= 0:
             msg = wr(warning(_("There is no matched node, please re-enter")))
             self.client.send(msg)
