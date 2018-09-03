@@ -194,7 +194,6 @@ class ProxyNamespace(BaseNamespace):
     def logout(self, client_id, connection):
         connection.remove_client(client_id)
         self.emit('logout', {"room": client_id}, room=client_id)
-        self.emit('data', {"room": client_id, "data": client_id}, room=client_id)
 
     def on_logout(self, client_id):
         logger.debug("On logout event trigger: {}".format(client_id))
