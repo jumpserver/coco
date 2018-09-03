@@ -1,0 +1,143 @@
+# Language locale/zh translations for PACKAGE package.
+# Copyright (C) 2018 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# BaiJiangjie <bugatti_it@163.com>, 2018.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2018-09-03 10:36+0800\n"
+"PO-Revision-Date: 2018-08-10 10:42+0800\n"
+"Last-Translator: BaiJiangjie <bugatti_it@163.com>\n"
+"Language-Team: Language locale/zh\n"
+"Language: locale/zh_CN/LC_MESSAGES/coco\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: coco/app.py:147
+msgid "Connect idle more than {} minutes, disconnect"
+msgstr "空闲时间超过 {} 分钟，断开连接"
+
+#: coco/interactive.py:61
+#, python-brace-format
+msgid ""
+"\n"
+"{T}{T}{title} {user}, Welcome to use Jumpserver open source fortress system "
+"{end}{R}{R}"
+msgstr ""
+"\n"
+"{T}{T}{title} {user}, 欢迎使用Jumpserver开源跳板机系统 {end}{R}{R}"
+
+#: coco/interactive.py:63
+#, python-brace-format
+msgid ""
+"{T}1) Enter {green}ID{end} directly login or enter {green}part IP, Hostname, "
+"Comment{end} to search login(if unique).{R}"
+msgstr ""
+"{T}1) 输入 {green}ID{end} 直接登录 或 输入{green}部分 IP,主机名,备注{end} 进"
+"行搜索登录(如果唯一).{R}"
+
+#: coco/interactive.py:64
+#, python-brace-format
+msgid ""
+"{T}2) Enter {green}/{end} + {green}IP, Hostname{end} or {green}Comment {end} "
+"search, such as: /ip.{R}"
+msgstr ""
+"{T}2) 输入 {green}/{end} + {green}IP, 主机名{end} or {green}备注 {end}搜索. "
+"如: /ip{R}"
+
+#: coco/interactive.py:65
+#, python-brace-format
+msgid "{T}3) Enter {green}p{end} to display the host you have permission.{R}"
+msgstr "{T}3) 输入 {green}p{end} 显示您有权限的主机.{R}"
+
+#: coco/interactive.py:66
+#, python-brace-format
+msgid ""
+"{T}4) Enter {green}g{end} to display the node that you have permission.{R}"
+msgstr "{T}4) 输入 {green}g{end} 显示您有权限的节点.{R}"
+
+#: coco/interactive.py:67
+#, python-brace-format
+msgid ""
+"{T}5) Enter {green}g{end} + {green}Group ID{end} to display the host under "
+"the node, such as g1.{R}"
+msgstr "{T}5) 输入 {green}g{end} + {green}组ID{end} 显示节点下主机. 如: g1{R}"
+
+#: coco/interactive.py:68
+#, python-brace-format
+msgid "{T}6) Enter {green}s{end} Chinese-english switch.{R}"
+msgstr "{T}6) 输入 {green}s{end} 中/英文切换.{R}"
+
+#: coco/interactive.py:69
+#, python-brace-format
+msgid "{T}7) Enter {green}h{end} help.{R}"
+msgstr "{T}7) 输入 {green}h{end} 帮助.{R}"
+
+#: coco/interactive.py:70
+#, fuzzy, python-brace-format
+msgid "{T}0) Enter {green}q{end} exit.{R}"
+msgstr "{T}0) 输入 {green}q{end} 退出.{R}\n"
+
+#: coco/interactive.py:142
+msgid "No"
+msgstr "无"
+
+#: coco/interactive.py:149
+msgid "Name"
+msgstr "名称"
+
+#: coco/interactive.py:149
+msgid "Assets"
+msgstr "资产"
+
+#: coco/interactive.py:155
+msgid "Total: {}"
+msgstr "总共: {}"
+
+#: coco/interactive.py:159
+msgid "There is no matched node, please re-enter"
+msgstr "没有匹配分组，请重新输入"
+
+#: coco/interactive.py:170
+msgid "ID"
+msgstr ""
+
+#: coco/interactive.py:170
+msgid "Hostname"
+msgstr "主机名"
+
+#: coco/interactive.py:170
+msgid "IP"
+msgstr ""
+
+#: coco/interactive.py:170
+msgid "LoginAs"
+msgstr ""
+
+#: coco/interactive.py:184
+msgid "Comment"
+msgstr "备注"
+
+#: coco/interactive.py:192
+msgid "Total: {} Match: {}"
+msgstr "总共: {} 匹配: {}"
+
+#: coco/interactive.py:235
+msgid "Select a login:: "
+msgstr "选择一个登录:"
+
+#: coco/interactive.py:258
+msgid ""
+"Terminal does not support login Windows, please use web terminal to access"
+msgstr "终端不支持登录windows, 请使用web terminal访问"
+
+#: coco/interactive.py:269
+msgid "No system user"
+msgstr "没有系统用户"
+
+#: coco/session.py:143
+msgid "Terminated by administrator"
+msgstr "被管理员中断"

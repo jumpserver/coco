@@ -7,11 +7,12 @@ import threading
 import os
 
 from . import char
+from .config import config
 from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
     wrap_with_warning as warning, is_obj_attr_has, is_obj_attr_eq, \
     sort_assets, ugettext as _, get_logger, net_input, format_with_zh, \
-    item_max_length, size_of_str_with_zh
-from .ctx import current_app, app_service
+    item_max_length, size_of_str_with_zh, switch_lang
+from .ctx import app_service
 from .proxy import ProxyServer
 
 logger = get_logger(__file__)
@@ -22,8 +23,8 @@ class InteractiveServer:
 
     def __init__(self, client):
         self.client = client
-        self.request = client.request
         self.assets = None
+        self.closed = False
         self._search_result = None
         self.nodes = None
         self.get_user_assets_async()
@@ -44,28 +45,39 @@ class InteractiveServer:
         value = self.filter_system_users(value)
         self._search_result = value
 
+    def display_logo(self):
+        logo_path = os.path.join(config['ROOT_PATH'], "logo.txt")
+        if not os.path.isfile(logo_path):
+            return
+        with open(logo_path, 'rb') as f:
+            for i in f:
+                if i.decode('utf-8').startswith('#'):
+                    continue
+                self.client.send(i.decode('utf-8').replace('\n', '\r\n'))
+
     def display_banner(self):
         self.client.send(char.CLEAR_CHAR)
-        logo_path = os.path.join(current_app.root_path, "logo.txt")
-        if os.path.isfile(logo_path):
-            with open(logo_path, 'rb') as f:
-                for i in f:
-                    if i.decode('utf-8').startswith('#'):
-                        continue
-                    self.client.send(i.decode('utf-8').replace('\n', '\r\n'))
-
-        banner = _("""\n {title}   {user}, 欢迎使用Jumpserver开源跳板机系统  {end}\r\n\r
-    1) 输入 {green}ID{end} 直接登录 或 输入{green}部分 IP,主机名,备注{end} 进行搜索登录(如果唯一).\r
-    2) 输入 {green}/{end} + {green}IP, 主机名{end} or {green}备注 {end}搜索. 如: /ip\r
-    3) 输入 {green}p{end} 显示您有权限的主机.\r
-    4) 输入 {green}g{end} 显示您有权限的节点\r
-    5) 输入 {green}g{end} + {green}组ID{end} 显示节点下主机. 如: g1\r
-    6) 输入 {green}h{end} 帮助.\r
-    0) 输入 {green}q{end} 退出.\r\n""").format(
-            title="\033[1;32m", green="\033[32m",
-            end="\033[0m", user=self.client.user
-        )
-        self.client.send(banner)
+        self.display_logo()
+        header = _("\n{T}{T}{title} {user}, Welcome to use Jumpserver open source fortress system {end}{R}{R}")
+        menus = [
+            _("{T}1) Enter {green}ID{end} directly login or enter {green}part IP, Hostname, Comment{end} to search login(if unique).{R}"),
+            _("{T}2) Enter {green}/{end} + {green}IP, Hostname{end} or {green}Comment {end} search, such as: /ip.{R}"),
+            _("{T}3) Enter {green}p{end} to display the host you have permission.{R}"),
+            _("{T}4) Enter {green}g{end} to display the node that you have permission.{R}"),
+            _("{T}5) Enter {green}g{end} + {green}Group ID{end} to display the host under the node, such as g1.{R}"),
+            _("{T}6) Enter {green}s{end} Chinese-english switch.{R}"),
+            _("{T}7) Enter {green}h{end} help.{R}"),
+            _("{T}0) Enter {green}q{end} exit.{R}")
+        ]
+        self.client.send(header.format(
+            title="\033[1;32m", user=self.client.user, end="\033[0m",
+            T='\t', R='\r\n\r'
+        ))
+        for menu in menus:
+            self.client.send(menu.format(
+                green="\033[32m", end="\033[0m",
+                T='\t', R='\r\n\r'
+            ))
 
     def dispatch(self, opt):
         if opt is None:
@@ -80,6 +92,9 @@ class InteractiveServer:
             self.display_node_assets(int(opt.lstrip("g")))
         elif opt in ['q', 'Q', 'exit', 'quit']:
             return self._sentinel
+        elif opt in ['s', 'S']:
+            switch_lang()
+            self.display_banner()
         elif opt in ['h', 'H']:
             self.display_banner()
         else:
@@ -124,33 +139,25 @@ class InteractiveServer:
             self.get_user_nodes()
 
         if len(self.nodes) == 0:
-            self.client.send(warning(_("无")))
+            self.client.send(warning(_("No")))
             return
 
         id_length = max(len(str(len(self.nodes))), 5)
         name_length = item_max_length(self.nodes, 15, key=lambda x: x.name)
-        amount_length = item_max_length(self.nodes, 10,
-                                        key=lambda x: x.assets_amount)
+        amount_length = item_max_length(self.nodes, 10, key=lambda x: x.assets_amount)
         size_list = [id_length, name_length, amount_length]
         fake_data = ['ID', _("Name"), _("Assets")]
-        header_without_comment = format_with_zh(size_list, *fake_data)
-        comment_length = max(
-            self.request.meta["width"] -
-            size_of_str_with_zh(header_without_comment) - 1,
-            2
-        )
-        size_list.append(comment_length)
-        fake_data.append(_("Comment"))
 
-        self.client.send(title(format_with_zh(size_list, *fake_data)))
-        for index, group in enumerate(self.nodes, 1):
-            data = [index, group.name, group.assets_amount, group.comment]
+        self.client.send(wr(title(format_with_zh(size_list, *fake_data))))
+        for index, node in enumerate(self.nodes, 1):
+            data = [index, node.name, node.assets_amount]
             self.client.send(wr(format_with_zh(size_list, *data)))
-        self.client.send(wr(_("总共: {}").format(len(self.nodes)), before=1))
+        self.client.send(wr(_("Total: {}").format(len(self.nodes)), before=1))
 
     def display_node_assets(self, _id):
         if _id > len(self.nodes) or _id <= 0:
-            self.client.send(wr(warning("没有匹配分组，请重新输入")))
+            msg = wr(warning(_("There is no matched node, please re-enter")))
+            self.client.send(msg)
             self.display_nodes()
             return
 
@@ -158,7 +165,7 @@ class InteractiveServer:
         self.display_search_result()
 
     def display_search_result(self):
-        sort_by = current_app.config["ASSET_LIST_SORT_BY"]
+        sort_by = config["ASSET_LIST_SORT_BY"]
         self.search_result = sort_assets(self.search_result, sort_by)
         fake_data = [_("ID"), _("Hostname"), _("IP"), _("LoginAs")]
         id_length = max(len(str(len(self.search_result))), 4)
@@ -169,7 +176,7 @@ class InteractiveServer:
         size_list = [id_length, hostname_length, 16, sysuser_length]
         header_without_comment = format_with_zh(size_list, *fake_data)
         comment_length = max(
-            self.request.meta["width"] -
+            self.client.request.meta["width"] -
             size_of_str_with_zh(header_without_comment) - 1,
             2
         )
@@ -182,7 +189,7 @@ class InteractiveServer:
                 asset.system_users_name_list, asset.comment
             ]
             self.client.send(wr(format_with_zh(size_list, *data)))
-        self.client.send(wr(_("总共: {} 匹配: {}").format(
+        self.client.send(wr(_("Total: {} Match: {}").format(
             len(self.assets), len(self.search_result)), before=1)
         )
 
@@ -225,7 +232,7 @@ class InteractiveServer:
             return None
 
         while True:
-            self.client.send(wr(_("选择一个登录: "), after=1))
+            self.client.send(wr(_("Select a login:: "), after=1))
             self.display_system_users(system_users)
             opt = net_input(self.client, prompt="ID> ")
             if opt.isdigit() and len(system_users) > int(opt):
@@ -248,7 +255,8 @@ class InteractiveServer:
             self.search_result = None
             if asset.platform == "Windows":
                 self.client.send(warning(
-                    _("终端不支持登录windows, 请使用web terminal访问"))
+                    _("Terminal does not support login Windows, "
+                      "please use web terminal to access"))
                 )
                 return
             self.proxy(asset)
@@ -258,20 +266,21 @@ class InteractiveServer:
     def proxy(self, asset):
         system_user = self.choose_system_user(asset.system_users_granted)
         if system_user is None:
-            self.client.send(_("没有系统用户"))
+            self.client.send(_("No system user"))
             return
-        forwarder = ProxyServer(self.client, login_from='ST')
-        forwarder.proxy(asset, system_user)
+        forwarder = ProxyServer(self.client, asset, system_user)
+        forwarder.proxy()
 
     def interact(self):
         self.display_banner()
-        while True:
+        while not self.closed:
             try:
                 opt = net_input(self.client, prompt='Opt> ', before=1)
                 rv = self.dispatch(opt)
                 if rv is self._sentinel:
                     break
-            except socket.error:
+            except socket.error as e:
+                logger.debug("Socket error: {}".format(e))
                 break
         self.close()
 
@@ -281,7 +290,9 @@ class InteractiveServer:
         thread.start()
 
     def close(self):
-        current_app.remove_client(self.client)
+        logger.debug("Interactive server server close: {}".format(self))
+        self.closed = True
+        # current_app.remove_client(self.client)
 
     # def __del__(self):
     #     print("GC: Interactive class been gc")
