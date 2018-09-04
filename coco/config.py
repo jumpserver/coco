@@ -17,8 +17,15 @@ import os
 import types
 import errno
 import json
+import socket
 
 from werkzeug.utils import import_string
+
+
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+root_path = os.environ.get("COCO_PATH")
+if not root_path:
+    root_path = BASE_DIR
 
 
 class ConfigAttribute(object):
@@ -233,7 +240,7 @@ class Config(dict):
         The resulting dictionary `image_store_config` would look like::
 
             {
-                'type': 'fs',
+                'types': 'fs',
                 'path': '/var/app/images',
                 'base_url': 'http://img.website.com'
             }
@@ -266,4 +273,41 @@ class Config(dict):
         return '<%s %s>' % (self.__class__.__name__, dict.__repr__(self))
 
 
+access_key_path = os.path.abspath(os.path.join(root_path, 'keys', '.access_key'))
+default_config = {
+    'NAME': socket.gethostname(),
+    'CORE_HOST': 'http://127.0.0.1:8080',
+    'ROOT_PATH': root_path,
+    'DEBUG': True,
+    'BIND_HOST': '0.0.0.0',
+    'SSHD_PORT': 2222,
+    'HTTPD_PORT': 5000,
+    'COCO_ACCESS_KEY': '',
+    'ACCESS_KEY_FILE': access_key_path,
+    'SECRET_KEY': 'SDK29K03%MM0ksf&#2',
+    'LOG_LEVEL': 'DEBUG',
+    'LOG_DIR': os.path.join(root_path, 'logs'),
+    'SESSION_DIR': os.path.join(root_path, 'sessions'),
+    'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
+    'PASSWORD_AUTH': True,
+    'PUBLIC_KEY_AUTH': True,
+    'SSH_TIMEOUT': 10,
+    'ALLOW_SSH_USER': [],
+    'BLOCK_SSH_USER': [],
+    'HEARTBEAT_INTERVAL': 5,
+    'MAX_CONNECTIONS': 500,  # Not use now
+    'ADMINS': '',
+    'COMMAND_STORAGE': {'TYPE': 'server'},   # server
+    'REPLAY_STORAGE': {'TYPE': 'server'},
+    'LANGUAGE_CODE': 'zh',
+    'SECURITY_MAX_IDLE_TIME': 60,
+}
 
+config = Config(root_path, default_config)
+config.from_pyfile('conf.py')
+
+try:
+    from conf import config as _conf
+    config.from_object(_conf)
+except ImportError:
+    pass

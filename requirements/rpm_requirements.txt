@@ -1,1 +1,1 @@
-libffi-devel sshpass
+libffi-devel sshpass krb5-devel

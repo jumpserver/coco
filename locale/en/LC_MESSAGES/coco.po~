@@ -1,0 +1,137 @@
+# Language locale/en/LC translations for PACKAGE package.
+# Copyright (C) 2018 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# BaiJiangjie <bugatti_it@163.com>, 2018.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2018-09-03 10:36+0800\n"
+"PO-Revision-Date: 2018-08-10 10:42+0800\n"
+"Last-Translator: BaiJiangjie <bugatti_it@163.com>\n"
+"Language-Team: Language locale/en/LC\n"
+"Language: locale/en/LC_MESSAGES/coco\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: coco/app.py:147
+msgid "Connect idle more than {} minutes, disconnect"
+msgstr ""
+
+#: coco/interactive.py:61
+#, python-brace-format
+msgid ""
+"\n"
+"{T}{T}{title} {user}, Welcome to use Jumpserver open source fortress system "
+"{end}{R}{R}"
+msgstr ""
+
+#: coco/interactive.py:63
+#, python-brace-format
+msgid ""
+"{T}1) Enter {green}ID{end} directly login or enter {green}part IP, Hostname, "
+"Comment{end} to search login(if unique).{R}"
+msgstr ""
+
+#: coco/interactive.py:64
+#, python-brace-format
+msgid ""
+"{T}2) Enter {green}/{end} + {green}IP, Hostname{end} or {green}Comment {end} "
+"search, such as: /ip.{R}"
+msgstr ""
+
+#: coco/interactive.py:65
+#, python-brace-format
+msgid "{T}3) Enter {green}p{end} to display the host you have permission.{R}"
+msgstr ""
+
+#: coco/interactive.py:66
+#, python-brace-format
+msgid ""
+"{T}4) Enter {green}g{end} to display the node that you have permission.{R}"
+msgstr ""
+
+#: coco/interactive.py:67
+#, python-brace-format
+msgid ""
+"{T}5) Enter {green}g{end} + {green}Group ID{end} to display the host under "
+"the node, such as g1.{R}"
+msgstr ""
+
+#: coco/interactive.py:68
+#, python-brace-format
+msgid "{T}6) Enter {green}s{end} Chinese-english switch.{R}"
+msgstr ""
+
+#: coco/interactive.py:69
+#, python-brace-format
+msgid "{T}7) Enter {green}h{end} help.{R}"
+msgstr ""
+
+#: coco/interactive.py:70
+#, python-brace-format
+msgid "{T}0) Enter {green}q{end} exit.{R}"
+msgstr ""
+
+#: coco/interactive.py:142
+msgid "No"
+msgstr ""
+
+#: coco/interactive.py:149
+msgid "Name"
+msgstr ""
+
+#: coco/interactive.py:149
+msgid "Assets"
+msgstr ""
+
+#: coco/interactive.py:155
+msgid "Total: {}"
+msgstr ""
+
+#: coco/interactive.py:159
+msgid "There is no matched node, please re-enter"
+msgstr ""
+
+#: coco/interactive.py:170
+msgid "ID"
+msgstr ""
+
+#: coco/interactive.py:170
+msgid "Hostname"
+msgstr ""
+
+#: coco/interactive.py:170
+msgid "IP"
+msgstr ""
+
+#: coco/interactive.py:170
+msgid "LoginAs"
+msgstr ""
+
+#: coco/interactive.py:184
+msgid "Comment"
+msgstr ""
+
+#: coco/interactive.py:192
+msgid "Total: {} Match: {}"
+msgstr ""
+
+#: coco/interactive.py:235
+msgid "Select a login:: "
+msgstr ""
+
+#: coco/interactive.py:258
+msgid ""
+"Terminal does not support login Windows, please use web terminal to access"
+msgstr ""
+
+#: coco/interactive.py:269
+msgid "No system user"
+msgstr ""
+
+#: coco/session.py:143
+msgid "Terminated by administrator"
+msgstr ""
