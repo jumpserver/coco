@@ -40,15 +40,20 @@ def create_logger(app):
             },
             'file': {
                 'level': 'DEBUG',
-                'class': 'logging.FileHandler',
+                'class': 'logging.handlers.TimedRotatingFileHandler',
                 'formatter': 'main',
                 'filename': log_path,
+                'when': "D",
+                'interval': 1,
+                "backupCount": 7
             },
         },
         loggers={
             'coco': main_setting,
             'paramiko': main_setting,
             'jms': main_setting,
+            # 'socket.io': main_setting,
+            # 'engineio': main_setting,
         }
     )
 

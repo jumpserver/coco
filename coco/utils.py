@@ -4,28 +4,39 @@
 
 from __future__ import unicode_literals
 
-import hashlib
 import logging
 import re
 import os
-import threading
-import base64
-import calendar
-import time
-import datetime
 import gettext
 from io import StringIO
 from binascii import hexlify
+from werkzeug.local import Local, LocalProxy
+from functools import partial, wraps
+import builtins
 
 import paramiko
 import pyte
-import pytz
-from email.utils import formatdate
-from queue import Queue, Empty
 
-from .exception import NoAppException
+from . import char
+from .config import config
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+
+APP_NAME = "coco"
+LOCALE_DIR = os.path.join(BASE_DIR, 'locale')
+
+
+class Singleton(type):
+    def __init__(cls, *args, **kwargs):
+        cls.__instance = None
+        super().__init__(*args, **kwargs)
+
+    def __call__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = super().__call__(*args, **kwargs)
+            return cls.__instance
+        else:
+            return cls.__instance
 
 
 def ssh_key_string_to_obj(text, password=None):
@@ -265,12 +276,6 @@ def sort_assets(assets, order_by='hostname'):
     return assets
 
 
-def _gettext():
-    gettext.bindtextdomain("coco", os.path.join(BASE_DIR, "locale"))
-    gettext.textdomain("coco")
-    return gettext.gettext
-
-
 def get_private_key_fingerprint(key):
     line = hexlify(key.get_fingerprint())
     return b':'.join([line[i:i+2] for i in range(0, len(line), 2)])
@@ -289,17 +294,179 @@ def get_logger(file_name):
     return logging.getLogger('coco.'+file_name)
 
 
-zh_pattern = re.compile(u'[\u4e00-\u9fa5]+')
+def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
+    """实现了一个ssh input, 提示用户输入, 获取并返回
 
+    :return user input string
+    """
+    input_data = []
+    parser = TtyIOParser()
+    client.send(wrap_with_line_feed(prompt, before=before, after=after))
 
-def len_display(s):
-    length = 0
-    for i in s:
-        if zh_pattern.match(i):
-            length += 2
+    while True:
+        data = client.recv(10)
+        if len(data) == 0:
+            break
+        # Client input backspace
+        if data in char.BACKSPACE_CHAR:
+            # If input words less than 0, should send 'BELL'
+            if len(input_data) > 0:
+                data = char.BACKSPACE_CHAR[data]
+                input_data.pop()
+            else:
+                data = char.BELL_CHAR
+            client.send(data)
+            continue
+
+        if data.startswith(b'\x03'):
+            # Ctrl-C
+            client.send('^C\r\n{} '.format(prompt).encode())
+            input_data = []
+            continue
+        elif data.startswith(b'\x04'):
+            # Ctrl-D
+            return 'q'
+
+        # Todo: Move x1b to char
+        if data.startswith(b'\x1b') or data in char.UNSUPPORTED_CHAR:
+            client.send(b'')
+            continue
+
+        # handle shell expect
+        multi_char_with_enter = False
+        if len(data) > 1 and data[-1] in char.ENTER_CHAR_ORDER:
+            if sensitive:
+                client.send(len(data) * '*')
+            else:
+                client.send(data)
+            input_data.append(data[:-1])
+            multi_char_with_enter = True
+
+        # If user types ENTER we should get user input
+        if data in char.ENTER_CHAR or multi_char_with_enter:
+            client.send(wrap_with_line_feed(b'', after=2))
+            option = parser.parse_input(input_data)
+            del input_data[:]
+            return option.strip()
         else:
-            length += 1
+            if sensitive:
+                client.send(len(data) * '*')
+            else:
+                client.send(data)
+            input_data.append(data)
+
+
+zh_pattern = re.compile(r'[\u4e00-\u9fa5]')
+
+
+def find_chinese(s):
+    return zh_pattern.findall(s)
+
+
+def align_with_zh(s, length, addin=' '):
+    if not isinstance(s, str):
+        s = str(s)
+    zh_len = len(find_chinese(s))
+    padding = length - (len(s) - zh_len) - zh_len*2
+    padding_content = ''
+
+    if padding > 0:
+        padding_content = addin*padding
+    return s + padding_content
+
+
+def format_with_zh(size_list, *args):
+    data = []
+    for length, s in zip(size_list, args):
+        data.append(align_with_zh(s, length))
+    return ' '.join(data)
+
+
+def size_of_str_with_zh(s):
+    if isinstance(s, int):
+        s = str(s)
+    try:
+        chinese = find_chinese(s)
+    except TypeError:
+        raise
+    return len(s) + len(chinese)
+
+
+def item_max_length(_iter, maxi=None, mini=None, key=None):
+    if key:
+        _iter = [key(i) for i in _iter]
+
+    length = [size_of_str_with_zh(s) for s in _iter]
+    if not length:
+        return 1
+    if maxi:
+        length.append(maxi)
+    length = max(length)
+    if mini and length < mini:
+        length = mini
     return length
 
 
-ugettext = _gettext()
+def int_length(i):
+    return len(str(i))
+
+
+def _get_trans():
+    gettext.install(APP_NAME, LOCALE_DIR)
+    zh = gettext.translation(APP_NAME, LOCALE_DIR, ["zh_CN"])
+    en = gettext.translation(APP_NAME, LOCALE_DIR, ["en"])
+    return zh, en
+
+
+trans_zh, trans_en = _get_trans()
+_thread_locals = Local()
+
+
+def set_current_lang(lang):
+    setattr(_thread_locals, 'LANGUAGE_CODE', lang)
+
+
+def get_current_lang(attr):
+    return getattr(_thread_locals, attr, None)
+
+
+def _gettext(lang):
+    if lang == 'en':
+        trans_en.install()
+    else:
+        trans_zh.install()
+    return builtins.__dict__['_']
+
+
+def _find(attr):
+    lang = get_current_lang(attr)
+    if lang is None:
+        lang = config['LANGUAGE_CODE']
+        set_current_lang(lang)
+    return _gettext(lang)
+
+
+def switch_lang():
+    lang = get_current_lang('LANGUAGE_CODE')
+    if lang == 'zh':
+        set_current_lang('en')
+    elif lang == 'en':
+        set_current_lang('zh')
+
+
+logger = get_logger(__file__)
+
+
+def ignore_error(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            resp = func(*args, **kwargs)
+            return resp
+        except Exception as e:
+            logger.error("Error occur: {} {}".format(func.__name__, e))
+            raise e
+    return wrapper
+
+
+ugettext = LocalProxy(partial(_find, 'LANGUAGE_CODE'))

@@ -1,34 +1,64 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-import threading
 import uuid
 import datetime
 import selectors
 import time
 
-from .utils import get_logger
+from .utils import get_logger, wrap_with_warning as warn, \
+    wrap_with_line_feed as wr, ugettext as _, ignore_error
+from .ctx import app_service
+from .struct import SelectEvent
+from .recorder import get_recorder
 
 BUF_SIZE = 1024
 logger = get_logger(__file__)
 
 
 class Session:
-    def __init__(self, client, server, command_recorder=None, replay_recorder=None):
+    sessions = {}
+
+    def __init__(self, client, server):
         self.id = str(uuid.uuid4())
         self.client = client  # Master of the session, it's a client sock
         self.server = server  # Server channel
         self._watchers = []  # Only watch session
         self._sharers = []  # Join to the session, read and write
         self.replaying = True
-        self.date_created = datetime.datetime.utcnow()
+        self.date_start = datetime.datetime.utcnow()
         self.date_end = None
-        self.stop_evt = threading.Event()
+        self.is_finished = False
+        self.closed = False
         self.sel = selectors.DefaultSelector()
-        self._command_recorder = command_recorder
-        self._replay_recorder = replay_recorder
+        self._command_recorder = None
+        self._replay_recorder = None
+        self.stop_evt = SelectEvent()
         self.server.set_session(self)
         self.date_last_active = datetime.datetime.utcnow()
+
+    @classmethod
+    def new_session(cls, client, server):
+        session = cls(client, server)
+        command_recorder, replay_recorder = get_recorder()
+        session.set_command_recorder(command_recorder)
+        session.set_replay_recorder(replay_recorder)
+        cls.sessions[session.id] = session
+        app_service.create_session(session.to_json())
+        return session
+
+    @classmethod
+    def get_session(cls, sid):
+        return cls.sessions.get(sid)
+
+    @classmethod
+    def remove_session(cls, sid):
+        session = cls.get_session(sid)
+        if session:
+            session.close()
+        app_service.finish_session(session.to_json())
+        app_service.finish_replay(sid)
+        del cls.sessions[sid]
 
     def add_watcher(self, watcher, silent=False):
         """
@@ -40,7 +70,7 @@ class Session:
         """
         logger.info("Session add watcher: {} -> {} ".format(self.id, watcher))
         if not silent:
-            watcher.send("Welcome to watch session {}\r\n".format(self.id).encode("utf-8"))
+            watcher.send("Welcome to watch session {}\r\n".format(self.id).encode())
         self.sel.register(watcher, selectors.EVENT_READ)
         self._watchers.append(watcher)
 
@@ -63,6 +93,10 @@ class Session:
         self.sel.register(sharer, selectors.EVENT_READ)
         self._sharers.append(sharer)
 
+    @property
+    def closed_unexpected(self):
+        return not self.is_finished and (self.client.closed or self.server.closed)
+
     def remove_sharer(self, sharer):
         logger.info("Session %s remove sharer %s" % (self.id, sharer))
         sharer.send("Leave session {} at {}"
@@ -78,10 +112,9 @@ class Session:
         self._replay_recorder = recorder
 
     def put_command(self, _input, _output):
-        if not _input:
-            return
         self._command_recorder.record({
             "session": self.id,
+            "org_id": self.server.asset.org_id,
             "input": _input,
             "output": _output,
             "user": self.client.user.username,
@@ -105,13 +138,14 @@ class Session:
         self._replay_recorder.session_end(self.id)
         self._command_recorder.session_end(self.id)
 
-    def terminate(self):
-        msg = b"Terminate by administrator\r\n"
+    def terminate(self, msg=None):
+        if not msg:
+            msg = _("Terminated by administrator")
         try:
-            self.client.send(msg)
+            self.client.send(wr(warn(msg), before=1))
         except OSError:
             pass
-        self.close()
+        self.stop_evt.set()
 
     def bridge(self):
         """
@@ -122,16 +156,17 @@ class Session:
         self.pre_bridge()
         self.sel.register(self.client, selectors.EVENT_READ)
         self.sel.register(self.server, selectors.EVENT_READ)
-        while not self.stop_evt.is_set():
-            events = self.sel.select()
+        self.sel.register(self.stop_evt, selectors.EVENT_READ)
+        self.sel.register(self.client.change_size_evt, selectors.EVENT_READ)
+        while not self.is_finished:
+            events = self.sel.select(timeout=60)
             for sock in [key.fileobj for key, _ in events]:
                 data = sock.recv(BUF_SIZE)
-                # self.put_replay(data)
                 if sock == self.server:
                     if len(data) == 0:
                         msg = "Server close the connection"
                         logger.info(msg)
-                        self.close()
+                        self.is_finished = True
                         break
 
                     self.date_last_active = datetime.datetime.utcnow()
@@ -143,42 +178,44 @@ class Session:
                         logger.info(msg)
                         for watcher in self._watchers + self._sharers:
                             watcher.send(msg.encode("utf-8"))
-                        self.close()
+                        self.is_finished = True
                         break
                     self.server.send(data)
-                elif sock in self._sharers:
-                    if len(data) == 0:
-                        logger.info("Sharer {} leave the session {}".format(sock, self.id))
-                        self.remove_sharer(sock)
-                    self.server.send(data)
-                elif sock in self._watchers:
-                    if len(data) == 0:
-                        self._watchers.remove(sock)
-                        logger.info("Watcher {} leave the session {}".format(sock, self.id))
+                elif sock == self.stop_evt:
+                    self.is_finished = True
+                    break
+                elif sock == self.client.change_size_evt:
+                    self.resize_win_size()
         logger.info("Session stop event set: {}".format(self.id))
 
-    def set_size(self, width, height):
+    def resize_win_size(self):
+        width, height = self.client.request.meta['width'], \
+                        self.client.request.meta['height']
         logger.debug("Resize server chan size {}*{}".format(width, height))
         self.server.resize_pty(width=width, height=height)
 
+    @ignore_error
     def close(self):
+        if self.closed:
+            logger.info("Session has been closed: {} ".format(self.id))
+            return
         logger.info("Close the session: {} ".format(self.id))
-        self.stop_evt.set()
+        self.is_finished = True
+        self.closed = True
         self.post_bridge()
         self.date_end = datetime.datetime.utcnow()
-        self.server.close()
 
     def to_json(self):
         return {
             "id": self.id,
             "user": self.client.user.username,
             "asset": self.server.asset.hostname,
+            "org_id": self.server.asset.org_id,
             "system_user": self.server.system_user.username,
-            "login_from": "ST",
+            "login_from": self.client.login_from,
             "remote_addr": self.client.addr[0],
-            "is_finished": True if self.stop_evt.is_set() else False,
-            "date_last_active": self.date_last_active.strftime("%Y-%m-%d %H:%M:%S") + " +0000",
-            "date_start": self.date_created.strftime("%Y-%m-%d %H:%M:%S") + " +0000",
+            "is_finished": self.is_finished,
+            "date_start": self.date_start.strftime("%Y-%m-%d %H:%M:%S") + " +0000",
             "date_end": self.date_end.strftime("%Y-%m-%d %H:%M:%S") + " +0000" if self.date_end else None
         }
 

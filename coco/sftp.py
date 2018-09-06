@@ -4,6 +4,7 @@ import paramiko
 import time
 from datetime import datetime
 
+from .ctx import app_service
 from .connection import SSHConnection
 
 
@@ -15,6 +16,17 @@ class SFTPServer(paramiko.SFTPServerInterface):
         self.server = server
         self._sftp = {}
         self.hosts = self.get_perm_hosts()
+
+    def session_ended(self):
+        super().session_ended()
+        for _, v in self._sftp.items():
+            sftp = v['sftp']
+            sock = v.get('sock')
+            sftp.close()
+            if sock:
+                sock.close()
+                sock.transport.close()
+        self._sftp = {}
 
     def get_host_sftp(self, host, su):
         asset = self.hosts.get(host)
@@ -28,21 +40,27 @@ class SFTPServer(paramiko.SFTPServerInterface):
             raise OSError("No asset or system user explicit")
 
         if host not in self._sftp:
-            ssh = SSHConnection(self.server.app)
-            sftp, msg = ssh.get_sftp(asset, system_user)
+            ssh = SSHConnection()
+            sftp, sock, msg = ssh.get_sftp(asset, system_user)
             if sftp:
-                self._sftp[host] = sftp
+                self._sftp[host] = {'sftp': sftp, 'sock': sock}
                 return sftp
             else:
-                raise OSError("Can not connect asset sftp server")
+                raise OSError("Can not connect asset sftp server: {}".format(msg))
         else:
-            return self._sftp[host]
+            return self._sftp[host]['sftp']
 
     def get_perm_hosts(self):
-        assets = self.server.app.service.get_user_assets(
-            self.server.request.user
+        hosts = {}
+        assets = app_service.get_user_assets(
+            self.server.connection.user
         )
-        return {asset.hostname: asset for asset in assets}
+        for asset in assets:
+            key = asset.hostname
+            if asset.org_id:
+                key = "{}.{}".format(asset.hostname, asset.org_name)
+            hosts[key] = asset
+        return hosts
 
     def parse_path(self, path):
         data = path.lstrip('/').split('/')
@@ -77,19 +95,21 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
     def create_ftp_log(self, path, operate, is_success=True, filename=None):
         host, su, rpath = self.parse_path(path)
+        asset = self.hosts.get(host)
         date_start = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S") + " +0000",
         data = {
-            "user": self.server.request.user.username,
+            "user": self.server.connection.user.username,
             "asset": host,
+            "org_id": asset.org_id,
             "system_user": su,
-            "remote_addr": self.server.request.addr[0],
+            "remote_addr": self.server.connection.addr[0],
             "operate": operate,
             "filename": filename or rpath,
             "date_start": date_start,
             "is_success": is_success,
         }
         for i in range(1, 4):
-            ok = self.server.app.service.create_ftp_log(data)
+            ok = app_service.create_ftp_log(data)
             if ok:
                 break
             else:
