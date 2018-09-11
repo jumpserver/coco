@@ -313,4 +313,4 @@ except ImportError:
     pass
 
 if not config['NAME']:
-    config['NAME'] = 'coco'
+    config['NAME'] = default_config['NAME']
