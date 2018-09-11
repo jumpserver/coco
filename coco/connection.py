@@ -44,13 +44,22 @@ class SSHConnection:
             sock = self.get_proxy_sock_v2(asset)
 
         try:
-            ssh.connect(
-                asset.ip, port=asset.port, username=system_user.username,
-                password=system_user.password, pkey=system_user.private_key,
-                timeout=config['SSH_TIMEOUT'],
-                compress=True, auth_timeout=config['SSH_TIMEOUT'],
-                look_for_keys=False, sock=sock
-            )
+            try:
+                ssh.connect(
+                    asset.ip, port=asset.port, username=system_user.username,
+                    password=system_user.password, pkey=system_user.private_key,
+                    timeout=config['SSH_TIMEOUT'],
+                    compress=True, auth_timeout=config['SSH_TIMEOUT'],
+                    look_for_keys=False, sock=sock
+                )
+            except paramiko.AuthenticationException:
+                # 思科设备不支持秘钥登陆，提供秘钥，必然失败
+                ssh.connect(
+                    asset.ip, port=asset.port, username=system_user.username,
+                    password=system_user.password, timeout=config['SSH_TIMEOUT'],
+                    compress=True, auth_timeout=config['SSH_TIMEOUT'],
+                    look_for_keys=False, sock=sock, allow_agent=False,
+                )
             transport = ssh.get_transport()
             transport.set_keepalive(300)
         except (paramiko.AuthenticationException,

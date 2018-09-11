@@ -98,11 +98,11 @@ class SFTPServer(paramiko.SFTPServerInterface):
         asset = self.hosts.get(host)
         date_start = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S") + " +0000",
         data = {
-            "user": self.server.request.user.username,
+            "user": self.server.connection.user.username,
             "asset": host,
             "org_id": asset.org_id,
             "system_user": su,
-            "remote_addr": self.server.request.addr[0],
+            "remote_addr": self.server.connection.addr[0],
             "operate": operate,
             "filename": filename or rpath,
             "date_start": date_start,
@@ -160,7 +160,11 @@ class SFTPServer(paramiko.SFTPServerInterface):
             return attr
         else:
             sftp = self.get_host_sftp(host, su)
-            return sftp.stat(rpath)
+            try:
+                stat = sftp.stat(rpath)
+                return stat
+            except FileNotFoundError as e:
+                return paramiko.SFTPServer.convert_errno(e.errno)
 
     def lstat(self, path):
         host, su, rpath = self.parse_path(path)
