@@ -160,7 +160,11 @@ class SFTPServer(paramiko.SFTPServerInterface):
             return attr
         else:
             sftp = self.get_host_sftp(host, su)
-            return sftp.stat(rpath)
+            try:
+                stat = sftp.stat(rpath)
+                return stat
+            except FileNotFoundError as e:
+                return paramiko.SFTPServer.convert_errno(e.errno)
 
     def lstat(self, path):
         host, su, rpath = self.parse_path(path)
