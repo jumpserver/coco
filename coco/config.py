@@ -311,3 +311,6 @@ try:
     config.from_object(_conf)
 except ImportError:
     pass
+
+if not config['NAME']:
+    config['NAME'] = default_config['NAME']
