@@ -5,11 +5,12 @@
 import os
 import logging
 from logging.config import dictConfig
+from .config import config as app_config
 
 
-def create_logger(app):
-    level = app.config['LOG_LEVEL']
-    log_dir = app.config.get('LOG_DIR')
+def create_logger():
+    level = app_config['LOG_LEVEL']
+    log_dir = app_config.get('LOG_DIR')
     log_path = os.path.join(log_dir, 'coco.log')
     main_setting = {
         'handlers': ['console', 'file'],

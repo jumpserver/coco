@@ -44,7 +44,6 @@ class Coco:
         self.replay_recorder_class = None
         self.command_recorder_class = None
         self._task_handler = None
-        self.config = config
         init_app(self)
 
     @property
@@ -66,7 +65,7 @@ class Coco:
         return self._task_handler
 
     def make_logger(self):
-        create_logger(self)
+        create_logger()
 
     @staticmethod
     def load_extra_conf_from_server():
