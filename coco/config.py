@@ -313,4 +313,7 @@ except ImportError:
     pass
 
 if not config['NAME']:
-    config['NAME'] = default_config['NAME']
+    print("RUN GET CONFIG")
+    print(config['NAME'])
+    config['NAME'] = socket.gethostname()
+    print(config['NAME'])
