@@ -123,7 +123,7 @@ class ProxyNamespace(BaseNamespace):
         client.chan.write(message.get("data", ""))
 
     def check_token(self, token, secret, client_id):
-        if not token or secret:
+        if not token and not secret:
             msg = "Token or secret is None: {} {}".format(token, secret)
             logger.error(msg)
             self.emit('data', {'data': msg, 'room': client_id}, room=client_id)
