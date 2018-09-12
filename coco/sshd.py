@@ -110,7 +110,10 @@ class SSHServer:
         kind = client.request.kind
         if kind == 'session' and chan_type in supported:
             logger.info("Request type `{}:{}`, dispatch to interactive mode".format(kind, chan_type))
-            InteractiveServer(client).interact()
+            try:
+                InteractiveServer(client).interact()
+            except Exception as e:
+                logger.error("Unexpected error occur: {}".format(e))
             connection = Connection.get_connection(client.connection_id)
             connection.remove_client(client.id)
         elif chan_type == 'subsystem':

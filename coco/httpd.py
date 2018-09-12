@@ -103,7 +103,10 @@ class ProxyNamespace(BaseNamespace):
         forwarder = ProxyServer(client, asset, system_user)
 
         def proxy():
-            forwarder.proxy()
+            try:
+                forwarder.proxy()
+            except Exception as e:
+                logger.error("Unexpected error occur: {}".format(e))
             self.logout(client_id, connection)
         self.socketio.start_background_task(proxy)
 

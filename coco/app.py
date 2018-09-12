@@ -105,7 +105,10 @@ class Coco:
     def keep_heartbeat(self):
         def func():
             while not self.stop_evt.is_set():
-                self.heartbeat()
+                try:
+                    self.heartbeat()
+                except Exception as e:
+                    logger.error("Unexpected error occur: {}".format(e))
                 time.sleep(config["HEARTBEAT_INTERVAL"])
         thread = threading.Thread(target=func)
         thread.start()
@@ -151,17 +154,20 @@ class Coco:
 
         def func():
             while not self.stop_evt.is_set():
-                sessions_copy = [s for s in Session.sessions.values()]
-                for s in sessions_copy:
-                    # Session 没有正常关闭,
-                    if s.closed_unexpected:
-                        Session.remove_session(s.id)
-                        continue
-                    # Session已正常关闭
-                    if s.closed:
-                        Session.remove_session(s)
-                    else:
-                        check_session_idle_too_long(s)
+                try:
+                    sessions_copy = [s for s in Session.sessions.values()]
+                    for s in sessions_copy:
+                        # Session 没有正常关闭,
+                        if s.closed_unexpected:
+                            Session.remove_session(s.id)
+                            continue
+                        # Session已正常关闭
+                        if s.closed:
+                            Session.remove_session(s)
+                        else:
+                            check_session_idle_too_long(s)
+                except Exception as e:
+                    logger.error("Unexpected error occur: {}".format(e))
                 time.sleep(interval)
         thread = threading.Thread(target=func)
         thread.start()
