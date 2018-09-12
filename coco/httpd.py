@@ -154,7 +154,10 @@ class ProxyNamespace(BaseNamespace):
         if not valid:
             return
         user_id = info.get('user', None)
-        request.current_user = app_service.get_user_profile(user_id)
+
+        request.current_user = current_user = app_service.get_user_profile(user_id)
+        connection = Connection.get_connection(request.sid)
+        connection.user = current_user
         message = {
             'secret': secret,
             'uuid': info['asset'],
