@@ -56,9 +56,9 @@ class Session:
         session = cls.get_session(sid)
         if session:
             session.close()
-        app_service.finish_session(session.to_json())
-        app_service.finish_replay(sid)
-        del cls.sessions[sid]
+            app_service.finish_session(session.to_json())
+            app_service.finish_replay(sid)
+            del cls.sessions[sid]
 
     def add_watcher(self, watcher, silent=False):
         """

@@ -85,7 +85,7 @@ class Coco:
 
     @ignore_error
     def heartbeat(self):
-        _sessions = [s.to_json() for s in Session.sessions.values()]
+        _sessions = [s.to_json() for s in Session.sessions.values() if s]
         tasks = app_service.terminal_heartbeat(_sessions)
         if tasks:
             self.handle_task(tasks)
