@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
 #
 
-from .ctx import stack
+from jms.service import AppService
+from .config import config
 
 
-def init_app(app):
-    stack['current_app'] = app
+inited = False
 
+app_service = AppService(config)
+
+if not inited:
+    app_service.initial()
+    inited = True
