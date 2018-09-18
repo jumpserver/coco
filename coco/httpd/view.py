@@ -4,14 +4,14 @@
 from flask import render_template, request, jsonify
 
 from .app import app
-from .finder import connector, volumes
+from .elfinder import connector, volumes
 from ..models import Connection
 from ..sftp import InternalSFTPClient
 from .auth import login_required
 from ..service import app_service
 
 
-@app.route('/elfinder/sftp/connector/<host>/', methods=['GET', 'POST'])
+@app.route('/coco/elfinder/sftp/connector/<host>/', methods=['GET', 'POST'])
 @login_required
 def sftp_host_connector_view(host):
     user = request.current_user
@@ -19,7 +19,7 @@ def sftp_host_connector_view(host):
     connection.user = user
     sftp = InternalSFTPClient(connection)
     volume = volumes.SFTPVolume(sftp)
-    if host:
+    if host != '_':
         asset = app_service.get_asset(host)
         if not asset:
             return jsonify({'error': 'Not found this host'})
@@ -31,28 +31,20 @@ def sftp_host_connector_view(host):
     handler = connector.ElFinderConnector([volume])
     handler.run(request)
 
-    # Some commands (e.g. read file) will return a Django View - if it
-    # is set, return it directly instead of building a response
+    # If download file, return a view response
     if handler.return_view:
         return handler.return_view
-
     if handler.headers['Content-type'] == 'application/json':
         return jsonify(handler.response)
 
 
-@app.route('/elfinder/sftp/connector/', methods=['GET', 'POST'])
-@login_required
-def sftp_connector_view():
-    return sftp_host_connector_view('')
-
-
-@app.route('/elfinder/sftp/<host>/')
+@app.route('/coco/elfinder/sftp/<host>/')
 def sftp_host_finder(host):
-    return render_template('finder/host_file_manager.html', host=host)
+    return render_template('finder/file_manager.html', host=host)
 
 
-@app.route('/elfinder/sftp/')
+@app.route('/coco/elfinder/sftp/')
 def sftp_finder():
-    return render_template('finder/file_manager.html')
+    return render_template('finder/file_manager.html', host='_')
 
 

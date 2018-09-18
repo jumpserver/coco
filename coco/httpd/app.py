@@ -14,6 +14,7 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 app.config.update(config)
 socket_io = SocketIO()
 socket_io.on_namespace(ProxyNamespace('/ssh'))
+socket_io.on_namespace(ProxyNamespace('/coco/ssh'))
 
 # init_kwargs = {'async_mode': 'threading'}
 init_kwargs = {'async_mode': 'eventlet'}

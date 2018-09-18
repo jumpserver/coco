@@ -21,7 +21,7 @@
                     ]
 	    		},
                 height: $(window).height(),
-	    		url: '{{ url_for("sftp_connector_view") }}',
+	    		url: '{{ url_for("sftp_host_connector_view", host=host) }}',
                 resizable: false,
                 lang: 'pl',
                 requestType: 'get',
@@ -39,10 +39,7 @@
                 },
                 rememberLastDir: false,
                 placesFirst: false,
-                reloadClearHistory: true,
-                handlers: {
-	    		    'open': function(event) { console.log(event.data); }
-                }
+                reloadClearHistory: true
 	    	};
 	    	var start = function(lng) {
 	    		$(function() {
