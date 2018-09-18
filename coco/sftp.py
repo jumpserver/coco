@@ -4,6 +4,7 @@ import paramiko
 import time
 from datetime import datetime
 
+from .config import config
 from .ctx import app_service
 from .connection import SSHConnection
 
@@ -22,7 +23,12 @@ class SFTPServer(paramiko.SFTPServerInterface):
         for _, v in self._sftp.items():
             sftp = v['sftp']
             sock = v.get('sock')
+            chan = sftp.get_channel()
+            trans = chan.get_transport()
             sftp.close()
+
+            if [c for c in trans._channels.values() if not c.closed]:
+                trans.close()
             if sock:
                 sock.close()
                 sock.transport.close()
@@ -94,6 +100,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
             return False
 
     def create_ftp_log(self, path, operate, is_success=True, filename=None):
+        print("Create ftp log: {} {} {}".format(path, operate, filename))
         host, su, rpath = self.parse_path(path)
         asset = self.hosts.get(host)
         date_start = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S") + " +0000",
@@ -169,7 +176,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
     def lstat(self, path):
         host, su, rpath = self.parse_path(path)
 
-        if not rpath or rpath == "/":
+        if not host or not su or not rpath or rpath == "/":
             attr = self.stat_host_dir()
             attr.filename = su or host
         else:
@@ -178,7 +185,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
             attr.filename = os.path.basename(path)
         return attr
 
-    def open(self, path, flags, attr):
+    def open(self, path, flags, attr=None):
         binary_flag = getattr(os, 'O_BINARY', 0)
         flags |= binary_flag
         success = False
@@ -251,10 +258,10 @@ class SFTPServer(paramiko.SFTPServerInterface):
         else:
             result = paramiko.SFTP_FAILURE
         filename = "{}=>{}".format(rsrc, rdest)
-        self.create_ftp_log(rsrc, "Rename", success, filename=filename)
+        self.create_ftp_log(src, "Rename", success, filename=filename)
         return result
 
-    def mkdir(self, path, attr):
+    def mkdir(self, path, attr=0o755):
         sftp, rpath = self.get_sftp_rpath(path)
         success = False
 
@@ -268,7 +275,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
                 result = paramiko.SFTP_OK
         else:
             result = paramiko.SFTP_FAILURE
-        self.create_ftp_log(path, "Mkdir", success)
+        self.create_ftp_log(path, "Mkdir", success, filename=rpath)
         return result
 
     def rmdir(self, path):
@@ -300,3 +307,68 @@ class SFTPServer(paramiko.SFTPServerInterface):
     #         if attr._flags & attr.FLAG_SIZE:
     #             sftp.truncate(rpath, attr.st_size)
     #         return paramiko.SFTP_OK
+
+
+class FakeServer:
+    pass
+
+
+class FakeTransport:
+    _trans = None
+
+    @staticmethod
+    def getpeername():
+        return '127.0.0.1', config['SSHD_PORT']
+
+    @staticmethod
+    def get_username():
+        return 'fake'
+
+
+class FakeChannel:
+    _chan = None
+
+    def get_transport(self):
+        return FakeTransport()
+
+    @classmethod
+    def new(cls):
+        if not cls._chan:
+            cls._chan = cls()
+        return cls._chan
+
+
+class InternalSFTPClient(SFTPServer):
+    def __init__(self, connection):
+        fake_server = FakeServer()
+        fake_server.connection = connection
+        super().__init__(fake_server)
+
+    def listdir_attr(self, path):
+        return self.list_folder(path)
+
+    def open(self, path, mode, **kwargs):
+        sftp, rpath = self.get_sftp_rpath(path)
+        if 'r' in mode:
+            operate = "Download"
+        else:
+            operate = "Upload"
+
+        success = False
+        if sftp is not None:
+            try:
+                f = sftp.open(rpath, mode, bufsize=4096)
+            except OSError:
+                raise OSError("Open file {} failed".format(rpath))
+            finally:
+                self.create_ftp_log(path, operate, success)
+            return f
+
+    def get_channel(self):
+        return FakeChannel.new()
+
+    def unlink(self, path):
+        return self.remove(path)
+
+    def close(self):
+        return self.session_ended()

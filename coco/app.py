@@ -21,7 +21,6 @@ from .logger import create_logger
 from .tasks import TaskHandler
 from .utils import get_logger, ugettext as _, \
     ignore_error
-from .service import init_app
 from .ctx import app_service
 from .recorder import get_replay_recorder
 from .session import Session
@@ -44,7 +43,6 @@ class Coco:
         self.replay_recorder_class = None
         self.command_recorder_class = None
         self._task_handler = None
-        init_app(self)
 
     @property
     def sshd(self):
@@ -77,7 +75,7 @@ class Coco:
 
     def bootstrap(self):
         self.make_logger()
-        app_service.initial()
+        # app_service.initial()
         self.load_extra_conf_from_server()
         self.keep_heartbeat()
         self.monitor_sessions()

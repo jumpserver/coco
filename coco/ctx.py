@@ -19,5 +19,6 @@ def _find(name):
 
 
 app_service = AppService(config)
+app_service.initial()
 current_app = LocalProxy(partial(_find, 'current_app'))
 # app_service = LocalProxy(partial(_find, 'app_service'))

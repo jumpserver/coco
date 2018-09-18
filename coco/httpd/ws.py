@@ -1,40 +1,19 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
+
 import os
 import uuid
 from flask_socketio import SocketIO, Namespace, join_room
 from flask import Flask, request
 
-from .models import Connection, WSProxy
-from .proxy import ProxyServer
-from .utils import get_logger
-from .ctx import app_service
-from .config import config
+from ..models import Connection, WSProxy
+from ..proxy import ProxyServer
+from ..utils import get_logger
+from ..ctx import app_service
+from .base import BaseNamespace
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
-
-
-class BaseNamespace(Namespace):
-    current_user = None
-
-    def on_connect(self):
-        self.current_user = self.get_current_user()
-        logger.debug("{} connect websocket".format(self.current_user))
-
-    def get_current_user(self):
-        session_id = request.cookies.get('sessionid', '')
-        csrf_token = request.cookies.get('csrftoken', '')
-        user = None
-        if session_id and csrf_token:
-            user = app_service.check_user_cookie(session_id, csrf_token)
-        msg = "Get current user: session_id<{}> => {}".format(
-            session_id, user
-        )
-        logger.debug(msg)
-        request.current_user = user
-        return user
 
 
 class ProxyNamespace(BaseNamespace):
@@ -214,53 +193,3 @@ class ProxyNamespace(BaseNamespace):
 
     def on_ping(self):
         self.emit('pong')
-
-
-class HttpServer:
-    # prepare may be rewrite it
-    config = {
-        'SECRET_KEY': 'someWOrkSD20KMS9330)&#',
-        'coco': None,
-        'LOGIN_URL': '/login'
-    }
-    init_kwargs = dict(
-        async_mode="eventlet",
-        # async_mode="threading",
-        # ping_timeout=20,
-        # ping_interval=10,
-        # engineio_logger=True,
-        # logger=True
-    )
-
-    def __init__(self):
-        config.update(self.config)
-        self.flask_app = Flask(__name__, template_folder='dist')
-        self.flask_app.config.update(config)
-        self.socket_io = SocketIO()
-        self.register_routes()
-        self.register_error_handler()
-
-    def register_routes(self):
-        self.socket_io.on_namespace(ProxyNamespace('/ssh'))
-
-    @staticmethod
-    def on_error_default(e):
-        logger.exception(e)
-
-    def register_error_handler(self):
-        self.socket_io.on_error_default(self.on_error_default)
-
-    def run(self):
-        # return
-        host = config["BIND_HOST"]
-        port = config["HTTPD_PORT"]
-        print('Starting websocket server at {}:{}'.format(host, port))
-        self.socket_io.init_app(
-            self.flask_app,
-            **self.init_kwargs
-        )
-        self.socket_io.run(self.flask_app, port=port, host=host, debug=False)
-
-    def shutdown(self):
-        self.socket_io.stop()
-        pass
