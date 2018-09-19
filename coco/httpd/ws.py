@@ -11,7 +11,7 @@ from ..proxy import ProxyServer
 from ..utils import get_logger
 from ..ctx import app_service
 from .base import BaseNamespace
-from .utils import get_cache_volume
+from .utils import get_cached_sftp
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
@@ -203,6 +203,6 @@ class ElfinderNamespace(BaseNamespace):
 
     def on_disconnect(self):
         print("On disconnect")
-        volume = get_cache_volume(request.sid)
+        volume = get_cached_sftp(request.sid)
         if volume:
             volume.close()

@@ -16,8 +16,8 @@ socket_io = SocketIO()
 socket_io.on_namespace(ProxyNamespace('/ssh'))
 socket_io.on_namespace(ElfinderNamespace('/elfinder'))
 
-init_kwargs = {'async_mode': 'threading'}
-# init_kwargs = {'async_mode': 'eventlet',}
+# init_kwargs = {'async_mode': 'threading'}
+init_kwargs = {'async_mode': 'eventlet',}
 socket_io.init_app(app, **init_kwargs)
 socket_io.on_error_default(lambda x: logger.exception(x))
 

@@ -1,4 +1,5 @@
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class ElFinderConnector:
         'cmd', 'target', 'targets[]', 'current', 'tree',
         'name', 'content', 'src', 'dst', 'cut', 'init',
         'type', 'width', 'height', 'upload[]', 'dirs[]',
-        'targets', "chunk", "range", "cid",
+        'targets', "chunk", "range", "cid", 'reload',
     ]
 
     _options = {
@@ -214,10 +215,11 @@ class ElFinderConnector:
             volume = list(self.volumes.values())[0]
         else:
             volume = self.get_volume(target)
+
         self.response['cwd'] = volume.info(target)
 
         files = volume.list(target)
-        if 'tree' in self.data:
+        if 'tree' in self.data or 'reload' in self.data:
             parents = volume.parents(target, depth=0)
             parents = filter(lambda x: x not in files, parents)
             files += parents
@@ -286,7 +288,6 @@ class ElFinderConnector:
                 volume.upload_chunk_merge(parent, self.data.get('chunk'))
             )
         else:
-            print("__UPLOAD {}".format(self.data))
             self.response.update(volume.upload(self.request.files, parent))
 
     def __size(self):

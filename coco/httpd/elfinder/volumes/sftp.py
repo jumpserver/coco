@@ -1,13 +1,12 @@
-import logging
 import stat
-import re
+import threading
 
 from flask import send_file
 
+from coco.utils import get_logger
 from .base import BaseVolume
 
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SFTPVolume(BaseVolume):
@@ -16,6 +15,7 @@ class SFTPVolume(BaseVolume):
         self.root_name = 'Home'
         super().__init__()
         self._stat_cache = {}
+        self.lock = threading.Lock()
 
     def close(self):
         self.sftp.close()
@@ -95,7 +95,7 @@ class SFTPVolume(BaseVolume):
         """ Get the sub directory of directory
         """
         path = self._path(target)
-        # print("Tree {} {}".format(target, path))
+        print("Tree {} {}".format(target, path))
         infos = self.list(target)
         tree = list(filter(lambda x: x['mime'] == 'directory', infos))
         return tree

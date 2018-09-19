@@ -3,40 +3,40 @@
 
 from flask import render_template, request, jsonify
 
+from coco.utils import get_logger
 from .app import app
 from .elfinder import connector, volumes
 from ..models import Connection
 from ..sftp import InternalSFTPClient
 from .auth import login_required
-from .utils import get_cache_volume, set_cache_volume
+from .utils import get_cached_sftp, set_cache_sftp
 from ..service import app_service
+
+logger = get_logger(__file__)
 
 
 @app.route('/coco/elfinder/sftp/connector/<host>/', methods=['GET', 'POST'])
 @login_required
 def sftp_host_connector_view(host):
     sid = request.args.get("sid") or request.values.get('sid')
-    print("Get sid: {}".format(sid))
-    volume = None
-    if sid:
-        volume = get_cache_volume(sid)
-    if not volume:
-        print("New volume")
+    sftp = get_cached_sftp(sid) if sid else None
+    if not sftp:
+        logger.debug("New sftp, sid: {} host: {}".format(sid, host))
         user = request.current_user
         connection = Connection(addr=(request.real_ip, 0))
         connection.user = user
         sftp = InternalSFTPClient(connection)
-        volume = volumes.SFTPVolume(sftp)
-        set_cache_volume(sid, volume)
-        if host != '_':
-            asset = app_service.get_asset(host)
-            if not asset:
-                return jsonify({'error': 'Not found this host'})
-            hostname = asset.hostname
-            if asset.org_id:
-                hostname = "{}.{}".format(asset.hostname, asset.org_name)
-            volume.root_name = hostname
-            volume.base_path = '/' + hostname
+        set_cache_sftp(sid, sftp)
+    volume = volumes.SFTPVolume(sftp)
+    if host != '_':
+        asset = app_service.get_asset(host)
+        if not asset:
+            return jsonify({'error': 'Not found this host'})
+        hostname = asset.hostname
+        if asset.org_id:
+            hostname = "{}.{}".format(asset.hostname, asset.org_name)
+        volume.root_name = hostname
+        volume.base_path = '/' + hostname
 
     handler = connector.ElFinderConnector([volume])
     handler.run(request)
