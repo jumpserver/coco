@@ -6,8 +6,18 @@
     <link rel="stylesheet" type="text/css" media="screen" href="{{ url_for('static', filename='elfinder/css/theme-gray.css') }}">
     <script type="text/javascript" src="{{ url_for('static', filename='elfinder/elfinder.full.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='elfinder/i18n/elfinder.pl.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
     <script type="text/javascript" charset="utf-8">
-        $().ready(function () {
+        var socket = io.connect('/elfinder');
+        socket.on('connect', function () {
+            console.log("Connect")
+        });
+        socket.on('data', function (msg) {
+            var sid = msg.sid;
+            init_elfinder(sid);
+        });
+
+        function init_elfinder(sid) {
             var elf;
             var opts = {
 	    		uiOptions : {
@@ -20,6 +30,7 @@
                         ['view']
                     ]
 	    		},
+                customData: {'sid': sid},
                 height: $(window).height(),
 	    		url: '{{ url_for("sftp_host_connector_view", host=host) }}',
                 resizable: false,
@@ -97,7 +108,8 @@
                     }, 200);
                 }
             });
-        });
+        }
+
     </script>
 <div id="elfinder"></div>
 </body>

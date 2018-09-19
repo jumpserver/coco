@@ -3,14 +3,15 @@
 
 import os
 import uuid
-from flask_socketio import SocketIO, Namespace, join_room
-from flask import Flask, request
+from flask_socketio import join_room
+from flask import request
 
 from ..models import Connection, WSProxy
 from ..proxy import ProxyServer
 from ..utils import get_logger
 from ..ctx import app_service
 from .base import BaseNamespace
+from .utils import get_cache_volume
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
@@ -193,3 +194,15 @@ class ProxyNamespace(BaseNamespace):
 
     def on_ping(self):
         self.emit('pong')
+
+
+class ElfinderNamespace(BaseNamespace):
+    def on_connect(self):
+        print("on connect")
+        self.emit('data', {"sid": str(request.sid)})
+
+    def on_disconnect(self):
+        print("On disconnect")
+        volume = get_cache_volume(request.sid)
+        if volume:
+            volume.close()
