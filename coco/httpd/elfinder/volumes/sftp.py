@@ -1,12 +1,12 @@
-import logging
 import stat
+import threading
 
 from flask import send_file
 
+from coco.utils import get_logger
 from .base import BaseVolume
 
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SFTPVolume(BaseVolume):
@@ -15,6 +15,7 @@ class SFTPVolume(BaseVolume):
         self.root_name = 'Home'
         super().__init__()
         self._stat_cache = {}
+        self.lock = threading.Lock()
 
     def close(self):
         self.sftp.close()
@@ -94,7 +95,7 @@ class SFTPVolume(BaseVolume):
         """ Get the sub directory of directory
         """
         path = self._path(target)
-        # print("Tree {} {}".format(target, path))
+        print("Tree {} {}".format(target, path))
         infos = self.list(target)
         tree = list(filter(lambda x: x['mime'] == 'directory', infos))
         return tree
@@ -197,6 +198,36 @@ class SFTPVolume(BaseVolume):
                 rf.write(data)
         added.append(self._info(path))
         return {'added': added}
+
+    def upload_as_chunk(self, files, chunk_name, parent):
+        added = []
+        print("Upload chunk: {}".format(chunk_name))
+        parent_path = self._path(parent)
+        item = files.get('upload[]')
+        __tmp = chunk_name.split('.')
+        filename = '.'.join(__tmp[:-2])
+        num, total = __tmp[-2].split('_')
+        num, total = int(num), int(total)
+
+        path = self._join(parent_path, filename)
+        remote_path = self._remote_path(path)
+        if num == 0:
+            infos = self._list(parent_path)
+            files_exist = [d['name'] for d in infos]
+            if item.filename in files_exist:
+                raise OSError("File {} exits".format(remote_path))
+        with self.sftp.open(remote_path, 'a') as rf:
+            for data in item:
+                rf.write(data)
+        if num != total:
+            return {'added': added}
+        else:
+            return {'added': added, '_chunkmerged': filename, '_name': filename}
+
+    def upload_chunk_merge(self, parent, chunk):
+        parent_path = self._path(parent)
+        path = self._join(parent_path, chunk)
+        return {"added": [self._info(path)]}
 
     def size(self, target):
         info = self.info(target)

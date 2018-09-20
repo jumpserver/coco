@@ -6,8 +6,17 @@
     <link rel="stylesheet" type="text/css" media="screen" href="{{ url_for('static', filename='elfinder/css/theme-gray.css') }}">
     <script type="text/javascript" src="{{ url_for('static', filename='elfinder/elfinder.full.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='elfinder/i18n/elfinder.pl.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
     <script type="text/javascript" charset="utf-8">
-        $().ready(function () {
+        var socket = io.connect('/elfinder');
+        socket.on('connect', function () {
+            console.log("Connect websocket done")
+        });
+        socket.on('data', function (msg) {
+            var sid = msg.sid;
+            init_elfinder(sid);
+        });
+        function init_elfinder(sid) {
             var elf;
             var opts = {
 	    		uiOptions : {
@@ -20,8 +29,10 @@
                         ['view']
                     ]
 	    		},
-                height: $(window).height(),
-	    		url: '{{ url_for("sftp_connector_view") }}',
+                customData: {'sid': sid},
+                height: '100%',
+                width: '100%',
+	    		url: '{{ url_for("sftp_host_connector_view", host=host) }}',
                 resizable: false,
                 lang: 'pl',
                 requestType: 'get',
@@ -39,16 +50,14 @@
                 },
                 rememberLastDir: false,
                 placesFirst: false,
-                reloadClearHistory: true,
-                handlers: {
-	    		    'open': function(event) { console.log(event.data); }
-                }
+                reloadClearHistory: true
 	    	};
 	    	var start = function(lng) {
 	    		$(function() {
 	    			// Make elFinder (REQUIRED)
                     opts.lang = lng;
 	    			elf = $('#elfinder').elfinder(opts).elfinder('instance');
+                    $(window).trigger('resize');
 	    		});
 	    	};
 	    	var load = function () {
@@ -84,8 +93,6 @@
 	           } else {
 	           	    start(lng);
 	           }
-
-
             };
 	    	load();
             var resizeTimer;
@@ -93,14 +100,26 @@
                 resizeTimer && clearTimeout(resizeTimer);
                 if (!$('#elfinder').hasClass('elfinder-fullscreen')) {
                     resizeTimer = setTimeout(function () {
-                        var h = parseInt($(window).height());
-                        if (h != parseInt($('#elfinder').height())) {
-                            elf.resize('100%', h);
+                        var h, w;
+                        var isTrue = window == parent;
+                        console.log("Window == parent" + isTrue);
+                        if (window != parent) {
+                            h = parseInt(parent.$('.window.active').height());
+                            w = parseInt(parent.$('.window.active').width());
+                        } else {
+                            h = parseInt($(window).height());
+                            w = parseInt($(window).width());
+                        }
+                        var ori_h = parseInt($('#elfinder').height());
+                        var ori_w = parseInt($('#elfinder').width());
+                        console.log("Height: " + h + " Wid: " + w);
+                        if (h !== ori_h || w != ori_w){
+                            elf.resize(w, h);
                         }
                     }, 200);
                 }
             });
-        });
+        }
     </script>
 <div id="elfinder"></div>
 </body>

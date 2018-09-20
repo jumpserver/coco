@@ -223,3 +223,13 @@ class BaseVolume:
             :returns: TODO
         """
         raise NotImplementedError
+
+    def upload_as_chunk(self, files, chunk_name, parent):
+        """
+        Upload a large file as chunk
+        :param files:
+        :param chunk_name:
+        :param cid:
+        :param parent:
+        :return:
+        """

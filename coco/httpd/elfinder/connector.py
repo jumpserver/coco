@@ -1,4 +1,5 @@
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +34,12 @@ class ElFinderConnector:
         'cmd', 'target', 'targets[]', 'current', 'tree',
         'name', 'content', 'src', 'dst', 'cut', 'init',
         'type', 'width', 'height', 'upload[]', 'dirs[]',
-        'targets'
+        'targets', "chunk", "range", "cid", 'reload',
     ]
 
     _options = {
         'api': _version,
-        'uplMaxSize': '128M',
+        'uplMaxSize': '10M',
         'options': {
             'separator': '/',
             'disabled': [],
@@ -113,13 +114,6 @@ class ElFinderConnector:
         except Exception as e:
             self.response['error'] = '%s' % e
             logger.exception(e)
-        finally:
-            target = self.data['target']
-            if not target:
-                return
-            volume = self.get_volume(target)
-            if volume:
-                volume.close()
 
     def get_request_data(self):
         data_source = {}
@@ -221,10 +215,11 @@ class ElFinderConnector:
             volume = list(self.volumes.values())[0]
         else:
             volume = self.get_volume(target)
+
         self.response['cwd'] = volume.info(target)
 
         files = volume.list(target)
-        if 'tree' in self.data:
+        if 'tree' in self.data or 'reload' in self.data:
             parents = volume.parents(target, depth=0)
             parents = filter(lambda x: x not in files, parents)
             files += parents
@@ -282,7 +277,18 @@ class ElFinderConnector:
     def __upload(self):
         parent = self.data['target']
         volume = self.get_volume(parent)
-        self.response.update(volume.upload(self.request.files, parent))
+        if self.data.get('chunk') and self.data.get('cid'):
+            self.response.update(
+                volume.upload_as_chunk(
+                    self.request.files, self.data.get('chunk'), parent
+                )
+            )
+        elif self.data.get('chunk'):
+            self.response.update(
+                volume.upload_chunk_merge(parent, self.data.get('chunk'))
+            )
+        else:
+            self.response.update(volume.upload(self.request.files, parent))
 
     def __size(self):
         target = self.data['target']

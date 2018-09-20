@@ -27,11 +27,13 @@ class SFTPServer(paramiko.SFTPServerInterface):
             trans = chan.get_transport()
             sftp.close()
 
-            if [c for c in trans._channels.values() if not c.closed]:
+            active_channels = [c for c in trans._channels.values() if not c.closed]
+            if not active_channels:
+                print("CLose transport")
                 trans.close()
-            if sock:
-                sock.close()
-                sock.transport.close()
+                if sock:
+                    sock.close()
+                    sock.transport.close()
         self._sftp = {}
 
     def get_host_sftp(self, host, su):
@@ -100,7 +102,6 @@ class SFTPServer(paramiko.SFTPServerInterface):
             return False
 
     def create_ftp_log(self, path, operate, is_success=True, filename=None):
-        print("Create ftp log: {} {} {}".format(path, operate, filename))
         host, su, rpath = self.parse_path(path)
         asset = self.hosts.get(host)
         date_start = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S") + " +0000",
@@ -361,6 +362,7 @@ class InternalSFTPClient(SFTPServer):
             except OSError:
                 raise OSError("Open file {} failed".format(rpath))
             finally:
+                print("Open success")
                 self.create_ftp_log(path, operate, success)
             return f
 
@@ -371,4 +373,5 @@ class InternalSFTPClient(SFTPServer):
         return self.remove(path)
 
     def close(self):
+        print("End ")
         return self.session_ended()
