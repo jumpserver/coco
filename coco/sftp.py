@@ -94,7 +94,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
             return []
         return [
             su for su in asset.system_users_granted
-            if su.protocol == "ssh" and su.login_mode != 'auto'
+            if su.protocol == "ssh" and su.login_mode == 'auto'
         ]
 
     def su_in_asset(self, su, host):
