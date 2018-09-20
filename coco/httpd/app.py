@@ -10,7 +10,9 @@ from coco.httpd.ws import ProxyNamespace, ElfinderNamespace
 
 logger = get_logger(__file__)
 
-app = Flask(__name__, template_folder='templates', static_folder='static')
+app = Flask(__name__, template_folder='templates',
+            static_folder='static',
+            static_url_path='/coco/static')
 app.config.update(config)
 socket_io = SocketIO()
 socket_io.on_namespace(ProxyNamespace('/ssh'))
@@ -18,7 +20,7 @@ socket_io.on_namespace(ElfinderNamespace('/elfinder'))
 
 # init_kwargs = {'async_mode': 'threading'}
 init_kwargs = {'async_mode': 'eventlet',}
-socket_io.init_app(app, **init_kwargs)
+socket_io.init_app(app, **init_kwargs),
 socket_io.on_error_default(lambda x: logger.exception(x))
 
 
