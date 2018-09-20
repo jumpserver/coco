@@ -10,14 +10,11 @@
     <script type="text/javascript" charset="utf-8">
         var socket = io.connect('/elfinder');
         socket.on('connect', function () {
-            console.log("Connect")
+            console.log("Connect websocket done")
         });
         socket.on('data', function (msg) {
             var sid = msg.sid;
             init_elfinder(sid);
-        });
-        $().ready(function () {
-           $(window).trigger('resize');
         });
         function init_elfinder(sid) {
             var elf;
@@ -60,6 +57,7 @@
 	    			// Make elFinder (REQUIRED)
                     opts.lang = lng;
 	    			elf = $('#elfinder').elfinder(opts).elfinder('instance');
+                    $(window).trigger('resize');
 	    		});
 	    	};
 	    	var load = function () {

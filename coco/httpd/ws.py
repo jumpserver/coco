@@ -198,11 +198,9 @@ class ProxyNamespace(BaseNamespace):
 
 class ElfinderNamespace(BaseNamespace):
     def on_connect(self):
-        print("on connect")
         self.emit('data', {"sid": str(request.sid)})
 
     def on_disconnect(self):
-        print("On disconnect")
-        volume = get_cached_sftp(request.sid)
-        if volume:
-            volume.close()
+        sftp = get_cached_sftp(request.sid)
+        if sftp:
+            sftp.close()
