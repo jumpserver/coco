@@ -146,7 +146,9 @@ class SFTPVolume(BaseVolume):
     def mkfile(self, name, parent):
         """ Creates a new file. """
         parent_path = self._path(parent)
-        remote_path = self._remote_path(parent_path)
+        path = self._join(parent_path, name)
+        remote_path = self._remote_path(path)
+
         with self.sftp.open(remote_path, mode='w'):
             pass
         return self._info(parent_path)
@@ -163,9 +165,42 @@ class SFTPVolume(BaseVolume):
             'removed': [target]
         }
 
-    def paste(self, targets, source, dest, cut):
+    def is_exist(self, path):
+        remote_path = self._remote_path(path)
+        try:
+            data = self.sftp.lstat(remote_path)
+            print(data)
+            exist = True
+        except FileNotFoundError:
+            exist = False
+        return exist
+
+    def paste(self, targets, dest, cut):
         """ Moves/copies target files/directories from source to dest. """
-        return {"error": "Not support paste"}
+        print("Paste {} {} {}".format(targets, dest, cut))
+        dest_parent_path = self._path(dest)
+        added = []
+        removed = []
+
+        for target in targets:
+            src_path = self._path(target)
+            dest_path = self._join(dest_parent_path, self._base_name(src_path))
+            print("Paste {} to => {}".format(src_path, dest_parent_path))
+            if self.is_exist(dest_path):
+                print("Exist {}".format(dest_path))
+                continue
+            src_remote_path = self._remote_path(src_path)
+            dest_remote_path = self._remote_path(dest_path)
+            try:
+                f = self.sftp.open(src_remote_path, mode='r')
+                attr = self.sftp.putfo(f, dest_remote_path)
+                if cut:
+                    removed.append(self.remove(target))
+                added.append(self._info(dest_path, attr))
+            finally:
+                f.close()
+
+        return {"added": added, "removed": removed}
 
     def remove(self, target):
         """ Delete a File or Directory object. """
@@ -201,7 +236,6 @@ class SFTPVolume(BaseVolume):
 
     def upload_as_chunk(self, files, chunk_name, parent):
         added = []
-        print("Upload chunk: {}".format(chunk_name))
         parent_path = self._path(parent)
         item = files.get('upload[]')
         __tmp = chunk_name.split('.')
