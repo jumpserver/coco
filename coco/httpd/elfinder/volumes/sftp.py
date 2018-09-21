@@ -151,7 +151,7 @@ class SFTPVolume(BaseVolume):
 
         with self.sftp.open(remote_path, mode='w'):
             pass
-        return self._info(parent_path)
+        return self._info(path)
 
     def rename(self, name, target):
         """ Renames a file or directory. """
