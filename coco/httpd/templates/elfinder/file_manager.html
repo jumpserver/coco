@@ -27,7 +27,8 @@
                         ['rm'],
                         ['rename'],
                         ['view']
-                    ]
+                    ],
+                    cwd : {oldSchool: true}
 	    		},
                 customData: {'sid': sid},
                 height: '100%',
@@ -41,7 +42,7 @@
                         'rm'
                     ],
                     cwd: [
-                        'reload', 'back', '|', 'mkdir', 'mkfile', '|',
+                        'reload', 'back', 'up', '|', 'mkdir', 'mkfile', '|',
                         'upload', 'paste'
                     ],
                     files: [

@@ -51,9 +51,9 @@ class SFTPVolume(BaseVolume):
             "name": attr.filename,
             "hash": self._hash(path),
             "phash": self._hash(parent_path),
-            "ts": 0,
-            "size": 'unknown',
-            "mime": "directory" if stat.S_ISDIR(attr.st_mode) else "file",
+            "ts": attr.st_mtime,
+            "size": attr.st_size,
+            "mime": "directory" if stat.S_ISDIR(attr.st_mode) else "",
             "locked": 0,
             "hidden": 0,
             "read": 1,
@@ -151,7 +151,7 @@ class SFTPVolume(BaseVolume):
 
         with self.sftp.open(remote_path, mode='w'):
             pass
-        return self._info(parent_path)
+        return self._info(path)
 
     def rename(self, name, target):
         """ Renames a file or directory. """

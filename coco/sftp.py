@@ -150,7 +150,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
             request['su'] = su
             request['su_unique'] = True
         else:
-            request['su'] = path.pop() if path else ''
+            request['su'], path = (path[0], path[1:]) if path else ('', path)
         request['dpath'] = '/'.join(path)
         return request
 
