@@ -2,11 +2,11 @@
 <body style="margin: 0">
     <script type="text/javascript" src="{{ url_for('static', filename='js/jquery-2.1.1.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='js/jquery-ui-1.10.4.min.js') }}"></script>
-    <link rel="stylesheet" type="text/css" media="screen" href="{{ url_for('static', filename='elfinder/css/elfinder.min.css') }}">
-    <link rel="stylesheet" type="text/css" media="screen" href="{{ url_for('static', filename='elfinder/css/theme-gray.css') }}">
-    <script type="text/javascript" src="{{ url_for('static', filename='elfinder/elfinder.full.js') }}"></script>
-    <script type="text/javascript" src="{{ url_for('static', filename='elfinder/i18n/elfinder.pl.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='plugins/elfinder/elfinder.full.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='plugins/elfinder/i18n/elfinder.pl.js') }}"></script>
+    <link rel="stylesheet" type="text/css" media="screen" href="{{ url_for('static', filename='plugins/elfinder/css/elfinder.min.css') }}">
+    <link rel="stylesheet" type="text/css" media="screen" href="{{ url_for('static', filename='plugins/elfinder/css/theme-gray.css') }}">
     <script type="text/javascript" charset="utf-8">
         var socket = io.connect('/elfinder');
         socket.on('connect', function () {
@@ -42,10 +42,10 @@
                     ],
                     cwd: [
                         'reload', 'back', '|', 'mkdir', 'mkfile', '|',
-                        'upload'
+                        'upload', 'paste'
                     ],
                     files: [
-                        'rm', 'rename', 'download'
+                        'rm', 'rename', 'download', 'copy', 'cut', 'paste'
                     ]
                 },
                 rememberLastDir: false,
@@ -80,7 +80,7 @@
                 }
                 if (lng !== 'en') {
         		    $.ajax({
-        		    	url : "{{ url_for('static', filename='elfinder/i18n/') }}"+'/elfinder.'+lng+'.js',
+        		    	url : "{{ url_for('static', filename='plugins/elfinder/i18n/') }}"+'/elfinder.'+lng+'.js',
         		    	cache : true,
         		    	dataType : 'script'
         		    })
@@ -101,8 +101,6 @@
                 if (!$('#elfinder').hasClass('elfinder-fullscreen')) {
                     resizeTimer = setTimeout(function () {
                         var h, w;
-                        var isTrue = window == parent;
-                        console.log("Window == parent" + isTrue);
                         if (window != parent) {
                             h = parseInt(parent.$('.window.active').height());
                             w = parseInt(parent.$('.window.active').width());
@@ -112,7 +110,6 @@
                         }
                         var ori_h = parseInt($('#elfinder').height());
                         var ori_w = parseInt($('#elfinder').width());
-                        console.log("Height: " + h + " Wid: " + w);
                         if (h !== ori_h || w != ori_w){
                             elf.resize(w, h);
                         }

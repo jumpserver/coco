@@ -23,8 +23,7 @@ class ElFinderConnector:
         'mkfile': ('__mkfile', {'target': True, 'name': True}),
         'rename': ('__rename', {'target': True, 'name': True}),
         'ls': ('__list', {'target': True}),
-        'paste': ('__paste', {'targets[]': True, 'src': True,
-                              'dst': True, 'cut': True}),
+        'paste': ('__paste', {'targets[]': True, 'dst': True, 'cut': True}),
         'rm': ('__remove', {'targets[]': True}),
         'upload': ('__upload', {'target': True}),
         'size': ('__size', {'targets[0]': True}),
@@ -256,14 +255,10 @@ class ElFinderConnector:
 
     def __paste(self):
         targets = self.data['targets[]']
-        source = self.data['src']
         dest = self.data['dst']
-        cut = (self.data['cut'] == '1')
-        source_volume = self.get_volume(source)
+        cut = self.data['cut'] == '1'
         dest_volume = self.get_volume(dest)
-        if source_volume != dest_volume:
-            raise Exception('Moving between volumes is not supported.')
-        self.response.update(dest_volume.paste(targets, source, dest, cut))
+        self.response.update(dest_volume.paste(targets, dest, cut))
 
     def __remove(self):
         targets = self.data['targets[]']

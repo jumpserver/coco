@@ -186,7 +186,7 @@ class BaseVolume:
         """
         raise NotImplementedError
 
-    def paste(self, targets, source, dest, cut):
+    def paste(self, targets, dest, cut):
         """ Moves/copies target files/directories from source to dest.
 
             If a file with the same name already exists in the dest directory
@@ -194,7 +194,6 @@ class BaseVolume:
             before sending the request).
 
             :param targets: A list of hashes of files/dirs to move/copy.
-            :param source: The current parent of the targets.
             :param dest: The new parent of the targets.
             :param cut: Boolean. If true, move the targets. If false, copy the
             targets.
