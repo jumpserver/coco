@@ -3,7 +3,6 @@ import paramiko
 import time
 from datetime import datetime
 from functools import wraps
-import traceback
 
 from paramiko.sftp import SFTP_PERMISSION_DENIED, SFTP_NO_SUCH_FILE, \
     SFTP_FAILURE, SFTP_EOF, SFTP_CONNECTION_LOST
@@ -35,9 +34,9 @@ def convert_error(func):
         except EOFError as e:
             error = e
             response = SFTP_EOF
-        # except Exception as e:
-        #     error = e
-        #     response = SFTP_FAILURE
+        except Exception as e:
+            error = e
+            response = SFTP_FAILURE
         finally:
             if isinstance(error, Exception):
                 logger.error(error)
