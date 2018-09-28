@@ -390,7 +390,7 @@ class InternalSFTPClient(SFTPServer):
         super().__init__(fake_server)
 
     def listdir_attr(self, path):
-        return self.list_folder(path)
+        return self.list_folder.__wrapped__(self, path)
 
     def open(self, path, mode, **kwargs):
         client, rpath = self.get_sftp_client_rpath(path)

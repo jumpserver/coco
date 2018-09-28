@@ -269,6 +269,7 @@ class ElFinderConnector:
     def __upload(self):
         parent = self.data['target']
         volume = self.get_volume(parent)
+        upload = self.data.get('upload[]')
         if self.data.get('chunk') and self.data.get('cid'):
             self.response.update(
                 volume.upload_as_chunk(
@@ -279,6 +280,8 @@ class ElFinderConnector:
             self.response.update(
                 volume.upload_chunk_merge(parent, self.data.get('chunk'))
             )
+        elif isinstance(upload, str):
+            self.response.update(volume.upload_as_url(upload, parent))
         else:
             self.response.update(volume.upload(self.request.files, parent))
 
