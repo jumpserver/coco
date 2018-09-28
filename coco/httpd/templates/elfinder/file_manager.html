@@ -31,7 +31,6 @@
                     cwd : {oldSchool: true}
 	    		},
                 customData: {'sid': sid},
-                height: '100%',
                 width: '100%',
 	    		url: '{{ url_for("sftp_host_connector_view", host=host) }}',
                 resizable: false,
@@ -102,7 +101,7 @@
                 if (!$('#elfinder').hasClass('elfinder-fullscreen')) {
                     resizeTimer = setTimeout(function () {
                         var h, w;
-                        if (window != parent) {
+                        if (window !== parent) {
                             h = parseInt(parent.$('.window.active').height());
                             w = parseInt(parent.$('.window.active').width());
                         } else {
@@ -111,7 +110,7 @@
                         }
                         var ori_h = parseInt($('#elfinder').height());
                         var ori_w = parseInt($('#elfinder').width());
-                        if (h !== ori_h || w != ori_w){
+                        if (h !== ori_h || w !== ori_w){
                             elf.resize(w, h);
                         }
                     }, 200);

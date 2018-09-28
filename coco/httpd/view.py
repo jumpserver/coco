@@ -9,7 +9,7 @@ from .elfinder import connector, volumes
 from ..models import Connection
 from ..sftp import InternalSFTPClient
 from .auth import login_required
-from .utils import get_cached_sftp, set_cache_sftp
+from .utils import get_cached_volume, set_cache_volume
 from ..service import app_service
 
 logger = get_logger(__file__)
@@ -19,15 +19,16 @@ logger = get_logger(__file__)
 @login_required
 def sftp_host_connector_view(host):
     sid = request.args.get("sid") or request.values.get('sid')
-    sftp = get_cached_sftp(sid) if sid else None
-    if not sftp:
+    volume = get_cached_volume(sid) if sid else None
+    if not volume:
         logger.debug("New sftp, sid: {} host: {}".format(sid, host))
         user = request.current_user
         connection = Connection(addr=(request.real_ip, 0))
         connection.user = user
         sftp = InternalSFTPClient(connection)
-        set_cache_sftp(sid, sftp)
-    volume = volumes.SFTPVolume(sftp)
+        volume = volumes.SFTPVolume(sftp)
+        set_cache_volume(sid, volume)
+
     if host != '_':
         asset = app_service.get_asset(host)
         if not asset:

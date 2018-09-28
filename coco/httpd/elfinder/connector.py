@@ -25,7 +25,7 @@ class ElFinderConnector:
         'paste': ('__paste', {'targets[]': True, 'dst': True, 'cut': True}),
         'rm': ('__remove', {'targets[]': True}),
         'upload': ('__upload', {'target': True}),
-        'size': ('__size', {'targets[0]': True}),
+        'size': ('__size', {'targets[]': True}),
     }
 
     _allowed_args = [
@@ -213,9 +213,7 @@ class ElFinderConnector:
             volume = list(self.volumes.values())[0]
         else:
             volume = self.get_volume(target)
-
         self.response['cwd'] = volume.info(target)
-
         files = volume.list(target)
         if 'tree' in self.data or 'reload' in self.data:
             parents = volume.parents(target, depth=0)
@@ -285,6 +283,6 @@ class ElFinderConnector:
             self.response.update(volume.upload(self.request.files, parent))
 
     def __size(self):
-        target = self.data['target']
+        target = self.data['targets[]']
         volume = self.get_volume(target)
         self.response['size'] = volume.size(target)
