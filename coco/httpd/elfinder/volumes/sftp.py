@@ -53,7 +53,7 @@ class SFTPVolume(BaseVolume):
             "phash": self._hash(parent_path),
             "ts": attr.st_mtime,
             "size": attr.st_size,
-            "mime": "directory" if stat.S_ISDIR(attr.st_mode) else "",
+            "mime": "directory" if stat.S_ISDIR(attr.st_mode) else "file",
             "locked": 0,
             "hidden": 0,
             "read": 1,
@@ -67,7 +67,6 @@ class SFTPVolume(BaseVolume):
             data['name'] = self.root_name
             data['locked'] = 1
             data['volume_id'] = self.get_volume_id()
-        # print("_Get stat info end")
         return data
 
     def _list(self, path, name_only=False):
@@ -89,23 +88,26 @@ class SFTPVolume(BaseVolume):
         """ Returns a list of files/directories in the target directory. """
         path = self._path(target)
         # print("List {}-{}".format(target, path))
-        return self._list(path)
+        with self.lock:
+            return self._list(path)
 
     def tree(self, target):
         """ Get the sub directory of directory
         """
         path = self._path(target)
         print("Tree {} {}".format(target, path))
-        infos = self.list(target)
-        tree = list(filter(lambda x: x['mime'] == 'directory', infos))
-        return tree
+        with self.lock:
+            infos = self._list(path)
+            tree = list(filter(lambda x: x['mime'] == 'directory', infos))
+            return tree
 
     def parents(self, target, depth=0):
         """
         获取目录的父目录, 如果deep为0，则直到根
         """
         path = self._path(target).rstrip(self.path_sep)
-        return self._parents(path, depth=depth)
+        with self.lock:
+            return self._parents(path, depth=depth)
 
     def _parents(self, path, depth=0):
         path = self.path_sep + path.lstrip(self.path_sep)
@@ -207,7 +209,11 @@ class SFTPVolume(BaseVolume):
         path = self._path(target)
         remote_path = self._remote_path(path)
         try:
-            self.sftp.unlink(remote_path)
+            info = self.info(target)
+            if info['mime'] == 'directory':
+                self.sftp.rmdir(remote_path)
+            else:
+                self.sftp.unlink(remote_path)
         except OSError:
             raise OSError("Delete {} failed".format(self._base_name(path)))
         return target
