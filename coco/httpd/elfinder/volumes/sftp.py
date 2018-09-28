@@ -1,7 +1,9 @@
 import stat
 import threading
+import tempfile
 
 from flask import send_file
+import requests
 
 from coco.utils import get_logger
 from .base import BaseVolume
@@ -87,7 +89,7 @@ class SFTPVolume(BaseVolume):
     def list(self, target, name_only=False):
         """ Returns a list of files/directories in the target directory. """
         path = self._path(target)
-        # print("List {}-{}".format(target, path))
+        print("List {} {}".format(target, path))
         with self.lock:
             return self._list(path)
 
@@ -106,6 +108,7 @@ class SFTPVolume(BaseVolume):
         获取目录的父目录, 如果deep为0，则直到根
         """
         path = self._path(target).rstrip(self.path_sep)
+        print("Parents {} {}".format(target, path))
         with self.lock:
             return self._parents(path, depth=depth)
 
@@ -177,6 +180,13 @@ class SFTPVolume(BaseVolume):
             exist = False
         return exist
 
+    def is_dir(self, path):
+        info = self._info(path)
+        if info['mime'] == 'directory':
+            return True
+        else:
+            return False
+
     def paste(self, targets, dest, cut):
         """ Moves/copies target files/directories from source to dest. """
         print("Paste {} {} {}".format(targets, dest, cut))
@@ -187,6 +197,8 @@ class SFTPVolume(BaseVolume):
         for target in targets:
             src_path = self._path(target)
             dest_path = self._join(dest_parent_path, self._base_name(src_path))
+            if self.is_dir(src_path):
+                raise OSError("Copy folder unsupported now")
             print("Paste {} to => {}".format(src_path, dest_parent_path))
             if self.is_exist(dest_path):
                 print("Exist {}".format(dest_path))
@@ -217,6 +229,19 @@ class SFTPVolume(BaseVolume):
         except OSError:
             raise OSError("Delete {} failed".format(self._base_name(path)))
         return target
+
+    def upload_as_url(self, url, parent):
+        added = []
+        parent_path = self._path(parent)
+        path = self._join(parent_path, self._base_name(url))
+        remote_path = self._remote_path(path)
+        r = requests.get(url, stream=True)
+        with self.sftp.open(remote_path, 'w') as rf:
+            for chunk in r.iter_content(chunk_size=1024):
+                if chunk:  # filter out keep-alive new chunks
+                    rf.write(chunk)
+        added.append(self._info(path))
+        return {'added': added}
 
     def upload(self, files, parent):
         """ For now, this uses a very naive way of storing files - the entire
