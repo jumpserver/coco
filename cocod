@@ -28,7 +28,6 @@ DAEMON = False
 PID_FILE = os.path.join(BASE_DIR, 'coco.pid')
 
 coco = Coco()
-coco.config.from_object(config)
 
 
 def check_pid(pid):
