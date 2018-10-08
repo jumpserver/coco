@@ -26,7 +26,7 @@ from .session import Session
 from .models import Connection
 
 
-__version__ = '1.4.1'
+__version__ = '1.4.2'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
