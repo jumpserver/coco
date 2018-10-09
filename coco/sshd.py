@@ -8,12 +8,12 @@ import threading
 
 import paramiko
 
-from .utils import ssh_key_gen, get_logger
-from .interface import SSHInterface
-from .interactive import InteractiveServer
-from .models import Connection
-from .sftp import SFTPServer
-from .config import config
+from coco.utils import ssh_key_gen, get_logger
+from coco.interface import SSHInterface
+from coco.interactive import InteractiveServer
+from coco.models import Connection
+from coco.sftp import SFTPServer
+from coco.config import config
 
 logger = get_logger(__file__)
 BACKLOG = 5
@@ -110,7 +110,10 @@ class SSHServer:
         kind = client.request.kind
         if kind == 'session' and chan_type in supported:
             logger.info("Request type `{}:{}`, dispatch to interactive mode".format(kind, chan_type))
-            InteractiveServer(client).interact()
+            try:
+                InteractiveServer(client).interact()
+            except Exception as e:
+                logger.error("Unexpected error occur: {}".format(e))
             connection = Connection.get_connection(client.connection_id)
             connection.remove_client(client.id)
         elif chan_type == 'subsystem':
@@ -122,3 +125,8 @@ class SSHServer:
 
     def shutdown(self):
         self.stop_evt.set()
+
+
+if __name__ == '__main__':
+    ssh_server = SSHServer()
+    ssh_server.run()

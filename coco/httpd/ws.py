@@ -1,40 +1,20 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
+
 import os
 import uuid
-from flask_socketio import SocketIO, Namespace, join_room
-from flask import Flask, request
+from flask_socketio import join_room
+from flask import request
 
-from .models import Connection, WSProxy
-from .proxy import ProxyServer
-from .utils import get_logger
-from .ctx import app_service
-from .config import config
+from ..models import Connection, WSProxy
+from ..proxy import ProxyServer
+from ..utils import get_logger
+from ..ctx import app_service
+from .base import BaseNamespace
+from .utils import get_cached_volume
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
-
-
-class BaseNamespace(Namespace):
-    current_user = None
-
-    def on_connect(self):
-        self.current_user = self.get_current_user()
-        logger.debug("{} connect websocket".format(self.current_user))
-
-    def get_current_user(self):
-        session_id = request.cookies.get('sessionid', '')
-        csrf_token = request.cookies.get('csrftoken', '')
-        user = None
-        if session_id and csrf_token:
-            user = app_service.check_user_cookie(session_id, csrf_token)
-        msg = "Get current user: session_id<{}> => {}".format(
-            session_id, user
-        )
-        logger.debug(msg)
-        request.current_user = user
-        return user
 
 
 class ProxyNamespace(BaseNamespace):
@@ -103,7 +83,10 @@ class ProxyNamespace(BaseNamespace):
         forwarder = ProxyServer(client, asset, system_user)
 
         def proxy():
-            forwarder.proxy()
+            try:
+                forwarder.proxy()
+            except Exception as e:
+                logger.error("Unexpected error occur: {}".format(e))
             self.logout(client_id, connection)
         self.socketio.start_background_task(proxy)
 
@@ -123,7 +106,7 @@ class ProxyNamespace(BaseNamespace):
         client.chan.write(message.get("data", ""))
 
     def check_token(self, token, secret, client_id):
-        if not token or secret:
+        if not token and not secret:
             msg = "Token or secret is None: {} {}".format(token, secret)
             logger.error(msg)
             self.emit('data', {'data': msg, 'room': client_id}, room=client_id)
@@ -154,7 +137,10 @@ class ProxyNamespace(BaseNamespace):
         if not valid:
             return
         user_id = info.get('user', None)
-        request.current_user = app_service.get_user_profile(user_id)
+
+        request.current_user = current_user = app_service.get_user_profile(user_id)
+        connection = Connection.get_connection(request.sid)
+        connection.user = current_user
         message = {
             'secret': secret,
             'uuid': info['asset'],
@@ -210,51 +196,11 @@ class ProxyNamespace(BaseNamespace):
         self.emit('pong')
 
 
-class HttpServer:
-    # prepare may be rewrite it
-    config = {
-        'SECRET_KEY': 'someWOrkSD20KMS9330)&#',
-        'coco': None,
-        'LOGIN_URL': '/login'
-    }
-    init_kwargs = dict(
-        async_mode="eventlet",
-        # async_mode="threading",
-        # ping_timeout=20,
-        # ping_interval=10,
-        # engineio_logger=True,
-        # logger=True
-    )
+class ElfinderNamespace(BaseNamespace):
+    def on_connect(self):
+        self.emit('data', {"sid": str(request.sid)})
 
-    def __init__(self):
-        config.update(self.config)
-        self.flask_app = Flask(__name__, template_folder='dist')
-        self.flask_app.config.update(config)
-        self.socket_io = SocketIO()
-        self.register_routes()
-        self.register_error_handler()
-
-    def register_routes(self):
-        self.socket_io.on_namespace(ProxyNamespace('/ssh'))
-
-    @staticmethod
-    def on_error_default(e):
-        logger.exception(e)
-
-    def register_error_handler(self):
-        self.socket_io.on_error_default(self.on_error_default)
-
-    def run(self):
-        # return
-        host = config["BIND_HOST"]
-        port = config["HTTPD_PORT"]
-        print('Starting websocket server at {}:{}'.format(host, port))
-        self.socket_io.init_app(
-            self.flask_app,
-            **self.init_kwargs
-        )
-        self.socket_io.run(self.flask_app, port=port, host=host, debug=False)
-
-    def shutdown(self):
-        self.socket_io.stop()
-        pass
+    def on_disconnect(self):
+        sftp = get_cached_volume(request.sid)
+        if sftp:
+            sftp.close()

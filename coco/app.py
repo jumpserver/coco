@@ -19,16 +19,14 @@ from .sshd import SSHServer
 from .httpd import HttpServer
 from .logger import create_logger
 from .tasks import TaskHandler
-from .utils import get_logger, ugettext as _, \
-    ignore_error
-from .service import init_app
+from .utils import get_logger, ugettext as _, ignore_error
 from .ctx import app_service
 from .recorder import get_replay_recorder
 from .session import Session
 from .models import Connection
 
 
-__version__ = '1.4.1'
+__version__ = '1.4.2'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
@@ -44,8 +42,6 @@ class Coco:
         self.replay_recorder_class = None
         self.command_recorder_class = None
         self._task_handler = None
-        self.config = config
-        init_app(self)
 
     @property
     def sshd(self):
@@ -66,7 +62,7 @@ class Coco:
         return self._task_handler
 
     def make_logger(self):
-        create_logger(self)
+        create_logger()
 
     @staticmethod
     def load_extra_conf_from_server():
@@ -78,7 +74,7 @@ class Coco:
 
     def bootstrap(self):
         self.make_logger()
-        app_service.initial()
+        # app_service.initial()
         self.load_extra_conf_from_server()
         self.keep_heartbeat()
         self.monitor_sessions()
@@ -86,7 +82,7 @@ class Coco:
 
     @ignore_error
     def heartbeat(self):
-        _sessions = [s.to_json() for s in Session.sessions.values()]
+        _sessions = [s.to_json() for s in Session.sessions.values() if s]
         tasks = app_service.terminal_heartbeat(_sessions)
         if tasks:
             self.handle_task(tasks)
@@ -106,7 +102,10 @@ class Coco:
     def keep_heartbeat(self):
         def func():
             while not self.stop_evt.is_set():
-                self.heartbeat()
+                try:
+                    self.heartbeat()
+                except Exception as e:
+                    logger.error("Unexpected error occur: {}".format(e))
                 time.sleep(config["HEARTBEAT_INTERVAL"])
         thread = threading.Thread(target=func)
         thread.start()
@@ -152,17 +151,20 @@ class Coco:
 
         def func():
             while not self.stop_evt.is_set():
-                sessions_copy = [s for s in Session.sessions.values()]
-                for s in sessions_copy:
-                    # Session 没有正常关闭,
-                    if s.closed_unexpected:
-                        Session.remove_session(s.id)
-                        continue
-                    # Session已正常关闭
-                    if s.closed:
-                        Session.remove_session(s)
-                    else:
-                        check_session_idle_too_long(s)
+                try:
+                    sessions_copy = [s for s in Session.sessions.values()]
+                    for s in sessions_copy:
+                        # Session 没有正常关闭,
+                        if s.closed_unexpected:
+                            Session.remove_session(s.id)
+                            continue
+                        # Session已正常关闭
+                        if s.closed:
+                            Session.remove_session(s)
+                        else:
+                            check_session_idle_too_long(s)
+                except Exception as e:
+                    logger.error("Unexpected error occur: {}".format(e))
                 time.sleep(interval)
         thread = threading.Thread(target=func)
         thread.start()
