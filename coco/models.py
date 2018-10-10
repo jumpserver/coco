@@ -6,7 +6,8 @@ import socket
 
 from .service import app_service
 from .struct import SizedList, SelectEvent
-from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning
+from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
+    ugettext as _
 from . import char
 from . import utils
 
@@ -186,6 +187,9 @@ class BaseServer:
         rules = app_service.get_system_user_cmd_filter_rules(
             self.system_user.id
         )
+        print(rules)
+        rules = sorted(rules, key=lambda x: (x.priority, x.action['value']))
+        print(rules)
         return rules
 
     def set_session(self, session):
@@ -236,13 +240,15 @@ class BaseServer:
         if self._in_input_state:
             return data
         for rule in self._cmd_filter_rules:
-            action, msg = rule.match(self._input)
-            if action == rule.DENY:
+            action, cmd = rule.match(self._input)
+            if action == rule.ACCEPT:
+                break
+            elif action == rule.DENY:
                 data = char.CLEAR_LINE_CHAR + b'\r'
-                msg = wr(warning(msg.encode()), before=1, after=0)
+                msg = _("Command `{}` is forbidden ........").format(cmd)
+                msg = wr(warning(msg.encode()), before=1, after=1)
                 self.output_data.append(msg)
                 self.session.send_to_clients(msg)
-            elif action == rule.ACCEPT:
                 break
         return data
 
