@@ -2,11 +2,6 @@
 # -*- coding: utf-8 -*-
 #
 
-import eventlet
-from eventlet.debug import hub_prevent_multiple_readers
-eventlet.monkey_patch()
-hub_prevent_multiple_readers(False)
-
 import datetime
 import os
 import time

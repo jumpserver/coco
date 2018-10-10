@@ -2,7 +2,7 @@
 #
 from functools import wraps
 
-from flask import request, abort
+from flask import request, abort, redirect
 
 from ..ctx import app_service
 
@@ -23,7 +23,8 @@ def login_required(func):
             user = app_service.check_user_cookie(session_id, csrf_token)
             request.current_user = user
         if not hasattr(request, 'current_user') or not request.current_user:
-            return abort(403)
+            url = '/users/login/?next={}'.format(request.path)
+            return redirect(url)
         response = func(*args, **kwargs)
         return response
     return wrapper

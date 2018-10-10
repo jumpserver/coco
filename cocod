@@ -2,6 +2,11 @@
 # -*- coding: utf-8 -*-
 #
 
+import eventlet
+from eventlet.debug import hub_prevent_multiple_readers
+eventlet.monkey_patch()
+hub_prevent_multiple_readers(False)
+
 import os
 import sys
 import argparse
@@ -16,12 +21,9 @@ except ImportError:
     print("Please prepare config file `cp conf_example.py conf.py`")
     sys.exit(1)
 
-try:
-    os.mkdir("logs")
-    os.mkdir("keys")
-    os.mkdir("sessions")
-except:
-    pass
+dirs = ('logs', 'keys', 'sessions')
+for d in dirs:
+    os.makedirs(d, exist_ok=True)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DAEMON = False

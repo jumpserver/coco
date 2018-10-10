@@ -2,15 +2,15 @@
 #
 
 function init_message() {
-    xgettext -k_ -o pot/coco.pot --from-code=UTF-8 coco/*.py
-    msginit -l locale/zh_CN/LC_MESSAGES/coco -i pot/coco.pot
-    msginit -l locale/en/LC_MESSAGES/coco -i pot/coco.pot
+    xgettext -k_ -o /tmp/coco.pot --from-code=UTF-8 coco/*.py
+    msginit -l locale/zh_CN/LC_MESSAGES/coco -i /tmp/coco.pot
+    msginit -l locale/en/LC_MESSAGES/coco -i /tmp/coco.pot
 }
 
 function make_message() {
-    xgettext -k_ -o pot/coco.pot --from-code=UTF-8 coco/*.py
-    msgmerge -U locale/zh_CN/LC_MESSAGES/coco.po pot/coco.pot
-    msgmerge -U locale/en/LC_MESSAGES/coco.po pot/coco.pot
+    xgettext -k_ -o /tmp/coco.pot --from-code=UTF-8 coco/*.py
+    msgmerge -U locale/zh_CN/LC_MESSAGES/coco.po /tmp/coco.pot
+    msgmerge -U locale/en/LC_MESSAGES/coco.po /tmp/coco.pot
 }
 
 function compile_message() {
