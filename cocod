@@ -21,7 +21,7 @@ except ImportError:
     print("Please prepare config file `cp conf_example.py conf.py`")
     sys.exit(1)
 
-dirs = ('logs', 'keys', 'sessions')
+dirs = ('logs', 'keys')
 for d in dirs:
     os.makedirs(d, exist_ok=True)
 
