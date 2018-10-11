@@ -246,6 +246,7 @@ class BaseServer:
                 msg = wr(warning(msg.encode()), before=1, after=1)
                 self.output_data.append(msg)
                 self.session.send_to_clients(msg)
+                self.session.put_replay(msg)
                 break
         return data
 
