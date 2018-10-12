@@ -147,6 +147,10 @@ class Session:
             pass
         self.stop_evt.set()
 
+    def send_to_clients(self, data):
+        for watcher in [self.client] + self._watchers + self._sharers:
+            watcher.send(data)
+
     def bridge(self):
         """
         Bridge clients with server

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-09-03 10:39+0800\n"
+"POT-Creation-Date: 2018-10-10 15:22+0800\n"
 "PO-Revision-Date: 2018-08-10 10:42+0800\n"
 "Last-Translator: BaiJiangjie <bugatti_it@163.com>\n"
 "Language-Team: Language locale/en/LC\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: coco/app.py:147
+#: coco/app.py:141
 msgid "Connect idle more than {} minutes, disconnect"
 msgstr ""
 
@@ -91,44 +91,44 @@ msgstr ""
 msgid "Total: {}"
 msgstr ""
 
-#: coco/interactive.py:159
+#: coco/interactive.py:161
 msgid "There is no matched node, please re-enter"
 msgstr ""
 
-#: coco/interactive.py:170
+#: coco/interactive.py:172
 msgid "ID"
 msgstr ""
 
-#: coco/interactive.py:170
+#: coco/interactive.py:172
 msgid "Hostname"
 msgstr ""
 
-#: coco/interactive.py:170
+#: coco/interactive.py:172
 msgid "IP"
 msgstr ""
 
-#: coco/interactive.py:170
+#: coco/interactive.py:172
 msgid "LoginAs"
 msgstr ""
 
-#: coco/interactive.py:184
+#: coco/interactive.py:186
 msgid "Comment"
 msgstr ""
 
-#: coco/interactive.py:192
+#: coco/interactive.py:194
 msgid "Total: {} Match: {}"
 msgstr ""
 
-#: coco/interactive.py:235
+#: coco/interactive.py:237
 msgid "Select a login:: "
 msgstr ""
 
-#: coco/interactive.py:258
+#: coco/interactive.py:260
 msgid ""
 "Terminal does not support login Windows, please use web terminal to access"
 msgstr ""
 
-#: coco/interactive.py:269
+#: coco/interactive.py:271
 msgid "No system user"
 msgstr ""
 
