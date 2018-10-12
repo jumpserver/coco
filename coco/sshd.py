@@ -90,7 +90,7 @@ class SSHServer:
                 continue
 
             if not server.event.is_set():
-                logger.warning("Client not request a valid request, exiting")
+                logger.warning("Client not request invalid, exiting")
                 sock.close()
                 return
             else:

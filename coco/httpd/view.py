@@ -50,11 +50,13 @@ def sftp_host_connector_view(host):
 
 
 @app.route('/coco/elfinder/sftp/<host>/')
+@login_required
 def sftp_host_finder(host):
     return render_template('elfinder/file_manager.html', host=host)
 
 
 @app.route('/coco/elfinder/sftp/')
+@login_required
 def sftp_finder():
     return render_template('elfinder/file_manager.html', host='_')
 

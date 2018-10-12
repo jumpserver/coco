@@ -2,11 +2,6 @@
 # -*- coding: utf-8 -*-
 #
 
-import eventlet
-from eventlet.debug import hub_prevent_multiple_readers
-eventlet.monkey_patch()
-hub_prevent_multiple_readers(False)
-
 import datetime
 import os
 import time
@@ -26,7 +21,7 @@ from .session import Session
 from .models import Connection
 
 
-__version__ = '1.4.1'
+__version__ = '1.4.3'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
