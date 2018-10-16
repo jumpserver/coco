@@ -236,17 +236,21 @@ class BaseServer:
     def s_filter_cmd_filter(self, data):
         if self._in_input_state:
             return data
+        if not self._input:
+            return data
         for rule in self._cmd_filter_rules:
             action, cmd = rule.match(self._input)
             if action == rule.ALLOW:
                 break
             elif action == rule.DENY:
-                data = char.CLEAR_LINE_CHAR + b'\r\n'
+                data = char.CLEAR_LINE_CHAR + b'\r'
                 msg = _("Command `{}` is forbidden ........").format(cmd)
                 msg = wr(warning(msg.encode()), before=1, after=1)
                 self.output_data.append(msg)
                 self.session.send_to_clients(msg)
+                self.session.put_command(self._input, msg.decode())
                 self.session.put_replay(msg)
+                self.input_data.clean()
                 break
         return data
 
@@ -328,6 +332,7 @@ class BaseServer:
         return self._cmd_parser.parse_output(self.output_data)
 
     def _parse_input(self):
+        print("Parse input: {}".format(self.input_data))
         if not self.input_data:
             return
         return self._cmd_parser.parse_input(self.input_data)

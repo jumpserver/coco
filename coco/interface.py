@@ -8,7 +8,7 @@ from collections import Iterable
 
 from .utils import get_logger
 from .config import config
-from .ctx import app_service
+from .service import app_service
 
 logger = get_logger(__file__)
 

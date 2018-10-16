@@ -8,7 +8,7 @@ import time
 from .session import Session
 from .models import Server, TelnetServer
 from .connection import SSHConnection, TelnetConnection
-from .ctx import app_service
+from .service import app_service
 from .config import config
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
      get_logger, net_input, ugettext as _
@@ -39,6 +39,7 @@ class ProxyServer:
                 or (not password and not private_key):
             prompt = "{}'s password: ".format(self.system_user.username)
             password = net_input(self.client, prompt=prompt, sensitive=True)
+            private_key = None
         self.system_user.password = password
         self.system_user.private_key = private_key
 
