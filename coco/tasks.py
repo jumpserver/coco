@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 
-from .ctx import app_service
+from .service import app_service
 from .utils import get_logger
 from .session import Session
 

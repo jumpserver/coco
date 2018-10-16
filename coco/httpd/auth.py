@@ -4,7 +4,7 @@ from functools import wraps
 
 from flask import request, abort, redirect
 
-from ..ctx import app_service
+from ..service import app_service
 
 
 def login_required(func):

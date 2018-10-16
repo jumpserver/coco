@@ -9,7 +9,7 @@ from flask import request
 from ..models import Connection, WSProxy
 from ..proxy import ProxyServer
 from ..utils import get_logger
-from ..ctx import app_service
+from ..service import app_service
 from .base import BaseNamespace
 from .utils import get_cached_volume
 

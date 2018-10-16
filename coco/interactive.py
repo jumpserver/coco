@@ -12,7 +12,7 @@ from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
     wrap_with_warning as warning, is_obj_attr_has, is_obj_attr_eq, \
     sort_assets, ugettext as _, get_logger, net_input, format_with_zh, \
     item_max_length, size_of_str_with_zh, switch_lang
-from .ctx import app_service
+from .service import app_service
 from .proxy import ProxyServer
 
 logger = get_logger(__file__)
