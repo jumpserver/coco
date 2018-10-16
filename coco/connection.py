@@ -10,7 +10,7 @@ import telnetlib
 import paramiko
 from paramiko.ssh_exception import SSHException
 
-from .ctx import app_service
+from .service import app_service
 from .config import config
 from .utils import get_logger, get_private_key_fingerprint
 

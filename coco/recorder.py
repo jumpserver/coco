@@ -15,7 +15,7 @@ import jms_storage
 from .config import config
 from .utils import get_logger, Singleton
 from .struct import MemoryQueue
-from .ctx import app_service
+from .service import app_service
 
 logger = get_logger(__file__)
 BUF_SIZE = 1024

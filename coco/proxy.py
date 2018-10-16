@@ -8,7 +8,7 @@ import time
 from .session import Session
 from .models import Server, TelnetServer
 from .connection import SSHConnection, TelnetConnection
-from .ctx import app_service
+from .service import app_service
 from .config import config
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
      get_logger, net_input, ugettext as _
