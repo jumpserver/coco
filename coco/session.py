@@ -8,7 +8,7 @@ import time
 
 from .utils import get_logger, wrap_with_warning as warn, \
     wrap_with_line_feed as wr, ugettext as _, ignore_error
-from .ctx import app_service
+from .service import app_service
 from .struct import SelectEvent
 from .recorder import get_recorder
 
@@ -146,6 +146,10 @@ class Session:
         except OSError:
             pass
         self.stop_evt.set()
+
+    def send_to_clients(self, data):
+        for watcher in [self.client] + self._watchers + self._sharers:
+            watcher.send(data)
 
     def bridge(self):
         """

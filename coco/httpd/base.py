@@ -9,7 +9,7 @@ from flask import Flask, request
 from ..models import Connection, WSProxy
 from ..proxy import ProxyServer
 from ..utils import get_logger
-from ..ctx import app_service
+from ..service import app_service
 from ..config import config
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))

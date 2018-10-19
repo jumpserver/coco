@@ -57,9 +57,9 @@ def create_logger():
             # 'engineio': main_setting,
         }
     )
-
     dictConfig(config)
     logger = logging.getLogger()
     return logger
 
 
+create_logger()

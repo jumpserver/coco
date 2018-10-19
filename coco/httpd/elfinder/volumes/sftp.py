@@ -1,6 +1,5 @@
 import stat
 import threading
-import tempfile
 
 from flask import send_file
 import requests
@@ -231,17 +230,7 @@ class SFTPVolume(BaseVolume):
         return target
 
     def upload_as_url(self, url, parent):
-        added = []
-        parent_path = self._path(parent)
-        path = self._join(parent_path, self._base_name(url))
-        remote_path = self._remote_path(path)
-        r = requests.get(url, stream=True)
-        with self.sftp.open(remote_path, 'w') as rf:
-            for chunk in r.iter_content(chunk_size=1024):
-                if chunk:  # filter out keep-alive new chunks
-                    rf.write(chunk)
-        added.append(self._info(path))
-        return {'added': added}
+        raise PermissionError("Not support upload from url")
 
     def upload(self, files, parent):
         """ For now, this uses a very naive way of storing files - the entire

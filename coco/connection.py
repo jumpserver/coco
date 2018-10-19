@@ -10,7 +10,7 @@ import telnetlib
 import paramiko
 from paramiko.ssh_exception import SSHException
 
-from .ctx import app_service
+from .service import app_service
 from .config import config
 from .utils import get_logger, get_private_key_fingerprint
 
@@ -22,7 +22,8 @@ AUTO_LOGIN = 'auto'
 
 
 class SSHConnection:
-    def get_system_user_auth(self, system_user):
+    @staticmethod
+    def get_system_user_auth(system_user):
         """
         获取系统用户的认证信息，密码或秘钥
         :return: system user have full info

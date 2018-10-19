@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-09-03 10:39+0800\n"
+"POT-Creation-Date: 2018-10-10 15:22+0800\n"
 "PO-Revision-Date: 2018-08-10 10:42+0800\n"
 "Last-Translator: BaiJiangjie <bugatti_it@163.com>\n"
 "Language-Team: Language locale/zh\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: coco/app.py:147
+#: coco/app.py:141
 msgid "Connect idle more than {} minutes, disconnect"
 msgstr "空闲时间超过 {} 分钟，断开连接"
 
@@ -77,9 +77,9 @@ msgid "{T}7) Enter {green}h{end} help.{R}"
 msgstr "{T}7) 输入 {green}h{end} 帮助.{R}"
 
 #: coco/interactive.py:70
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{T}0) Enter {green}q{end} exit.{R}"
-msgstr "{T}0) 输入 {green}q{end} 退出.{R}\n"
+msgstr "{T}0) 输入 {green}q{end} 退出.{R}"
 
 #: coco/interactive.py:142
 msgid "No"
@@ -97,44 +97,44 @@ msgstr "资产"
 msgid "Total: {}"
 msgstr "总共: {}"
 
-#: coco/interactive.py:159
+#: coco/interactive.py:161
 msgid "There is no matched node, please re-enter"
 msgstr "没有匹配分组，请重新输入"
 
-#: coco/interactive.py:170
+#: coco/interactive.py:172
 msgid "ID"
 msgstr ""
 
-#: coco/interactive.py:170
+#: coco/interactive.py:172
 msgid "Hostname"
 msgstr "主机名"
 
-#: coco/interactive.py:170
+#: coco/interactive.py:172
 msgid "IP"
 msgstr ""
 
-#: coco/interactive.py:170
+#: coco/interactive.py:172
 msgid "LoginAs"
-msgstr ""
+msgstr "登录用户"
 
-#: coco/interactive.py:184
+#: coco/interactive.py:186
 msgid "Comment"
 msgstr "备注"
 
-#: coco/interactive.py:192
+#: coco/interactive.py:194
 msgid "Total: {} Match: {}"
 msgstr "总共: {} 匹配: {}"
 
-#: coco/interactive.py:235
+#: coco/interactive.py:237
 msgid "Select a login:: "
 msgstr "选择一个登录:"
 
-#: coco/interactive.py:258
+#: coco/interactive.py:260
 msgid ""
 "Terminal does not support login Windows, please use web terminal to access"
 msgstr "终端不支持登录windows, 请使用web terminal访问"
 
-#: coco/interactive.py:269
+#: coco/interactive.py:271
 msgid "No system user"
 msgstr "没有系统用户"
 
