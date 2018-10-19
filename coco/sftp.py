@@ -426,7 +426,13 @@ class InternalSFTPClient(SFTPServer):
 
     def putfo(self, f, path, callback=None, confirm=True):
         client, rpath = self.get_sftp_client_rpath(path)
-        return client.putfo(f, rpath, callback=callback, confirm=confirm)
+        success = False
+        try:
+            attr = client.putfo(f, rpath, callback=callback, confirm=confirm)
+            success = True
+            return attr
+        finally:
+            self.create_ftp_log(path, 'Upload', success)
 
     def close(self):
         return self.session_ended()
