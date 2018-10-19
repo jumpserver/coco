@@ -197,8 +197,8 @@ class SFTPVolume(BaseVolume):
                 continue
             src_remote_path = self._remote_path(src_path)
             dest_remote_path = self._remote_path(dest_path)
+            f = self.sftp.open(src_remote_path, mode='r')
             try:
-                f = self.sftp.open(src_remote_path, mode='r')
                 attr = self.sftp.putfo(f, dest_remote_path)
                 if cut:
                     removed.append(self.remove(target))
