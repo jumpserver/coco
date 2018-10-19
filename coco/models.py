@@ -332,7 +332,6 @@ class BaseServer:
         return self._cmd_parser.parse_output(self.output_data)
 
     def _parse_input(self):
-        print("Parse input: {}".format(self.input_data))
         if not self.input_data:
             return
         return self._cmd_parser.parse_input(self.input_data)

@@ -73,6 +73,8 @@ class SFTPServer(paramiko.SFTPServerInterface):
             self.server.connection.user
         )
         for asset in assets:
+            if asset.protocol != 'ssh':
+                continue
             value = {}
             key = asset.hostname
             if asset.org_id:
@@ -96,7 +98,6 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
             active_channels = [c for c in trans._channels.values() if not c.closed]
             if not active_channels:
-                print("CLose transport")
                 trans.close()
                 if proxy:
                     proxy.close()
