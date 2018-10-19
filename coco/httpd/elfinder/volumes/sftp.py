@@ -88,7 +88,6 @@ class SFTPVolume(BaseVolume):
     def list(self, target, name_only=False):
         """ Returns a list of files/directories in the target directory. """
         path = self._path(target)
-        print("List {} {}".format(target, path))
         with self.lock:
             return self._list(path)
 
@@ -96,7 +95,6 @@ class SFTPVolume(BaseVolume):
         """ Get the sub directory of directory
         """
         path = self._path(target)
-        print("Tree {} {}".format(target, path))
         with self.lock:
             infos = self._list(path)
             tree = list(filter(lambda x: x['mime'] == 'directory', infos))
@@ -107,7 +105,6 @@ class SFTPVolume(BaseVolume):
         获取目录的父目录, 如果deep为0，则直到根
         """
         path = self._path(target).rstrip(self.path_sep)
-        print("Parents {} {}".format(target, path))
         with self.lock:
             return self._parents(path, depth=depth)
 
@@ -173,7 +170,6 @@ class SFTPVolume(BaseVolume):
         remote_path = self._remote_path(path)
         try:
             data = self.sftp.lstat(remote_path)
-            print(data)
             exist = True
         except FileNotFoundError:
             exist = False
@@ -188,7 +184,6 @@ class SFTPVolume(BaseVolume):
 
     def paste(self, targets, dest, cut):
         """ Moves/copies target files/directories from source to dest. """
-        print("Paste {} {} {}".format(targets, dest, cut))
         dest_parent_path = self._path(dest)
         added = []
         removed = []
@@ -198,9 +193,7 @@ class SFTPVolume(BaseVolume):
             dest_path = self._join(dest_parent_path, self._base_name(src_path))
             if self.is_dir(src_path):
                 raise OSError("Copy folder unsupported now")
-            print("Paste {} to => {}".format(src_path, dest_parent_path))
             if self.is_exist(dest_path):
-                print("Exist {}".format(dest_path))
                 continue
             src_remote_path = self._remote_path(src_path)
             dest_remote_path = self._remote_path(dest_path)
