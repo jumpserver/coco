@@ -415,6 +415,9 @@ class InternalSFTPClient(SFTPServer):
         attr = super().lstat.__wrapped__(self, path)
         return attr
 
+    def rmdir(self, path):
+        return super().rmdir.__wrapped__(self, path)
+
     def get_channel(self):
         return FakeChannel.new()
 
