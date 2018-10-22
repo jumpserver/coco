@@ -73,6 +73,8 @@ class SFTPServer(paramiko.SFTPServerInterface):
             self.server.connection.user
         )
         for asset in assets:
+            if asset.protocol != 'ssh':
+                continue
             value = {}
             key = asset.hostname
             if asset.org_id:
@@ -96,7 +98,6 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
             active_channels = [c for c in trans._channels.values() if not c.closed]
             if not active_channels:
-                print("CLose transport")
                 trans.close()
                 if proxy:
                     proxy.close()
@@ -414,6 +415,9 @@ class InternalSFTPClient(SFTPServer):
         attr = super().lstat.__wrapped__(self, path)
         return attr
 
+    def rmdir(self, path):
+        return super().rmdir.__wrapped__(self, path)
+
     def get_channel(self):
         return FakeChannel.new()
 
@@ -422,7 +426,13 @@ class InternalSFTPClient(SFTPServer):
 
     def putfo(self, f, path, callback=None, confirm=True):
         client, rpath = self.get_sftp_client_rpath(path)
-        return client.putfo(f, rpath, callback=callback, confirm=confirm)
+        success = False
+        try:
+            attr = client.putfo(f, rpath, callback=callback, confirm=confirm)
+            success = True
+            return attr
+        finally:
+            self.create_ftp_log(path, 'Upload', success)
 
     def close(self):
         return self.session_ended()
