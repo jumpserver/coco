@@ -45,7 +45,7 @@ def convert_error(func):
 
 
 class SFTPServer(paramiko.SFTPServerInterface):
-    root = 'home'  # Home or /tmp or other path, must exist on all server
+    root = '/tmp'  # Home or /tmp or other path, must exist on all server
 
     def __init__(self, server, **kwargs):
         """
