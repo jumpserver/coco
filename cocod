@@ -13,6 +13,10 @@ import argparse
 import time
 import signal
 
+dirs = ('logs', 'keys')
+for d in dirs:
+    os.makedirs(d, exist_ok=True)
+
 from coco import Coco
 
 try:
@@ -21,9 +25,6 @@ except ImportError:
     print("Please prepare config file `cp conf_example.py conf.py`")
     sys.exit(1)
 
-dirs = ('logs', 'keys')
-for d in dirs:
-    os.makedirs(d, exist_ok=True)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DAEMON = False
@@ -119,7 +120,7 @@ if __name__ == '__main__':
         description="""
             coco service control tools;
 
-            Example: \r\n 
+            Example: \r\n
 
             %(prog)s start -d;
             """
