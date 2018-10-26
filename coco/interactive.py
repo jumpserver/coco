@@ -30,7 +30,7 @@ class InteractiveServer:
 
     def __init__(self, client):
         self.client = client
-        self.assets = None
+        # self.assets = None
         self.closed = False
         self._search_result = None
         self.nodes = None
@@ -42,7 +42,6 @@ class InteractiveServer:
         self.total_assets = 0
         self.total_count = 0  # 总数
         self.get_user_assets_paging_async()
-        self.get_user_assets_async()
         self.get_user_nodes_async()
 
     @property
@@ -144,7 +143,6 @@ class InteractiveServer:
             result = [asset for asset in assets
                       if is_obj_attr_has(asset, q)]
 
-        # self.search_result = result
         return result
 
     def display_assets(self):
@@ -239,12 +237,6 @@ class InteractiveServer:
             asset.system_users_granted = system_users_cleaned
         return assets
 
-    def get_user_assets(self):
-        self.assets = app_service.get_user_assets(self.client.user)
-        logger.debug("Get user {} assets total: {}".format(
-            self.client.user, len(self.assets))
-        )
-
     def get_user_assets_paging(self):
         while not self.closed:
             assets, total = app_service.get_user_assets_paging(
@@ -260,10 +252,6 @@ class InteractiveServer:
                 self.total_count = total
             self.assets_list.extend(assets)
             self.offset += self.limit
-
-    def get_user_assets_async(self):
-        thread = threading.Thread(target=self.get_user_assets)
-        thread.start()
 
     def get_user_assets_paging_async(self):
         thread = threading.Thread(target=self.get_user_assets_paging)
