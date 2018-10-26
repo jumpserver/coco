@@ -33,14 +33,15 @@ class InteractiveServer:
         self.closed = False
         self._search_result = None
         self.nodes = None
-        self.offset = 0
-        self.limit = 40  # limit 最好是 page_size 的整数倍, 否则查看上一页的时候可能会乱
-        self.assets_total = None
+        self.offset = 0  # 分页获取资产，offset
+        self.limit = 100  # limit 最好是 page_size 的整数倍, 否则查看上一页的时候可能会乱
         self.assets_list = []
         self.finish = False
-        self.page_total = 0
-        self.page_size = 20
-        self.page = 1
+        self.page_size = 20  # 分页展示，每页大小
+        self.page = 1  # 分页展示，当前页码
+        self.total_assets = 0
+        self.total_count = 0  # 分页展示，总数
+        self.total_page = 0  # 分页展示，总页码
         self.get_user_assets_paging_async()
         self.get_user_assets_async()
         self.get_user_nodes_async()
@@ -148,96 +149,8 @@ class InteractiveServer:
         :return:
         """
         # self.search_and_display('')
-        self.display_assets_paging(assets_list=self.assets_list)
-
-    def display_assets_paging(self, assets_list):
-        action = PAGE_DOWN
-        gen_assets = self.get_assets_page_down_or_up(assets_list)
-        while True:
-            try:
-                page, assets = gen_assets.send(action)
-            except TypeError as e:
-                page, assets = next(gen_assets)
-                print(e)
-            except StopIteration:
-                print('StopIteration')
-                self.display_banner()
-                return None
-            self.display_assets_of_page(page, assets)
-            action = self.get_user_action()
-
-    def get_assets_page_down_or_up(self, assets_list):
-        left = 0
-        page = 1
-        page_up_size = 0  # 记录上一页大小
-        while True:
-            right = left + self.page_size
-            assets = assets_list[left:right]
-
-            if not assets and (assets_list is self.assets_list) and self.finish:
-                # 上一页已经是最后一页, 操作无效, 还是展示最后一页(展示上一页)
-                left -= page_up_size
-                page -= 1
-                continue
-            elif not assets and (assets_list is not self.assets_list):
-                # 上一页已经是最后一页, 操作无效, 还是展示最后一页(展示上一页)
-                left -= page_up_size
-                page -= 1
-                continue
-            elif not assets and (assets_list is self.assets_list) and not self.finish:
-                # 还有下一页，需要等待
-                time.sleep(1)
-                continue
-            else:
-                # 其他4中情况，返回assets
-                action = yield (page, assets)
-
-                if action == EXIT:
-                    # 退出显示
-                    return None, None
-                elif action == PAGE_UP:
-                    # 上一页
-                    page -= 1
-
-                    if page <= 1:
-                        # 已经是第一页了
-                        page = 1
-                        left = 0
-                    else:
-                        left -= self.page_size
-                else:
-                    # 下一页
-                    page += 1
-                    left += len(assets)
-                    page_up_size = len(assets)
-
-    def display_assets_of_page(self, page, assets):
-        self.client.send(char.CLEAR_CHAR)
-        self.page = page
-        self.search_result = assets
-        self.display_search_result()
-        self.display_prompt_of_page()
-
-    def display_prompt_of_page(self):
-        prompt_page_up = _("Page up: P/p")
-        prompt_page_down = _("Page down: Enter|N/n")
-        prompt_exit = _("Exit: Q/q")
-        prompts = [prompt_page_up, prompt_page_down, prompt_exit]
-        prompt = '\t'.join(prompts)
-        self.client.send(wr(prompt, before=1))
-
-    def get_user_action(self):
-        opt = net_input(self.client, prompt=':', before=1)
-        if opt in ('p', 'P'):
-            # 上一页
-            return PAGE_UP
-        elif opt in ('Q', 'q'):
-            # 退出
-            return EXIT
-        else:
-            # 下一页
-            #  opt in ('', None, 'n', 'N'):
-            return PAGE_DOWN
+        self.total_count = self.total_assets
+        self.display_result_list_paging(self.assets_list)
 
     def display_nodes(self):
         if self.nodes is None:
@@ -272,7 +185,8 @@ class InteractiveServer:
         # self.display_search_result()
 
         assets = self.nodes[_id - 1].assets_granted
-        self.display_assets_paging(assets)
+        self.total_count = len(assets)
+        self.display_result_list_paging(assets)
 
     def display_search_result(self):
         sort_by = config["ASSET_LIST_SORT_BY"]
@@ -299,14 +213,14 @@ class InteractiveServer:
                 asset.system_users_name_list, asset.comment
             ]
             self.client.send(wr(format_with_zh(size_list, *data)))
+
         # self.client.send(wr(_("Total: {} Match: {}").format(
         #     len(self.assets), len(self.search_result)), before=1)
         # )
-        self.client.send(wr(_("Total Page: {}, Total Count: {}").format(
-            self.page_total, self.assets_total), before=1)
-        )
-        self.client.send(wr(_("Page: {}, Count: {}").format(
-            self.page, len(self.search_result)), before=0)
+
+        total_page = math.ceil(self.total_count/self.page_size)
+        self.client.send(wr(_("Page: {}, Count: {}\r\nTotal Page: {}, Total Count: {}").format(
+            self.page, len(self.search_result), total_page, self.total_count), before=1)
         )
 
     def search_and_display(self, q):
@@ -347,9 +261,9 @@ class InteractiveServer:
                 logger.info('Thread: Get user assets paging async finished.')
                 self.finish = True
                 return
-            if self.assets_total is None:
-                self.assets_total = total
-                self.page_total = math.ceil(total/self.page_size)
+            if not self.total_assets:
+                self.total_assets = total
+                self.total_count = total
             self.assets_list.extend(assets)
             self.offset += self.limit
 
@@ -398,6 +312,95 @@ class InteractiveServer:
             self.proxy(asset)
         else:
             self.display_search_result()
+
+    def display_result_list_paging(self, result_list):
+        action = PAGE_DOWN
+        gen_result = self.get_result_page_down_or_up(result_list)
+        while True:
+            try:
+                page, result = gen_result.send(action)
+            except TypeError as e:
+                page, result = next(gen_result)
+                print(e)
+            except StopIteration:
+                print('StopIteration')
+                self.display_banner()
+                return None
+            self.display_result_of_page(page, result)
+            action = self.get_user_action()
+
+    def get_result_page_down_or_up(self, result_list):
+        left = 0
+        page = 1
+        page_up_size = 0  # 记录上一页大小
+        while True:
+            right = left + self.page_size
+            result = result_list[left:right]
+
+            if not result and (result_list is self.assets_list) and self.finish:
+                # 上一页已经是最后一页, 操作无效, 还是展示最后一页(展示上一页)
+                left -= page_up_size
+                page -= 1
+                continue
+            elif not result and (result_list is not self.assets_list):
+                # 上一页已经是最后一页, 操作无效, 还是展示最后一页(展示上一页)
+                left -= page_up_size
+                page -= 1
+                continue
+            elif not result and (result_list is self.assets_list) and not self.finish:
+                # 还有下一页，需要等待
+                time.sleep(1)
+                continue
+            else:
+                # 其他4中情况，返回assets
+                action = yield (page, result)
+
+                if action == EXIT:
+                    # 退出显示
+                    return None, None
+                elif action == PAGE_UP:
+                    # 上一页
+                    page -= 1
+
+                    if page <= 1:
+                        # 已经是第一页了
+                        page = 1
+                        left = 0
+                    else:
+                        left -= self.page_size
+                else:
+                    # 下一页
+                    page += 1
+                    left += len(result)
+                    page_up_size = len(result)
+
+    def display_result_of_page(self, page, result):
+        self.client.send(char.CLEAR_CHAR)
+        self.page = page
+        self.search_result = result
+        self.display_search_result()
+        self.display_prompt_of_page()
+
+    def display_prompt_of_page(self):
+        prompt_page_up = _("Page up: P/p")
+        prompt_page_down = _("Page down: Enter|N/n")
+        prompt_exit = _("Exit: Q/q")
+        prompts = [prompt_page_up, prompt_page_down, prompt_exit]
+        prompt = '\t'.join(prompts)
+        self.client.send(wr(prompt, before=1))
+
+    def get_user_action(self):
+        opt = net_input(self.client, prompt=':')
+        if opt in ('p', 'P'):
+            # 上一页
+            return PAGE_UP
+        elif opt in ('Q', 'q'):
+            # 退出
+            return EXIT
+        else:
+            # 下一页
+            #  opt in ('', None, 'n', 'N'):
+            return PAGE_DOWN
 
     def proxy(self, asset):
         system_user = self.choose_system_user(asset.system_users_granted)
