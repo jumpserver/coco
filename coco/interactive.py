@@ -21,7 +21,7 @@ logger = get_logger(__file__)
 
 PAGE_DOWN = 'down'
 PAGE_UP = 'up'
-EXIT = 'exit'
+BACK = 'back'
 PROXY = 'proxy'
 
 
@@ -38,13 +38,17 @@ class InteractiveServer:
         self.limit = 100  # limit 最好是 page_size 的整数倍, 否则查看上一页的时候可能会乱
         self.assets_list = []
         self.finish = False
-        self.page_size = 20  # 每页大小
         self.page = 1  # 当前页码
         self.total_assets = 0
         self.total_count = 0  # 总数
         self.get_user_assets_paging_async()
         self.get_user_assets_async()
         self.get_user_nodes_async()
+
+    @property
+    def page_size(self):
+        # 每页大小
+        return self.client.request.meta['height'] - 6
 
     @property
     def search_result(self):
@@ -127,11 +131,6 @@ class InteractiveServer:
         # 所有的
         if q in ('', None):
             result = assets
-
-        # 用户输入的是数字，可能想使用id唯一键搜索
-        # elif q.isdigit() and self.search_result and \
-        #         len(self.search_result) >= int(q):
-        #     result = [self.search_result[int(q) - 1]]
 
         # 全匹配到则直接返回全匹配的
         if len(result) == 0:
@@ -358,7 +357,7 @@ class InteractiveServer:
                 # 其他4中情况，返回assets
                 action = yield (page, result)
 
-                if action == EXIT:
+                if action == BACK:
                     # 退出显示
                     return None, None
                 elif action == PAGE_UP:
@@ -387,7 +386,7 @@ class InteractiveServer:
     def display_prompt_of_page(self):
         prompt_page_up = _("Page up: P/p")
         prompt_page_down = _("Page down: Enter|N/n")
-        prompt_exit = _("Exit: Q/q")
+        prompt_exit = _("BACK: B/b")
         prompts = [prompt_page_up, prompt_page_down, prompt_exit]
         prompt = '\t'.join(prompts)
         self.client.send(wr(prompt, before=1))
@@ -397,13 +396,13 @@ class InteractiveServer:
         if opt in ('p', 'P'):
             # 上一页
             return PAGE_UP
-        elif opt in ('Q', 'q'):
+        elif opt in ('B', 'b'):
             # 退出
-            return EXIT
+            return BACK
         elif opt.isdigit() and self.search_result and 0 < int(opt) <= len(self.search_result):
             # 如果是展示的是资产
             self.proxy(self.search_result[int(opt)-1])
-            return EXIT
+            return BACK
         else:
             # 下一页
             #  opt in ('', None, 'n', 'N'):
