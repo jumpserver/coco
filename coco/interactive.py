@@ -22,6 +22,7 @@ logger = get_logger(__file__)
 PAGE_DOWN = 'down'
 PAGE_UP = 'up'
 EXIT = 'exit'
+PROXY = 'proxy'
 
 
 class InteractiveServer:
@@ -37,11 +38,10 @@ class InteractiveServer:
         self.limit = 100  # limit 最好是 page_size 的整数倍, 否则查看上一页的时候可能会乱
         self.assets_list = []
         self.finish = False
-        self.page_size = 20  # 分页展示，每页大小
-        self.page = 1  # 分页展示，当前页码
+        self.page_size = 20  # 每页大小
+        self.page = 1  # 当前页码
         self.total_assets = 0
-        self.total_count = 0  # 分页展示，总数
-        self.total_page = 0  # 分页展示，总页码
+        self.total_count = 0  # 总数
         self.get_user_assets_paging_async()
         self.get_user_assets_async()
         self.get_user_nodes_async()
@@ -117,40 +117,43 @@ class InteractiveServer:
             self.search_and_proxy(opt)
 
     def search_assets(self, q):
-        if self.assets is None:
-            self.get_user_assets()
+        if not self.finish:
+            # assets = app_service.get_search_user_granted_assets()
+            assets = []
+            return assets
+        assets = self.assets_list
         result = []
 
         # 所有的
         if q in ('', None):
-            result = self.assets
+            result = assets
+
         # 用户输入的是数字，可能想使用id唯一键搜索
-        elif q.isdigit() and self.search_result and \
-                len(self.search_result) >= int(q):
-            result = [self.search_result[int(q) - 1]]
+        # elif q.isdigit() and self.search_result and \
+        #         len(self.search_result) >= int(q):
+        #     result = [self.search_result[int(q) - 1]]
 
         # 全匹配到则直接返回全匹配的
         if len(result) == 0:
-            _result = [asset for asset in self.assets
+            _result = [asset for asset in assets
                        if is_obj_attr_eq(asset, q)]
             if len(_result) == 1:
                 result = _result
 
         # 最后模糊匹配
         if len(result) == 0:
-            result = [asset for asset in self.assets
+            result = [asset for asset in assets
                       if is_obj_attr_has(asset, q)]
 
-        self.search_result = result
+        # self.search_result = result
+        return result
 
     def display_assets(self):
         """
         Display user all assets
         :return:
         """
-        # self.search_and_display('')
-        self.total_count = self.total_assets
-        self.display_result_list_paging(self.assets_list)
+        self.display_result_paging(self.assets_list)
 
     def display_nodes(self):
         if self.nodes is None:
@@ -181,12 +184,8 @@ class InteractiveServer:
             self.display_nodes()
             return
 
-        # self.search_result = self.nodes[_id - 1].assets_granted
-        # self.display_search_result()
-
         assets = self.nodes[_id - 1].assets_granted
-        self.total_count = len(assets)
-        self.display_result_list_paging(assets)
+        self.display_result_paging(assets)
 
     def display_search_result(self):
         sort_by = config["ASSET_LIST_SORT_BY"]
@@ -214,18 +213,14 @@ class InteractiveServer:
             ]
             self.client.send(wr(format_with_zh(size_list, *data)))
 
-        # self.client.send(wr(_("Total: {} Match: {}").format(
-        #     len(self.assets), len(self.search_result)), before=1)
-        # )
-
         total_page = math.ceil(self.total_count/self.page_size)
-        self.client.send(wr(_("Page: {}, Count: {}\r\nTotal Page: {}, Total Count: {}").format(
-            self.page, len(self.search_result), total_page, self.total_count), before=1)
+        self.client.send(wr(title(_("Page: {}, Count: {}, Total Page: {}, Total Count: {}").format(
+            self.page, len(self.search_result), total_page, self.total_count)), before=1)
         )
 
     def search_and_display(self, q):
-        self.search_assets(q)
-        self.display_search_result()
+        assets = self.search_assets(q)
+        self.display_result_paging(assets)
 
     def get_user_nodes(self):
         self.nodes = app_service.get_user_asset_groups(self.client.user)
@@ -299,9 +294,9 @@ class InteractiveServer:
             self.client.send(wr("{} {}".format(index, system_user.name)))
 
     def search_and_proxy(self, opt):
-        self.search_assets(opt)
-        if self.search_result and len(self.search_result) == 1:
-            asset = self.search_result[0]
+        assets = self.search_assets(opt)
+        if assets and len(assets) == 1:
+            asset = assets[0]
             self.search_result = None
             if asset.platform == "Windows":
                 self.client.send(warning(
@@ -311,9 +306,17 @@ class InteractiveServer:
                 return
             self.proxy(asset)
         else:
-            self.display_search_result()
+            self.display_result_paging(assets)
 
-    def display_result_list_paging(self, result_list):
+    def display_result_paging(self, result_list):
+
+        if result_list is self.assets_list:
+            self.total_count = self.total_assets
+        else:
+            if len(result_list) == 0:
+                return
+            self.total_count = len(result_list)
+
         action = PAGE_DOWN
         gen_result = self.get_result_page_down_or_up(result_list)
         while True:
@@ -396,6 +399,10 @@ class InteractiveServer:
             return PAGE_UP
         elif opt in ('Q', 'q'):
             # 退出
+            return EXIT
+        elif opt.isdigit() and self.search_result and 0 < int(opt) <= len(self.search_result):
+            # 如果是展示的是资产
+            self.proxy(self.search_result[int(opt)-1])
             return EXIT
         else:
             # 下一页
