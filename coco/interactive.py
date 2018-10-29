@@ -121,8 +121,7 @@ class InteractiveServer:
 
     def search_assets(self, q):
         if not self.finish:
-            # assets = app_service.get_search_user_granted_assets()
-            assets = []
+            assets = app_service.get_search_user_granted_assets(self.client.user, q)
             return assets
         assets = self.assets_list
         result = []
@@ -311,9 +310,9 @@ class InteractiveServer:
                 page, result = gen_result.send(action)
             except TypeError as e:
                 page, result = next(gen_result)
-                print(e)
+                logger.info(e)
             except StopIteration:
-                print('StopIteration')
+                logger.info('StopIteration')
                 self.display_banner()
                 return None
             self.display_result_of_page(page, result)
