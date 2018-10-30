@@ -4,7 +4,10 @@ import weakref
 import uuid
 import socket
 
+from .service import app_service
 from .struct import SizedList, SelectEvent
+from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
+    ugettext as _
 from . import char
 from . import utils
 
@@ -140,6 +143,11 @@ class Client:
         return "<%s from %s:%s>" % (self.user, self.addr[0], self.addr[1])
 
 
+class ServerFilter:
+    def run(self, data):
+        pass
+
+
 class BaseServer:
     """
     Base Server
@@ -147,18 +155,23 @@ class BaseServer:
     sub-class: Server, Telnet Server
     """
 
-    def __init__(self):
-        self.chan = None
+    def __init__(self, chan=None):
+        self.chan = chan
+        self._session_ref = None
+
+        self._pre_input_state = True
+        self._in_input_state = True
+        self._input_initial = False
+
+        self._enter_vim_mark = b'\x1b[?25l\x1b[37;1H\x1b[1m'
+        self._exit_vim_mark = b'\x1b[37;1H\x1b[K\x1b'
+        self._in_vim_state = False
 
         self.input_data = SizedList(maxsize=1024)
         self.output_data = SizedList(maxsize=1024)
-        self._in_input_state = True
-        self._input_initial = False
-        self._in_vim_state = False
-
         self._input = ""
         self._output = ""
-        self._session_ref = None
+
         self._zmodem_recv_start_mark = b'rz waiting to receive.**\x18B0100'
         self._zmodem_send_start_mark = b'**\x18B00000000000000'
         self._zmodem_cancel_mark = b'\x18\x18\x18\x18\x18'
@@ -166,6 +179,15 @@ class BaseServer:
         self._zmodem_state_send = 'send'
         self._zmodem_state_recv = 'recv'
         self._zmodem_state = ''
+
+        self._cmd_parser = utils.TtyIOParser()
+        self._cmd_filter_rules = self.get_system_user_cmd_filter_rules()
+
+    def get_system_user_cmd_filter_rules(self):
+        rules = app_service.get_system_user_cmd_filter_rules(
+            self.system_user.id
+        )
+        return rules
 
     def set_session(self, session):
         self._session_ref = weakref.ref(session)
@@ -177,51 +199,86 @@ class BaseServer:
         else:
             return None
 
-    def initial_filter(self):
+    def s_initial_filter(self, data):
         if not self._input_initial:
             self._input_initial = True
+        return data
 
-    def parse_cmd_filter(self, data):
-        # 输入了回车键, 开始计算输入的内容
-        if self._have_enter_char(data):
+    def s_input_state_filter(self, data):
+        self._pre_input_state = self._in_input_state
+        if self._in_vim_state:
             self._in_input_state = False
-            self._input = self._parse_input()
-            return data
-        # 用户输入了内容，但是如果没在输入状态，也就是用户刚开始输入了，结算上次输出内容
+        # 输入了回车键
+        elif self._have_enter_char(data):
+            self._in_input_state = False
+        else:
+            self._in_input_state = True
+        return data
+
+    def s_parse_input_output_filter(self, data):
+        # 输入了回车键, 计算输入的命令
         if not self._in_input_state:
+            self._input = self._parse_input()
+        # 用户输入了内容，但是上次没在输入状态，也就是用户刚开始输入了，结算上次输出内容
+        if not self._pre_input_state and self._in_input_state:
             self._output = self._parse_output()
-            logger.debug("\n{}\nInput: {}\nOutput: {}\n{}".format(
-                "#" * 30 + " Command " + "#" * 30,
-                self._input, self._output,
-                "#" * 30 + " End " + "#" * 30,
-            ))
+            # logger.debug("\n{}\nInput: {}\nOutput: {}\n{}".format(
+            #     "#" * 30 + " Command " + "#" * 30,
+            #     self._input, self._output,
+            #     "#" * 30 + " End " + "#" * 30,
+            # ))
             if self._input:
                 self.session.put_command(self._input, self._output)
             self.input_data.clean()
             self.output_data.clean()
-            self._in_input_state = True
         return data
 
-    def send(self, data):
-        self.initial_filter()
-        self.parse_cmd_filter(data)
-        return self.chan.send(data)
+    def s_filter_cmd_filter(self, data):
+        if self._in_input_state:
+            return data
+        if not self._input:
+            return data
+        for rule in self._cmd_filter_rules:
+            action, cmd = rule.match(self._input)
+            if action == rule.ALLOW:
+                break
+            elif action == rule.DENY:
+                data = char.CLEAR_LINE_CHAR + b'\r'
+                msg = _("Command `{}` is forbidden ........").format(cmd)
+                msg = wr(warning(msg.encode()), before=1, after=1)
+                self.output_data.append(msg)
+                self.session.send_to_clients(msg)
+                self.session.put_command(self._input, msg.decode())
+                self.session.put_replay(msg)
+                self.input_data.clean()
+                break
+        return data
 
-    def replay_filter(self, data):
+    def r_replay_filter(self, data):
         if not self._zmodem_state:
             self.session.put_replay(data)
 
-    def input_output_filter(self, data):
-        if not self._input_initial:
-            return
+    def r_vim_state_filter(self, data):
         if self._zmodem_state:
-            return
+            return data
+        if self._in_vim_state and data[:11] == self._exit_vim_mark:
+            self._in_vim_state = False
+        elif not self._in_vim_state and data[:17] == self._enter_vim_mark:
+            self._in_vim_state = True
+        return data
+
+    def r_input_output_data_filter(self, data):
+        if not self._input_initial:
+            return data
+        if self._zmodem_state:
+            return data
         if self._in_input_state:
             self.input_data.append(data)
         else:
             self.output_data.append(data)
+        return data
 
-    def zmodem_state_filter(self, data):
+    def r_zmodem_state_filter(self, data):
         if not self._zmodem_state:
             if data[:50].find(self._zmodem_recv_start_mark) != -1:
                 logger.debug("Zmodem state => recv")
@@ -237,18 +294,29 @@ class BaseServer:
                 logger.debug("Zmodem state => cancel")
                 self._zmodem_state = ''
 
-    def zmodem_cancel_filter(self):
+    def r_zmodem_disable_filter(self, data=''):
         if self._zmodem_state:
             pass
             # self.chan.send(self._zmodem_cancel_mark)
             # self.chan.send("Zmodem disabled")
 
+    def send(self, data):
+        self.s_initial_filter(data)
+        self.s_input_state_filter(data)
+        try:
+            self.s_parse_input_output_filter(data)
+            data = self.s_filter_cmd_filter(data)
+        except Exception as e:
+            logger.exception(e)
+        return self.chan.send(data)
+
     def recv(self, size):
         data = self.chan.recv(size)
-        self.zmodem_state_filter(data)
-        self.zmodem_cancel_filter()
-        self.replay_filter(data)
-        self.input_output_filter(data)
+        self.r_zmodem_state_filter(data)
+        self.r_vim_state_filter(data)
+        self.r_zmodem_disable_filter(data)
+        self.r_replay_filter(data)
+        self.r_input_output_data_filter(data)
         return data
 
     @staticmethod
@@ -261,21 +329,19 @@ class BaseServer:
     def _parse_output(self):
         if not self.output_data:
             return ''
-        parser = utils.TtyIOParser()
-        return parser.parse_output(self.output_data)
+        return self._cmd_parser.parse_output(self.output_data)
 
     def _parse_input(self):
         if not self.input_data:
             return
-        parser = utils.TtyIOParser()
-        return parser.parse_input(self.input_data)
+        return self._cmd_parser.parse_input(self.input_data)
 
     def fileno(self):
         return self.chan.fileno()
 
     def close(self):
         logger.info("Closed server {}".format(self))
-        self.input_output_filter(b'')
+        self.r_input_output_data_filter(b'')
         self.chan.close()
 
     def __getattr__(self, item):
@@ -290,10 +356,9 @@ class TelnetServer(BaseServer):
     Telnet server
     """
     def __init__(self, sock, asset, system_user):
-        super(TelnetServer, self).__init__()
-        self.chan = sock
         self.asset = asset
         self.system_user = system_user
+        super(TelnetServer, self).__init__(chan=sock)
 
 
 class Server(BaseServer):
@@ -306,11 +371,10 @@ class Server(BaseServer):
 
     # Todo: Server name is not very suitable
     def __init__(self, chan, sock, asset, system_user):
-        super(Server, self).__init__()
-        self.chan = chan
         self.sock = sock
         self.asset = asset
         self.system_user = system_user
+        super(Server, self).__init__(chan=chan)
 
     def close(self):
         super().close()

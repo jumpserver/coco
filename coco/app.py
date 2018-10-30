@@ -2,11 +2,6 @@
 # -*- coding: utf-8 -*-
 #
 
-import eventlet
-from eventlet.debug import hub_prevent_multiple_readers
-eventlet.monkey_patch()
-hub_prevent_multiple_readers(False)
-
 import datetime
 import os
 import time
@@ -17,16 +12,15 @@ import signal
 from .config import config
 from .sshd import SSHServer
 from .httpd import HttpServer
-from .logger import create_logger
 from .tasks import TaskHandler
 from .utils import get_logger, ugettext as _, ignore_error
-from .ctx import app_service
+from .service import app_service
 from .recorder import get_replay_recorder
 from .session import Session
 from .models import Connection
 
 
-__version__ = '1.4.2'
+__version__ = '1.4.3'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
@@ -61,9 +55,6 @@ class Coco:
             self._task_handler = TaskHandler()
         return self._task_handler
 
-    def make_logger(self):
-        create_logger()
-
     @staticmethod
     def load_extra_conf_from_server():
         configs = app_service.load_config_from_server()
@@ -73,8 +64,6 @@ class Coco:
         config.update(configs)
 
     def bootstrap(self):
-        self.make_logger()
-        # app_service.initial()
         self.load_extra_conf_from_server()
         self.keep_heartbeat()
         self.monitor_sessions()

@@ -2,11 +2,20 @@
 # -*- coding: utf-8 -*-
 #
 
+import eventlet
+from eventlet.debug import hub_prevent_multiple_readers
+eventlet.monkey_patch()
+hub_prevent_multiple_readers(False)
+
 import os
 import sys
 import argparse
 import time
 import signal
+
+dirs = ('logs', 'keys')
+for d in dirs:
+    os.makedirs(d, exist_ok=True)
 
 from coco import Coco
 
@@ -16,12 +25,6 @@ except ImportError:
     print("Please prepare config file `cp conf_example.py conf.py`")
     sys.exit(1)
 
-try:
-    os.mkdir("logs")
-    os.mkdir("keys")
-    os.mkdir("sessions")
-except:
-    pass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DAEMON = False
@@ -117,7 +120,7 @@ if __name__ == '__main__':
         description="""
             coco service control tools;
 
-            Example: \r\n 
+            Example: \r\n
 
             %(prog)s start -d;
             """
