@@ -30,24 +30,22 @@ class InteractiveServer:
 
     def __init__(self, client):
         self.client = client
-        # self.assets = None
         self.closed = False
         self._search_result = None
         self.nodes = None
-        self.offset = 0  # 分页获取资产，offset
-        self.limit = 100  # limit 最好是 page_size 的整数倍, 否则查看上一页的时候可能会乱
+        self.offset = 0
+        self.limit = 100
         self.assets_list = []
         self.finish = False
-        self.page = 1  # 当前页码
+        self.page = 1
         self.total_assets = 0
-        self.total_count = 0  # 总数
+        self.total_count = 0  # 分页展示中用来存放数目总条数
         self.get_user_assets_paging_async()
         self.get_user_nodes_async()
 
     @property
     def page_size(self):
-        # 每页大小
-        return self.client.request.meta['height'] - 6
+        return self.client.request.meta['height'] - 8
 
     @property
     def search_result(self):
@@ -241,9 +239,9 @@ class InteractiveServer:
             assets, total = app_service.get_user_assets_paging(
                 self.client.user, offset=self.offset, limit=self.limit
             )
-            logger.info('Thread: Get user assets paging async: {}'.format(len(assets)))
+            logger.info('Get user assets paging async: {}'.format(len(assets)))
             if not assets:
-                logger.info('Thread: Get user assets paging async finished.')
+                logger.info('Get user assets paging async finished.')
                 self.finish = True
                 return
             if not self.total_assets:
@@ -327,17 +325,17 @@ class InteractiveServer:
             result = result_list[left:right]
 
             if not result and (result_list is self.assets_list) and self.finish:
-                # 上一页已经是最后一页, 操作无效, 还是展示最后一页(展示上一页)
+                # 上一页已经是最后一页, 还是展示最后一页(展示上一页)
                 left -= page_up_size
                 page -= 1
                 continue
             elif not result and (result_list is not self.assets_list):
-                # 上一页已经是最后一页, 操作无效, 还是展示最后一页(展示上一页)
+                # 上一页已经是最后一页, 还是展示最后一页(展示上一页)
                 left -= page_up_size
                 page -= 1
                 continue
             elif not result and (result_list is self.assets_list) and not self.finish:
-                # 还有下一页，需要等待
+                # 还有下一页(暂时没有加载完)，需要等待
                 time.sleep(1)
                 continue
             else:
@@ -345,20 +343,17 @@ class InteractiveServer:
                 action = yield (page, result)
 
                 if action == BACK:
-                    # 退出显示
                     return None, None
                 elif action == PAGE_UP:
-                    # 上一页
-                    page -= 1
-
                     if page <= 1:
                         # 已经是第一页了
                         page = 1
                         left = 0
                     else:
+                        page -= 1
                         left -= self.page_size
                 else:
-                    # 下一页
+                    # PAGE_DOWN
                     page += 1
                     left += len(result)
                     page_up_size = len(result)
@@ -371,6 +366,7 @@ class InteractiveServer:
         self.display_prompt_of_page()
 
     def display_prompt_of_page(self):
+        self.client.send(wr(_('Tips: Enter the asset ID and log directly into the asset.'), before=1))
         prompt_page_up = _("Page up: P/p")
         prompt_page_down = _("Page down: Enter|N/n")
         prompt_exit = _("BACK: B/b")
@@ -381,18 +377,14 @@ class InteractiveServer:
     def get_user_action(self):
         opt = net_input(self.client, prompt=':')
         if opt in ('p', 'P'):
-            # 上一页
             return PAGE_UP
         elif opt in ('B', 'b'):
-            # 退出
             return BACK
         elif opt.isdigit() and self.search_result and 0 < int(opt) <= len(self.search_result):
-            # 如果是展示的是资产
             self.proxy(self.search_result[int(opt)-1])
             return BACK
         else:
-            # 下一页
-            #  opt in ('', None, 'n', 'N'):
+            # PAGE_DOWN
             return PAGE_DOWN
 
     def proxy(self, asset):
