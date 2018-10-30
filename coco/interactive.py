@@ -369,8 +369,8 @@ class InteractiveServer:
         self.client.send(wr(_('Tips: Enter the asset ID and log directly into the asset.'), before=1))
         prompt_page_up = _("Page up: P/p")
         prompt_page_down = _("Page down: Enter|N/n")
-        prompt_exit = _("BACK: B/b")
-        prompts = [prompt_page_up, prompt_page_down, prompt_exit]
+        prompt_back = _("BACK: B/b")
+        prompts = [prompt_page_up, prompt_page_down, prompt_back]
         prompt = '\t'.join(prompts)
         self.client.send(wr(prompt, before=1))
 
