@@ -174,6 +174,11 @@ class InteractiveServer:
     def display_nodes_tree(self):
         if self.nodes is None:
             self.get_user_nodes()
+
+        if not self.nodes:
+            self.client.send(wr(_('No Nodes'), before=1))
+            return
+
         self.nodes_tree.show(key=lambda node: node.identifier)
         self.client.send(wr(title(_("Node: [ ID.Name(Asset) ]")), before=1))
         self.client.send(wr(self.nodes_tree._reader.replace('\n', '\r\n'), before=1))
@@ -330,11 +335,16 @@ class InteractiveServer:
         while True:
             try:
                 page, result = gen_result.send(action)
-            except TypeError as e:
-                page, result = next(gen_result)
-                logger.info(e)
+            except TypeError:
+                try:
+                    page, result = next(gen_result)
+                except StopIteration:
+                    logger.info('No Assets')
+                    self.display_banner()
+                    self.client.send(wr(_("No Assets"), before=1))
+                    return None
             except StopIteration:
-                logger.info('StopIteration')
+                logger.info('Back display result paging.')
                 self.display_banner()
                 return None
             self.display_result_of_page(page, result)
@@ -348,19 +358,23 @@ class InteractiveServer:
             right = left + self.page_size
             result = result_list[left:right]
 
-            if not result and (result_list is self.assets_list) and self.finish:
-                # 上一页已经是最后一页, 还是展示最后一页(展示上一页)
-                left -= page_up_size
-                page -= 1
-                continue
-            elif not result and (result_list is not self.assets_list):
-                # 上一页已经是最后一页, 还是展示最后一页(展示上一页)
+            if not result and (result_list is self.assets_list) and self.finish and self.total_assets == 0:
+                # 无授权资产
+                return None, None
+
+            elif not result and (result_list is self.assets_list) and self.finish:
+                # 上一页是最后一页
                 left -= page_up_size
                 page -= 1
                 continue
             elif not result and (result_list is self.assets_list) and not self.finish:
                 # 还有下一页(暂时没有加载完)，需要等待
                 time.sleep(1)
+                continue
+            elif not result and (result_list is not self.assets_list):
+                # 上一页是最后一页
+                left -= page_up_size
+                page -= 1
                 continue
             else:
                 # 其他4中情况，返回assets
