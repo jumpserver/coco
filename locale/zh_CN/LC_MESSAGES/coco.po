@@ -97,8 +97,8 @@ msgid "Total: {}"
 msgstr "总共: {}"
 
 #: coco/interactive.py:177
-msgid "Node: [ ID.Name(Asset) ]"
-msgstr "节点: [ ID.名称(资产) ]"
+msgid "Node: [ ID.Name(Asset amount) ]"
+msgstr "节点: [ ID.名称(资产数量) ]"
 
 #: coco/interactive.py:179
 msgid "Tips: Enter g+NodeID to display the host under the node, such as g1"

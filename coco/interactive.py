@@ -180,7 +180,7 @@ class InteractiveServer:
             return
 
         self.nodes_tree.show(key=lambda node: node.identifier)
-        self.client.send(wr(title(_("Node: [ ID.Name(Asset) ]")), before=1))
+        self.client.send(wr(title(_("Node: [ ID.Name(Asset amount) ]")), before=1))
         self.client.send(wr(self.nodes_tree._reader.replace('\n', '\r\n'), before=1))
         prompt = _("Tips: Enter g+NodeID to display the host under the node, such as g1")
         self.client.send(wr(title(prompt), before=1))
