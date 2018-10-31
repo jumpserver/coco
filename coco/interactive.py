@@ -7,6 +7,7 @@ import threading
 import os
 import math
 import time
+from treelib import Tree
 
 from . import char
 from .config import config
@@ -40,6 +41,7 @@ class InteractiveServer:
         self.page = 1
         self.total_assets = 0
         self.total_count = 0  # 分页展示中用来存放数目总条数
+        self.nodes_tree = None  # 授权节点树
         self.get_user_assets_paging_async()
         self.get_user_nodes_async()
 
@@ -81,7 +83,7 @@ class InteractiveServer:
             _("{T}2) Enter {green}/{end} + {green}IP, Hostname{end} or {green}Comment {end} search, such as: /ip.{R}"),
             _("{T}3) Enter {green}p{end} to display the host you have permission.{R}"),
             _("{T}4) Enter {green}g{end} to display the node that you have permission.{R}"),
-            _("{T}5) Enter {green}g{end} + {green}Group ID{end} to display the host under the node, such as g1.{R}"),
+            _("{T}5) Enter {green}g{end} + {green}NodeID{end} to display the host under the node, such as g1.{R}"),
             _("{T}6) Enter {green}s{end} Chinese-english switch.{R}"),
             _("{T}7) Enter {green}h{end} help.{R}"),
             _("{T}0) Enter {green}q{end} exit.{R}")
@@ -104,7 +106,7 @@ class InteractiveServer:
         elif opt in ['p', 'P', '']:
             self.display_assets()
         elif opt in ['g', 'G']:
-            self.display_nodes()
+            self.display_nodes_tree()
         elif opt.startswith("g") and opt.lstrip("g").isdigit():
             self.display_node_assets(int(opt.lstrip("g")))
         elif opt in ['q', 'Q', 'exit', 'quit']:
@@ -169,13 +171,22 @@ class InteractiveServer:
             self.client.send(wr(format_with_zh(size_list, *data)))
         self.client.send(wr(_("Total: {}").format(len(self.nodes)), before=1))
 
+    def display_nodes_tree(self):
+        if self.nodes is None:
+            self.get_user_nodes()
+        self.nodes_tree.show(key=lambda node: node.identifier)
+        self.client.send(wr(title(_("Node: [ ID.Name(Asset) ]")), before=1))
+        self.client.send(wr(self.nodes_tree._reader.replace('\n', '\r\n'), before=1))
+        prompt = _("Tips: Enter g+NodeID to display the host under the node, such as g1")
+        self.client.send(wr(title(prompt), before=1))
+
     def display_node_assets(self, _id):
         if self.nodes is None:
             self.get_user_nodes()
         if _id > len(self.nodes) or _id <= 0:
             msg = wr(warning(_("There is no matched node, please re-enter")))
             self.client.send(msg)
-            self.display_nodes()
+            self.display_nodes_tree()
             return
 
         assets = self.nodes[_id - 1].assets_granted
@@ -218,6 +229,19 @@ class InteractiveServer:
 
     def get_user_nodes(self):
         self.nodes = app_service.get_user_asset_groups(self.client.user)
+        self.sort_nodes()
+        self.construct_nodes_tree()
+
+    def sort_nodes(self):
+        self.nodes = sorted(self.nodes, key=lambda node: node.key)
+
+    def construct_nodes_tree(self):
+        self.nodes_tree = Tree()
+        for index, node in enumerate(self.nodes):
+            tag = "{}.{}({})".format(index+1, node.name, node.assets_amount)
+            key = node.key
+            parent_key = key[:node.key.rfind(':')] or None
+            self.nodes_tree.create_node(tag=tag, identifier=key, data=node, parent=parent_key)
 
     def get_user_nodes_async(self):
         thread = threading.Thread(target=self.get_user_nodes)
