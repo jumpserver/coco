@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-10-10 15:22+0800\n"
+"POT-Creation-Date: 2018-10-31 11:49+0800\n"
 "PO-Revision-Date: 2018-08-10 10:42+0800\n"
 "Last-Translator: BaiJiangjie <bugatti_it@163.com>\n"
 "Language-Team: Language locale/en/LC\n"
@@ -16,11 +16,11 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: coco/app.py:141
+#: coco/app.py:135
 msgid "Connect idle more than {} minutes, disconnect"
 msgstr ""
 
-#: coco/interactive.py:61
+#: coco/interactive.py:80
 #, python-brace-format
 msgid ""
 "\n"
@@ -28,115 +28,143 @@ msgid ""
 "{end}{R}{R}"
 msgstr ""
 
-#: coco/interactive.py:63
+#: coco/interactive.py:82
 #, python-brace-format
 msgid ""
 "{T}1) Enter {green}ID{end} directly login or enter {green}part IP, Hostname, "
 "Comment{end} to search login(if unique).{R}"
 msgstr ""
 
-#: coco/interactive.py:64
+#: coco/interactive.py:83
 #, python-brace-format
 msgid ""
 "{T}2) Enter {green}/{end} + {green}IP, Hostname{end} or {green}Comment {end} "
 "search, such as: /ip.{R}"
 msgstr ""
 
-#: coco/interactive.py:65
+#: coco/interactive.py:84
 #, python-brace-format
 msgid "{T}3) Enter {green}p{end} to display the host you have permission.{R}"
 msgstr ""
 
-#: coco/interactive.py:66
+#: coco/interactive.py:85
 #, python-brace-format
 msgid ""
 "{T}4) Enter {green}g{end} to display the node that you have permission.{R}"
 msgstr ""
 
-#: coco/interactive.py:67
+#: coco/interactive.py:86
 #, python-brace-format
 msgid ""
-"{T}5) Enter {green}g{end} + {green}Group ID{end} to display the host under "
-"the node, such as g1.{R}"
+"{T}5) Enter {green}g{end} + {green}NodeID{end} to display the host under the "
+"node, such as g1.{R}"
 msgstr ""
 
-#: coco/interactive.py:68
+#: coco/interactive.py:87
 #, python-brace-format
 msgid "{T}6) Enter {green}s{end} Chinese-english switch.{R}"
 msgstr ""
 
-#: coco/interactive.py:69
+#: coco/interactive.py:88
 #, python-brace-format
 msgid "{T}7) Enter {green}h{end} help.{R}"
 msgstr ""
 
-#: coco/interactive.py:70
+#: coco/interactive.py:89
 #, python-brace-format
 msgid "{T}0) Enter {green}q{end} exit.{R}"
 msgstr ""
 
-#: coco/interactive.py:142
+#: coco/interactive.py:159
 msgid "No"
 msgstr ""
 
-#: coco/interactive.py:149
+#: coco/interactive.py:166
 msgid "Name"
 msgstr ""
 
-#: coco/interactive.py:149
+#: coco/interactive.py:166
 msgid "Assets"
 msgstr ""
 
-#: coco/interactive.py:155
+#: coco/interactive.py:172
 msgid "Total: {}"
 msgstr ""
 
-#: coco/interactive.py:161
-msgid "There is no matched node, please re-enter"
+#: coco/interactive.py:177
+msgid "Node [ ID.Name(Asset) ]"
 msgstr ""
 
-#: coco/interactive.py:172
-msgid "ID"
-msgstr ""
-
-#: coco/interactive.py:172
-msgid "Hostname"
-msgstr ""
-
-#: coco/interactive.py:172
-msgid "IP"
-msgstr ""
-
-#: coco/interactive.py:172
-msgid "LoginAs"
+#: coco/interactive.py:179
+msgid "Enter g+NodeID to display the host under the node, such as g1."
 msgstr ""
 
 #: coco/interactive.py:186
+msgid "There is no matched node, please re-enter"
+msgstr ""
+
+#: coco/interactive.py:197
+msgid "ID"
+msgstr ""
+
+#: coco/interactive.py:197
+msgid "Hostname"
+msgstr ""
+
+#: coco/interactive.py:197
+msgid "IP"
+msgstr ""
+
+#: coco/interactive.py:197
+msgid "LoginAs"
+msgstr ""
+
+#: coco/interactive.py:211
 msgid "Comment"
 msgstr ""
 
-#: coco/interactive.py:194
-msgid "Total: {} Match: {}"
+#: coco/interactive.py:221
+msgid "Page: {}, Count: {}, Total Page: {}, Total Count: {}"
 msgstr ""
 
-#: coco/interactive.py:237
+#: coco/interactive.py:296
 msgid "Select a login:: "
 msgstr ""
 
-#: coco/interactive.py:260
+#: coco/interactive.py:319
 msgid ""
 "Terminal does not support login Windows, please use web terminal to access"
 msgstr ""
 
-#: coco/interactive.py:271
+#: coco/interactive.py:401
+msgid "Tips: Enter the asset ID and log directly into the asset."
+msgstr ""
+
+#: coco/interactive.py:402
+msgid "Page up: P/p"
+msgstr ""
+
+#: coco/interactive.py:403
+msgid "Page down: Enter|N/n"
+msgstr ""
+
+#: coco/interactive.py:404
+msgid "BACK: B/b"
+msgstr ""
+
+#: coco/interactive.py:425
 msgid "No system user"
 msgstr ""
 
-#: coco/proxy.py:88
+#: coco/models.py:247
+msgid "Command `{}` is forbidden ........"
+msgstr ""
+
+#: coco/proxy.py:89
 msgid "No permission"
 msgstr ""
 
-#: coco/proxy.py:130
+#: coco/proxy.py:131
 msgid "Connecting to {}@{} {:.1f}"
 msgstr ""
 
