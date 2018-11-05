@@ -40,7 +40,6 @@ class ElFinderConnector:
         'uplMaxSize': '10M',
         'options': {
             'separator': '/',
-            'disabled': [],
             'archivers': {
                 'create': [],
                 'extract': []
