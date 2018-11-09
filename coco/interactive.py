@@ -407,7 +407,7 @@ class InteractiveServer:
         self.client.send(wr(_('Tips: Enter the asset ID and log directly into the asset.'), before=1))
         prompt_page_up = _("Page up: P/p")
         prompt_page_down = _("Page down: Enter|N/n")
-        prompt_back = _("BACK: B/b")
+        prompt_back = _("BACK: b/q")
         prompts = [prompt_page_up, prompt_page_down, prompt_back]
         prompt = '\t'.join(prompts)
         self.client.send(wr(prompt, before=1))
@@ -416,7 +416,7 @@ class InteractiveServer:
         opt = net_input(self.client, prompt=':')
         if opt in ('p', 'P'):
             return PAGE_UP
-        elif opt in ('B', 'b'):
+        elif opt in ('b', 'q'):
             return BACK
         elif opt.isdigit() and self.search_result and 0 < int(opt) <= len(self.search_result):
             self.proxy(self.search_result[int(opt)-1])

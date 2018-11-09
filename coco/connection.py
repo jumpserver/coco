@@ -183,13 +183,13 @@ class TelnetConnection:
             r'incorrect|failed|失败|错误', re.I
         )
         self.username_pattern = re.compile(
-            r'login:\s*$|username:\s*$|用户名:\s*$|账\s*号:\s*$', re.I
+            r'login:?\s*$|username:?\s*$|用户名:?\s*$|账\s*号:?\s*$', re.I
         )
         self.password_pattern = re.compile(
-            r'password:\s*$|passwd:\s*$|密\s*码:\s*$', re.I
+            r'Password:?\s*$|passwd:?\s*$|密\s*码:?\s*$', re.I
         )
         self.success_pattern = re.compile(
-            r'Last\s*login|success|成功', re.I
+            r'Last\s*login|success|成功|#|\$', re.I
         )
 
     def get_socket(self):
