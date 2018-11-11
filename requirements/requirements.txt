@@ -18,8 +18,8 @@ idna==2.6
 itsdangerous==0.24
 Jinja2==2.10
 jmespath==0.9.3
-jms-storage==0.0.19
-jumpserver-python-sdk==0.0.50
+jms-storage==0.0.20
+jumpserver-python-sdk==0.0.51
 MarkupSafe==1.0
 oss2==2.4.0
 paramiko==2.4.1
@@ -42,3 +42,5 @@ urllib3==1.22
 wcwidth==0.1.7
 eventlet==0.24.1
 Werkzeug==0.14.1
+treelib==1.5.3     
+
