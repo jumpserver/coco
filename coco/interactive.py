@@ -176,7 +176,7 @@ class InteractiveServer:
             self.get_user_nodes()
 
         if not self.nodes:
-            self.client.send(wr(_('No Nodes'), before=1))
+            self.client.send(wr(_('No Nodes'), before=0))
             return
 
         self.nodes_tree.show(key=lambda node: node.identifier)
@@ -340,12 +340,12 @@ class InteractiveServer:
                     page, result = next(gen_result)
                 except StopIteration:
                     logger.info('No Assets')
-                    self.display_banner()
-                    self.client.send(wr(_("No Assets"), before=1))
+                    # self.display_banner()
+                    self.client.send(wr(_("No Assets"), before=0))
                     return None
             except StopIteration:
                 logger.info('Back display result paging.')
-                self.display_banner()
+                # self.display_banner()
                 return None
             self.display_result_of_page(page, result)
             action = self.get_user_action()
