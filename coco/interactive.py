@@ -180,8 +180,8 @@ class InteractiveServer:
             return
 
         self.nodes_tree.show(key=lambda node: node.identifier)
-        self.client.send(wr(title(_("Node: [ ID.Name(Asset amount) ]")), before=1))
-        self.client.send(wr(self.nodes_tree._reader.replace('\n', '\r\n'), before=1))
+        self.client.send(wr(title(_("Node: [ ID.Name(Asset amount) ]")), before=0))
+        self.client.send(wr(self.nodes_tree._reader.replace('\n', '\r\n'), before=0))
         prompt = _("Tips: Enter g+NodeID to display the host under the node, such as g1")
         self.client.send(wr(title(prompt), before=1))
 
@@ -242,10 +242,12 @@ class InteractiveServer:
 
     def construct_nodes_tree(self):
         self.nodes_tree = Tree()
+        root = 'ROOT_ALL_ORG_NODE'
+        self.nodes_tree.create_node(tag='', identifier=root, parent=None)
         for index, node in enumerate(self.nodes):
             tag = "{}.{}({})".format(index+1, node.name, node.assets_amount)
             key = node.key
-            parent_key = key[:node.key.rfind(':')] or None
+            parent_key = key[:node.key.rfind(':')] or root
             self.nodes_tree.create_node(tag=tag, identifier=key, data=node, parent=parent_key)
 
     def get_user_nodes_async(self):
