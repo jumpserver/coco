@@ -96,6 +96,7 @@ class SSHConnection:
     def get_channel(self, asset, system_user, term="xterm", width=80, height=24):
         ssh, sock, msg = self.get_ssh_client(asset, system_user)
         if ssh:
+            paramiko.agent.AgentRequestHandler(ssh)
             chan = ssh.invoke_shell(term, width=width, height=height)
             return chan, sock, None
         else:
