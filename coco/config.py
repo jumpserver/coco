@@ -277,6 +277,7 @@ access_key_path = os.path.abspath(os.path.join(root_path, 'keys', '.access_key')
 default_config = {
     'NAME': socket.gethostname(),
     'CORE_HOST': 'http://127.0.0.1:8080',
+    'BOOTSTRAP_TOKEN': os.environ.get("BOOTSTRAP_TOKEN") or 'PleaseChangeMe',
     'ROOT_PATH': root_path,
     'DEBUG': True,
     'BIND_HOST': '0.0.0.0',
