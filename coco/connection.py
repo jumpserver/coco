@@ -37,12 +37,16 @@ class SSHConnection:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         sock = None
+        error = ''
 
         if not system_user.password and not system_user.private_key:
             self.get_system_user_auth(system_user)
 
         if asset.domain:
             sock = self.get_proxy_sock_v2(asset)
+            if not sock:
+                error = 'Connect gateway failed;'
+                logger.error(error)
 
         try:
             try:
@@ -81,9 +85,9 @@ class SSHConnection:
                 system_user.username, asset.ip, asset.port,
                 password_short, key_fingerprint,
             ))
-            return None, None, str(e)
+            return None, None, error + '\n' + str(e)
         except (socket.error, TimeoutError) as e:
-            return None, None, str(e)
+            return None, None, error + '\n' + str(e)
         return ssh, sock, None
 
     def get_transport(self, asset, system_user):
@@ -126,9 +130,9 @@ class SSHConnection:
                             password=gateway.password,
                             pkey=gateway.private_key_obj,
                             timeout=config['SSH_TIMEOUT'])
-            except(paramiko.AuthenticationException,
-                   paramiko.BadAuthenticationType,
-                   SSHException):
+            except (paramiko.AuthenticationException,
+                    paramiko.BadAuthenticationType,
+                    SSHException, socket.error):
                 continue
             sock = ssh.get_transport().open_channel(
                 'direct-tcpip', (asset.ip, asset.port), ('127.0.0.1', 0)
