@@ -130,9 +130,9 @@ class SSHConnection:
                             password=gateway.password,
                             pkey=gateway.private_key_obj,
                             timeout=config['SSH_TIMEOUT'])
-            except(paramiko.AuthenticationException,
-                   paramiko.BadAuthenticationType,
-                   SSHException):
+            except (paramiko.AuthenticationException,
+                    paramiko.BadAuthenticationType,
+                    SSHException, socket.error):
                 continue
             sock = ssh.get_transport().open_channel(
                 'direct-tcpip', (asset.ip, asset.port), ('127.0.0.1', 0)
