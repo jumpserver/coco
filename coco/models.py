@@ -360,6 +360,11 @@ class TelnetServer(BaseServer):
         self.system_user = system_user
         super(TelnetServer, self).__init__(chan=sock)
 
+    @property
+    def closed(self):
+        """ self.chan: socket object """
+        return getattr(self.chan, '_closed', False)
+
 
 class Server(BaseServer):
     """
