@@ -58,10 +58,6 @@ class InteractiveServer:
 
     @search_result.setter
     def search_result(self, value):
-        if not value:
-            self._search_result = value
-            return
-        value = self.filter_system_users(value)
         self._search_result = value
 
     def display_logo(self):
@@ -122,6 +118,7 @@ class InteractiveServer:
     def search_assets(self, q):
         if not self.finish:
             assets = app_service.get_search_user_granted_assets(self.client.user, q)
+            assets = self.filter_system_users(assets)
             return assets
         assets = self.assets_list
         result = []
@@ -194,7 +191,7 @@ class InteractiveServer:
             self.display_nodes_tree()
             return
 
-        assets = self.nodes[_id - 1].assets_granted
+        assets = self.nodes[_id-1].assets_granted
         self.display_result_paging(assets)
 
     def display_search_result(self):
@@ -234,6 +231,7 @@ class InteractiveServer:
 
     def get_user_nodes(self):
         self.nodes = app_service.get_user_asset_groups(self.client.user)
+        self.filter_nodes_assets_system_user()
         self.sort_nodes()
         self.construct_nodes_tree()
 
@@ -265,6 +263,10 @@ class InteractiveServer:
             asset.system_users_granted = system_users_cleaned
         return assets
 
+    def filter_nodes_assets_system_user(self):
+        for node in self.nodes:
+            node.assets_granted = self.filter_system_users(node.assets_granted)
+
     def get_user_assets_paging(self):
         while not self.closed:
             assets, total = app_service.get_user_assets_paging(
@@ -278,6 +280,7 @@ class InteractiveServer:
             if not self.total_assets:
                 self.total_assets = total
                 self.total_count = total
+            assets = self.filter_system_users(assets)
             self.assets_list.extend(assets)
             self.offset += self.limit
 
