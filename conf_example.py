@@ -57,9 +57,9 @@ class Config:
 
     # 登录是否支持秘钥认证
     # PUBLIC_KEY_AUTH = True
-    
+
     # SSH白名单
-    # ALLOW_SSH_USER = 'all'  # ['test', 'test2']
+    # ALLOW_SSH_USER = None  # ['test', 'test2']
 
     # SSH黑名单, 如果用户同时在白名单和黑名单，黑名单优先生效
     # BLOCK_SSH_USER = []
