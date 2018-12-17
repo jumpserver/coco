@@ -74,6 +74,10 @@ class InteractiveServer:
     def results(self, value):
         self._results = value
 
+    #
+    # Display banner
+    #
+
     def display_banner(self):
         self.client.send(char.CLEAR_CHAR)
         self.display_logo()
@@ -116,7 +120,7 @@ class InteractiveServer:
         elif opt in ['p', 'P', '']:
             self.display_assets()
         elif opt in ['g', 'G']:
-            self.display_node_tree()
+            self.display_nodes_as_tree()
         elif opt.startswith("g") and opt.lstrip("g").isdigit():
             self.display_node_assets(int(opt.lstrip("g")))
         elif opt in ['q', 'Q', 'exit', 'quit']:
@@ -128,6 +132,10 @@ class InteractiveServer:
             self.display_banner()
         else:
             self.search_and_proxy_assets(opt)
+
+    #
+    # Search assets
+    #
 
     def search_and_display_assets(self, q):
         assets = self.search_assets(q)
@@ -179,58 +187,100 @@ class InteractiveServer:
 
         return result
 
+    #
+    # Display assets
+    #
+
     def display_assets(self, assets=None):
         if assets is None:
             assets = self.assets
-        self.display_paging(assets)
+        self.display_assets_paging(assets)
 
-    def display_nodes(self):
-        # 目前没用
-        if self.nodes is None:
-            self.get_user_nodes()
+    def display_assets_paging(self, assets):
 
-        if len(self.nodes) == 0:
-            self.client.send(warning(_("No")))
+        if len(assets) == 0:
+            self.client.send(wr(_("No Assets"), before=0))
             return
 
-        id_length = max(len(str(len(self.nodes))), 5)
-        name_length = item_max_length(self.nodes, 15, key=lambda x: x.name)
-        amount_length = item_max_length(self.nodes, 10, key=lambda x: x.assets_amount)
-        size_list = [id_length, name_length, amount_length]
-        fake_data = ['ID', _("Name"), _("Assets")]
+        self.total_count = self.total_assets if assets is self.assets else len(assets)
 
-        self.client.send(wr(title(format_with_zh(size_list, *fake_data))))
-        for index, node in enumerate(self.nodes, 1):
-            data = [index, node.name, node.assets_amount]
-            self.client.send(wr(format_with_zh(size_list, *data)))
-        self.client.send(wr(_("Total: {}").format(len(self.nodes)), before=1))
+        action = None
+        gen = self._page_generator(assets)
+        while True:
+            try:
+                page, _assets = gen.send(action)
+            except StopIteration as e:
+                if None not in e.value:
+                    page, _assets = e.value
+                    self.display_a_page_assets(page, _assets)
+                break
+            else:
+                self.display_a_page_assets(page, _assets)
+                self.display_page_bottom_prompt()
+                action = self.get_user_action()
 
-    def display_node_tree(self):
-        if self.nodes is None:
-            self.get_user_nodes()
+    def _page_generator(self, assets):
+        start, page = 0, 1
+        while True:
+            _assets = assets[start:start+self.page_size]
+            # 等待加载
+            if (assets is self.assets) and (not self.finish) and (not self.need_paging):
+                time.sleep(1)
+                continue
+            # 最后一页
+            elif _assets and (page == self.total_pages) and (
+                    assets is not self.assets
+                    or (assets is self.assets and self.finish)):
+                return page, _assets
+            # 执行动作
+            else:
+                action = yield page, _assets
 
-        if not self.nodes:
-            self.client.send(wr(_('No Nodes'), before=0))
-            return
+                # 退出
+                if action == BACK:
+                    return None, None
+                # 不分页, 不对页码和下标做更改
+                elif not self.need_paging:
+                    continue
+                # 上一页
+                elif action == PAGE_UP:
+                    if page <= 1:
+                        page = 1
+                        start = 0
+                    else:
+                        page -= 1
+                        start -= self.page_size
+                # 下一页
+                else:
+                    page += 1
+                    start += len(_assets)
 
-        self.node_tree.show(key=lambda node: node.identifier)
-        self.client.send(wr(title(_("Node: [ ID.Name(Asset amount) ]")), before=0))
-        self.client.send(wr(self.node_tree._reader.replace('\n', '\r\n'), before=0))
-        prompt = _("Tips: Enter g+NodeID to display the host under the node, such as g1")
-        self.client.send(wr(title(prompt), before=1))
+    def display_a_page_assets(self, page, assets):
+        self.client.send(char.CLEAR_CHAR)
+        self.page = page
+        self.results = assets
+        self.display_results()
 
-    def display_node_assets(self, _id):
-        if self.nodes is None:
-            self.get_user_nodes()
+    def display_page_bottom_prompt(self):
+        self.client.send(wr(_('Tips: Enter the asset ID and log directly into the asset.'), before=1))
+        prompt_page_up = _("Page up: P/p")
+        prompt_page_down = _("Page down: Enter|N/n")
+        prompt_back = _("BACK: b/q")
+        prompts = [prompt_page_up, prompt_page_down, prompt_back]
+        prompt = '\t'.join(prompts)
+        self.client.send(wr(prompt, before=1))
 
-        if _id > len(self.nodes) or _id <= 0:
-            msg = wr(warning(_("There is no matched node, please re-enter")))
-            self.client.send(msg)
-            self.display_node_tree()
-            return
-
-        assets = self.nodes[_id-1].assets_granted
-        self.display_assets(assets)
+    def get_user_action(self):
+        opt = net_input(self.client, prompt=':')
+        if opt in ('p', 'P'):
+            return PAGE_UP
+        elif opt in ('b', 'q'):
+            return BACK
+        elif opt.isdigit() and self.results and 0 < int(opt) <= len(self.results):
+            self.proxy(self.results[int(opt)-1])
+            return BACK
+        else:
+            return PAGE_DOWN
 
     def display_results(self):
         sort_by = config["ASSET_LIST_SORT_BY"]
@@ -263,7 +313,31 @@ class InteractiveServer:
         )
 
     #
-    # Nodes tree
+    # Get assets
+    #
+
+    def get_user_assets_paging_async(self):
+        thread = threading.Thread(target=self.get_user_assets_paging)
+        thread.start()
+
+    def get_user_assets_paging(self):
+        while not self.closed:
+            assets, total = app_service.get_user_assets_paging(
+                self.client.user, offset=self.offset, limit=self.limit
+            )
+            if not assets:
+                logger.info('Get user assets paging async finished.')
+                self.finish = True
+                break
+
+            logger.info('Get user assets paging async: {}'.format(len(assets)))
+            assets = self.filter_system_users(assets)
+            self.total_assets = total
+            self.assets.extend(assets)
+            self.offset += self.limit
+
+    #
+    # Nodes
     #
 
     def get_user_nodes_async(self):
@@ -271,13 +345,15 @@ class InteractiveServer:
         thread.start()
 
     def get_user_nodes(self):
-        self.nodes = app_service.get_user_asset_groups(self.client.user)
-        self.filter_system_users_of_assets_under_nodes()
-        self._sort_nodes()
+        nodes = app_service.get_user_asset_groups(self.client.user)
+        nodes = sorted(nodes, key=lambda node: node.key)
+        self.nodes = self.filter_system_users_of_assets_under_nodes(nodes)
         self._construct_node_tree()
 
-    def _sort_nodes(self):
-        self.nodes = sorted(self.nodes, key=lambda node: node.key)
+    def filter_system_users_of_assets_under_nodes(self, nodes):
+        for node in nodes:
+            node.assets_granted = self.filter_system_users(node.assets_granted)
+        return nodes
 
     def _construct_node_tree(self):
         self.node_tree = Tree()
@@ -289,9 +365,32 @@ class InteractiveServer:
             parent_key = key[:node.key.rfind(':')] or root
             self.node_tree.create_node(tag=tag, identifier=key, data=node, parent=parent_key)
 
-    def filter_system_users_of_assets_under_nodes(self):
-        for node in self.nodes:
-            node.assets_granted = self.filter_system_users(node.assets_granted)
+    def display_nodes_as_tree(self):
+        if self.nodes is None:
+            self.get_user_nodes()
+
+        if not self.nodes:
+            self.client.send(wr(_('No Nodes'), before=0))
+            return
+
+        self.node_tree.show(key=lambda node: node.identifier)
+        self.client.send(wr(title(_("Node: [ ID.Name(Asset amount) ]")), before=0))
+        self.client.send(wr(self.node_tree._reader.replace('\n', '\r\n'), before=0))
+        prompt = _("Tips: Enter g+NodeID to display the host under the node, such as g1")
+        self.client.send(wr(title(prompt), before=1))
+
+    def display_node_assets(self, _id):
+        if self.nodes is None:
+            self.get_user_nodes()
+
+        if _id > len(self.nodes) or _id <= 0:
+            msg = wr(warning(_("There is no matched node, please re-enter")))
+            self.client.send(msg)
+            self.display_nodes_as_tree()
+            return
+
+        assets = self.nodes[_id-1].assets_granted
+        self.display_assets(assets)
 
     #
     # System users
@@ -332,118 +431,8 @@ class InteractiveServer:
             self.client.send(wr("{} {}".format(index, system_user.name)))
 
     #
-    # Assets
+    # Proxy
     #
-
-    def get_user_assets_paging_async(self):
-        thread = threading.Thread(target=self.get_user_assets_paging)
-        thread.start()
-
-    def get_user_assets_paging(self):
-        while not self.closed:
-            assets, total = app_service.get_user_assets_paging(
-                self.client.user, offset=self.offset, limit=self.limit
-            )
-            if not assets:
-                logger.info('Get user assets paging async finished.')
-                self.finish = True
-                break
-
-            logger.info('Get user assets paging async: {}'.format(len(assets)))
-            assets = self.filter_system_users(assets)
-            self.total_assets = total
-            self.assets.extend(assets)
-            self.offset += self.limit
-
-    #
-    # Display paging
-    #
-
-    def display_paging(self, data):
-
-        if len(data) == 0:
-            self.client.send(wr(_("No Assets"), before=0))
-            return
-
-        self.total_count = self.total_assets if data is self.assets else len(data)
-
-        action = None
-        gen = self.page_generator(data)
-        while True:
-            try:
-                page, _data = gen.send(action)
-            except StopIteration as e:
-                if None not in e.value:
-                    page, _data = e.value
-                    self.display_page(page, _data)
-                break
-            else:
-                self.display_page(page, _data)
-                self.display_page_bottom_prompt()
-                action = self.get_user_action()
-
-    def page_generator(self, data):
-        start, page = 0, 1
-        while True:
-            _data = data[start:start+self.page_size]
-            # 等待加载
-            if (data is self.assets) and (not self.finish) and (not self.need_paging):
-                time.sleep(1)
-                continue
-            # 最后一页
-            elif _data and (page == self.total_pages) and (
-                    data is not self.assets
-                    or (data is self.assets and self.finish)):
-                return page, _data
-            # 执行动作
-            else:
-                action = yield page, _data
-
-                # 退出
-                if action == BACK:
-                    return None, None
-                # 不分页, 不对页码和下标做更改
-                elif not self.need_paging:
-                    continue
-                # 上一页
-                elif action == PAGE_UP:
-                    if page <= 1:
-                        page = 1
-                        start = 0
-                    else:
-                        page -= 1
-                        start -= self.page_size
-                # 下一页
-                else:
-                    page += 1
-                    start += len(_data)
-
-    def display_page(self, page, data):
-        self.client.send(char.CLEAR_CHAR)
-        self.page = page
-        self.results = data
-        self.display_results()
-
-    def display_page_bottom_prompt(self):
-        self.client.send(wr(_('Tips: Enter the asset ID and log directly into the asset.'), before=1))
-        prompt_page_up = _("Page up: P/p")
-        prompt_page_down = _("Page down: Enter|N/n")
-        prompt_back = _("BACK: b/q")
-        prompts = [prompt_page_up, prompt_page_down, prompt_back]
-        prompt = '\t'.join(prompts)
-        self.client.send(wr(prompt, before=1))
-
-    def get_user_action(self):
-        opt = net_input(self.client, prompt=':')
-        if opt in ('p', 'P'):
-            return PAGE_UP
-        elif opt in ('b', 'q'):
-            return BACK
-        elif opt.isdigit() and self.results and 0 < int(opt) <= len(self.results):
-            self.proxy(self.results[int(opt)-1])
-            return BACK
-        else:
-            return PAGE_DOWN
 
     def proxy(self, asset):
         system_user = self.choose_system_user(asset.system_users_granted)
@@ -452,6 +441,10 @@ class InteractiveServer:
             return
         forwarder = ProxyServer(self.client, asset, system_user)
         forwarder.proxy()
+
+    #
+    # Entrance
+    #
 
     def interact(self):
         self.display_banner()
@@ -466,15 +459,16 @@ class InteractiveServer:
                 break
         self.close()
 
-    def interact_async(self):
-        thread = threading.Thread(target=self.interact)
-        thread.daemon = True
-        thread.start()
-
     def close(self):
         logger.debug("Interactive server server close: {}".format(self))
         self.closed = True
         # current_app.remove_client(self.client)
+
+    def interact_async(self):
+        # 目前没用
+        thread = threading.Thread(target=self.interact)
+        thread.daemon = True
+        thread.start()
 
     # def __del__(self):
     #     print("GC: Interactive class been gc")
