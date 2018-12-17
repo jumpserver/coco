@@ -12,7 +12,7 @@ class Config:
     Coco config file, coco also load config from server update setting below
     """
     # 项目名称, 会用来向Jumpserver注册, 识别而已, 不能重复
-    NAME = os.environ.get("NAME") or "coco"
+    NAME = os.environ.get("NAME") or None
 
     # Jumpserver项目的url, api请求注册会使用
     CORE_HOST = os.environ.get("CORE_HOST") or 'http://core:8080'
