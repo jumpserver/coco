@@ -375,6 +375,7 @@ class InteractiveServer:
                 break
             else:
                 self.display_page(page, _data)
+                self.display_page_bottom_prompt()
                 action = self.get_user_action()
 
     def page_generator(self, data):
@@ -382,7 +383,7 @@ class InteractiveServer:
         while True:
             _data = data[start:start+self.page_size]
             # 等待加载
-            if (not _data) and (data is self.assets) and (not self.finish):
+            if (data is self.assets) and (not self.finish):
                 time.sleep(1)
                 continue
             # 最后一页
@@ -418,7 +419,6 @@ class InteractiveServer:
         self.page = page
         self.results = data
         self.display_results()
-        self.display_page_bottom_prompt()
 
     def display_page_bottom_prompt(self):
         self.client.send(wr(_('Tips: Enter the asset ID and log directly into the asset.'), before=1))
