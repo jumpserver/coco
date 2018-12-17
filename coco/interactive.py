@@ -24,6 +24,7 @@ PAGE_DOWN = 'down'
 PAGE_UP = 'up'
 BACK = 'back'
 PROXY = 'proxy'
+PAGE_SIZE_ALL = 100000000
 
 
 class InteractiveServer:
@@ -47,7 +48,14 @@ class InteractiveServer:
 
     @property
     def page_size(self):
-        return self.client.request.meta['height'] - 8
+        _page_size = config['ASSET_LIST_PAGE_SIZE']
+
+        if _page_size.isdigit():
+            return int(_page_size)
+        elif _page_size == 'auto':
+            return self.client.request.meta['height'] - 8
+        else:
+            return PAGE_SIZE_ALL
 
     @property
     def search_result(self):
@@ -396,6 +404,9 @@ class InteractiveServer:
                         page -= 1
                         left -= self.page_size
                 else:
+                    if self.page_size == PAGE_SIZE_ALL:
+                        # 如果全部显示左下标不做修改
+                        continue
                     # PAGE_DOWN
                     page += 1
                     left += len(result)
