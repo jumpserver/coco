@@ -60,6 +60,10 @@ class InteractiveServer:
         return math.ceil(self.total_count/self.page_size)
 
     @property
+    def need_paging(self):
+        return config['ASSET_LIST_PAGE_SIZE'] != 'all'
+
+    @property
     def results(self):
         if self._results:
             return self._results
@@ -383,7 +387,7 @@ class InteractiveServer:
         while True:
             _data = data[start:start+self.page_size]
             # 等待加载
-            if (data is self.assets) and (not self.finish):
+            if (data is self.assets) and (not self.finish) and (not self.need_paging):
                 time.sleep(1)
                 continue
             # 最后一页
@@ -399,7 +403,7 @@ class InteractiveServer:
                 if action == BACK:
                     return None, None
                 # 不分页, 不对页码和下标做更改
-                elif config['ASSET_LIST_PAGE_SIZE'] == 'all':
+                elif not self.need_paging:
                     continue
                 # 上一页
                 elif action == PAGE_UP:
