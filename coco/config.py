@@ -302,6 +302,7 @@ default_config = {
     'REPLAY_STORAGE': {'TYPE': 'server'},
     'LANGUAGE_CODE': 'zh',
     'SECURITY_MAX_IDLE_TIME': 60,
+    'ASSET_LIST_PAGE_SIZE': 'auto',
 }
 
 config = Config(root_path, default_config)
