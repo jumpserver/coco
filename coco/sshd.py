@@ -63,6 +63,7 @@ class SSHServer:
         return connection
 
     def handle_connection(self, sock, addr):
+        logger.debug("Handle new connection from: {}".format(addr))
         transport = paramiko.Transport(sock, gss_kex=False)
         try:
             transport.load_server_moduli()
@@ -77,7 +78,7 @@ class SSHServer:
         server = SSHInterface(connection)
         try:
             transport.start_server(server=server)
-        except paramiko.SSHException:
+        except (paramiko.SSHException, socket.timeout):
             logger.warning("SSH negotiation failed")
             return
         except EOFError as e:
