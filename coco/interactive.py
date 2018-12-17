@@ -394,12 +394,12 @@ class InteractiveServer:
             else:
                 action = yield page, _data
 
-                # 不分页, 不对页码和下标做更改
-                if config['ASSET_LIST_PAGE_SIZE'] == 'all':
-                    continue
                 # 退出
                 if action == BACK:
                     return None, None
+                # 不分页, 不对页码和下标做更改
+                elif config['ASSET_LIST_PAGE_SIZE'] == 'all':
+                    continue
                 # 上一页
                 elif action == PAGE_UP:
                     if page <= 1:
