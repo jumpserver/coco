@@ -77,6 +77,11 @@ msgstr "{T}7) 输入 {green}h{end} 帮助.{R}"
 
 #: coco/interactive.py:89
 #, python-brace-format
+msgid "{T}8) Enter {green}r{end} to refresh your assets and nodes.{R}"
+msgstr "{T}0) 输入 {green}r{end} 刷新最新的机器和节点信息.{R}"
+
+#: coco/interactive.py:90
+#, python-brace-format
 msgid "{T}0) Enter {green}q{end} exit.{R}"
 msgstr "{T}0) 输入 {green}q{end} 退出.{R}"
 

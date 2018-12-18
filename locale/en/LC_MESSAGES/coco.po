@@ -72,6 +72,11 @@ msgstr ""
 
 #: coco/interactive.py:89
 #, python-brace-format
+msgid "{T}8) Enter {green}r{end} to refresh your assets and nodes.{R}"
+msgstr ""
+
+#: coco/interactive.py:90
+#, python-brace-format
 msgid "{T}0) Enter {green}q{end} exit.{R}"
 msgstr ""
 
