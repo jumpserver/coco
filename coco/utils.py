@@ -294,7 +294,7 @@ def get_logger(file_name):
     return logging.getLogger('coco.'+file_name)
 
 
-def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
+def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0, only_one_char=False):
     """实现了一个ssh input, 提示用户输入, 获取并返回
 
     :return user input string
@@ -302,6 +302,10 @@ def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
     input_data = []
     parser = TtyIOParser()
     client.send(wrap_with_line_feed(prompt, before=before, after=after))
+
+    if only_one_char:
+        data = client.recv(1)
+        return data.decode()
 
     while True:
         data = client.recv(10)
