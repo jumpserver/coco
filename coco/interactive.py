@@ -42,7 +42,7 @@ class InteractiveServer:
         self.total_assets = 0   # 用户被授权的所有资产
         self.total_count = 0  # 分页展示中的资产总数量
         self.node_tree = None  # 授权节点树
-        self.get_user_assets_paging_async()
+        self.get_user_assets_async()
         self.get_user_nodes_async()
 
     @property
@@ -90,6 +90,7 @@ class InteractiveServer:
             _("{T}5) Enter {green}g{end} + {green}NodeID{end} to display the host under the node, such as g1.{R}"),
             _("{T}6) Enter {green}s{end} Chinese-english switch.{R}"),
             _("{T}7) Enter {green}h{end} help.{R}"),
+            _("{T}8) Enter {green}r{end} to refresh your assets and nodes.{R}"),
             _("{T}0) Enter {green}q{end} exit.{R}")
         ]
         self.client.send(header.format(
@@ -128,6 +129,9 @@ class InteractiveServer:
         elif opt in ['s', 'S']:
             switch_lang()
             self.display_banner()
+        elif opt in ['r', 'R']:
+            self.refresh_assets_nodes()
+            self.display_banner()
         elif opt in ['h', 'H']:
             self.display_banner()
         else:
@@ -155,6 +159,10 @@ class InteractiveServer:
             self.proxy(asset)
         else:
             self.display_assets(assets)
+
+    def refresh_assets_nodes(self):
+        self.get_user_assets_async()
+        self.get_user_nodes_async()
 
     def search_assets(self, q):
         if self.finish:
@@ -193,6 +201,8 @@ class InteractiveServer:
 
     def display_assets(self, assets=None):
         if assets is None:
+            while not self.assets and not self.finish:
+                time.sleep(0.2)
             assets = self.assets
         self.display_assets_paging(assets)
 
@@ -271,7 +281,8 @@ class InteractiveServer:
         self.client.send(wr(prompt, before=1))
 
     def get_user_action(self):
-        opt = net_input(self.client, prompt=':')
+        opt = net_input(self.client, prompt=':', only_one_char=True)
+        print(opt)
         if opt in ('p', 'P'):
             return PAGE_UP
         elif opt in ('b', 'q'):
@@ -316,9 +327,19 @@ class InteractiveServer:
     # Get assets
     #
 
-    def get_user_assets_paging_async(self):
-        thread = threading.Thread(target=self.get_user_assets_paging)
+    def get_user_assets_async(self):
+        if self.need_paging:
+            thread = threading.Thread(target=self.get_user_assets_paging)
+        else:
+            thread = threading.Thread(target=self.get_user_assets_direct)
         thread.start()
+
+    def get_user_assets_direct(self):
+        assets = app_service.get_user_assets(self.client.user)
+        assets = self.filter_system_users(assets)
+        self.assets = assets
+        self.total_assets = len(assets)
+        self.finish = True
 
     def get_user_assets_paging(self):
         while not self.closed:
