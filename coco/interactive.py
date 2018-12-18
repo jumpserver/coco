@@ -86,6 +86,7 @@ class InteractiveServer:
             _("{T}5) Enter {green}g{end} + {green}NodeID{end} to display the host under the node, such as g1.{R}"),
             _("{T}6) Enter {green}s{end} Chinese-english switch.{R}"),
             _("{T}7) Enter {green}h{end} help.{R}"),
+            _("{T}8) Enter {green}r{end} to refresh your assets and nodes.{R}"),
             _("{T}0) Enter {green}q{end} exit.{R}")
         ]
         self.client.send(header.format(
@@ -114,10 +115,17 @@ class InteractiveServer:
         elif opt in ['s', 'S']:
             switch_lang()
             self.display_banner()
+        elif opt in ['r', 'R']:
+            self.refresh_assets_nodes()
+            self.display_banner()
         elif opt in ['h', 'H']:
             self.display_banner()
         else:
             self.search_and_proxy(opt)
+
+    def refresh_assets_nodes(self):
+        self.get_user_assets_paging_async()
+        self.get_user_nodes_async()
 
     def search_assets(self, q):
         if not self.finish:
