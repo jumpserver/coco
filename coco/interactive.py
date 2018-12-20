@@ -183,6 +183,11 @@ class InteractiveServer:
         if q in ('', None):
             result = self.assets
 
+        # 用户输入的是数字，可能想使用id唯一键搜索
+        elif q.isdigit() and self.results and \
+                len(self.results) >= int(q):
+            result = [self.results[int(q) - 1]]
+
         # 全匹配到则直接返回全匹配的
         if len(result) == 0:
             _result = [asset for asset in self.assets if is_obj_attr_eq(asset, q)]
@@ -281,8 +286,7 @@ class InteractiveServer:
         self.client.send(wr(prompt, before=1))
 
     def get_user_action(self):
-        opt = net_input(self.client, prompt=':', only_one_char=True)
-        print(opt)
+        opt = net_input(self.client, prompt=':')
         if opt in ('p', 'P'):
             return PAGE_UP
         elif opt in ('b', 'q'):
