@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 #
 
-import eventlet
-from eventlet.debug import hub_prevent_multiple_readers
-eventlet.monkey_patch()
-hub_prevent_multiple_readers(False)
+#import eventlet
+#from eventlet.debug import hub_prevent_multiple_readers
+#eventlet.monkey_patch()
+#hub_prevent_multiple_readers(False)
 
 import os
 import sys
@@ -15,7 +15,8 @@ import signal
 
 dirs = ('logs', 'keys')
 for d in dirs:
-    os.makedirs(d, exist_ok=True)
+    if not os.path.isdir(d):
+        os.makedirs(d)
 
 from coco import Coco
 

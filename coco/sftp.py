@@ -144,7 +144,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
         if len(data) == 1 and not data[0]:
             return request
 
-        host, *path = data
+        host, path = data[0], data[1:]
         request["host"] = host
         unique, su = self.host_has_unique_su(host)
         if unique:

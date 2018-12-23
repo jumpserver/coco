@@ -21,12 +21,12 @@ logger = get_logger(__file__)
 BUF_SIZE = 1024
 
 
-class ReplayRecorder(metaclass=abc.ABCMeta):
+class ReplayRecorder(object):
     time_start = None
     storage = None
 
     def __init__(self):
-        super().__init__()
+        super(ReplayRecorder, self).__init__()
         self.file = None
         self.file_path = None
         self.get_storage()
@@ -110,14 +110,23 @@ class ReplayRecorder(metaclass=abc.ABCMeta):
             return self.finish_replay(times - 1, session_id)
 
 
-class CommandRecorder(metaclass=Singleton):
+class CommandRecorder(object):
     batch_size = 10
     timeout = 5
     no = 0
     storage = None
+    _cache = []
+
+    def __new__(cls, *args, **kwargs):
+        if cls._cache:
+            return cls._cache[0]
+        else:
+            self = super(CommandRecorder, cls).__new__(cls, *args, **kwargs)
+            cls._cache.append(self)
+            return self
 
     def __init__(self):
-        super().__init__()
+        super(CommandRecorder, self).__init__()
         self.queue = MemoryQueue()
         self.stop_evt = threading.Event()
         self.push_to_server_async()

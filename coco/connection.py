@@ -4,8 +4,12 @@
 import os
 import re
 import socket
-import selectors
 import telnetlib
+
+try:
+    import selectors
+except ImportError:
+    import selectors2 as selectors
 
 import paramiko
 from paramiko.ssh_exception import SSHException
@@ -82,7 +86,7 @@ class SSHConnection:
                 password_short, key_fingerprint,
             ))
             return None, None, str(e)
-        except (socket.error, TimeoutError) as e:
+        except (socket.error, socket.timeout) as e:
             return None, None, str(e)
         return ssh, sock, None
 

@@ -8,14 +8,14 @@ from .service import app_service
 from .struct import SizedList, SelectEvent
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
     ugettext as _
-from . import char
-from . import utils
+from . import char, utils
+from .compat import str
 
 BUF_SIZE = 4096
 logger = utils.get_logger(__file__)
 
 
-class Connection:
+class Connection(object):
     connections = {}
     clients_num = 0
 
@@ -88,7 +88,7 @@ class Connection:
         return cls.connections.get(cid)
 
 
-class Request:
+class Request(object):
     def __init__(self):
         self.type = None
         self.x11 = None
@@ -96,7 +96,7 @@ class Request:
         self.meta = {'env': {}}
 
 
-class Client:
+class Client(object):
     """
     Client is the request client. Nothing more to say
 
@@ -143,12 +143,12 @@ class Client:
         return "<%s from %s:%s>" % (self.user, self.addr[0], self.addr[1])
 
 
-class ServerFilter:
+class ServerFilter(object):
     def run(self, data):
         pass
 
 
-class BaseServer:
+class BaseServer(object):
     """
     Base Server
     Achieve command record
@@ -383,7 +383,7 @@ class Server(BaseServer):
             self.sock.transport.close()
 
 
-class WSProxy:
+class WSProxy(object):
     def __init__(self, ws, client_id):
         self.ws = ws
         self.client_id = client_id

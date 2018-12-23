@@ -28,7 +28,7 @@ class ProxyNamespace(BaseNamespace):
             ...
         }
         """
-        super().__init__(*args, **kwargs)
+        super(BaseNamespace, self).__init__(*args, **kwargs)
         self.win_size = None
 
     def new_connection(self):

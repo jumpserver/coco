@@ -12,7 +12,6 @@ from io import StringIO
 from binascii import hexlify
 from werkzeug.local import Local, LocalProxy
 from functools import partial, wraps
-import builtins
 
 import paramiko
 import pyte
@@ -431,11 +430,17 @@ def get_current_lang(attr):
 
 
 def _gettext(lang):
+    import builtins
     if lang == 'en':
         trans_en.install()
     else:
         trans_zh.install()
-    return builtins.__dict__['_']
+    try:
+        return builtins.__dict__['_']
+    except KeyError:
+        def _f(x):
+            return x
+        return _f
 
 
 def _find(attr):

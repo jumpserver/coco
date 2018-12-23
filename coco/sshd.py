@@ -112,7 +112,7 @@ class SSHServer:
             logger.info("Request type `{}:{}`, dispatch to interactive mode".format(kind, chan_type))
             try:
                 InteractiveServer(client).interact()
-            except Exception as e:
+            except IndexError as e:
                 logger.error("Unexpected error occur: {}".format(e))
             connection = Connection.get_connection(client.connection_id)
             connection.remove_client(client.id)

@@ -3,8 +3,12 @@
 #
 import uuid
 import datetime
-import selectors
 import time
+
+try:
+    import selectors
+except ImportError:
+    import selectors2 as selectors
 
 from .utils import get_logger, wrap_with_warning as warn, \
     wrap_with_line_feed as wr, ugettext as _, ignore_error

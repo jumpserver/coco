@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
+from __future__ import unicode_literals
 
 import socket
 import threading
@@ -362,7 +363,7 @@ class InteractiveServer:
 
             if not result and (result_list is self.assets_list) and self.finish and self.total_assets == 0:
                 # 无授权资产
-                return None, None
+                return
 
             elif not result and (result_list is self.assets_list) and self.finish:
                 # 上一页是最后一页
@@ -383,7 +384,7 @@ class InteractiveServer:
                 action = yield (page, result)
 
                 if action == BACK:
-                    return None, None
+                    return
                 elif action == PAGE_UP:
                     if page <= 1:
                         # 已经是第一页了
