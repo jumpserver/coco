@@ -377,7 +377,7 @@ class Server(BaseServer):
         super(Server, self).__init__(chan=chan)
 
     def close(self):
-        super().close()
+        super(Server, self).close()
         self.chan.transport.close()
         if self.sock:
             self.sock.transport.close()
