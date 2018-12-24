@@ -232,6 +232,3 @@ class Session:
 
     def __repr__(self):
         return self.id
-
-    # def __del__(self):
-    #     print("GC: Session object has been GC")
