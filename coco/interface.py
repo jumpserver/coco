@@ -90,7 +90,7 @@ class SSHInterface(paramiko.ServerInterface):
             logger.debug("Public key auth <%s> failed, try to password" % username)
             return paramiko.AUTH_FAILED
         else:
-            logger.debug("Public key auth <%s> success" % username)
+            logger.info("Public key auth <%s> success" % username)
             if self.otp_auth:
                 return paramiko.AUTH_PARTIALLY_SUCCESSFUL
             return paramiko.AUTH_SUCCESSFUL
@@ -149,14 +149,14 @@ class SSHInterface(paramiko.ServerInterface):
         return 0
 
     def check_port_forward_request(self, address, port):
-        logger.info(
+        logger.debug(
             "Check channel port forward request: %s %s" % (address, port)
         )
         self.event.set()
         return False
 
     def check_channel_request(self, kind, chan_id):
-        logger.info("Check channel request: %s %d" % (kind, chan_id))
+        logger.debug("Check channel request: %s %d" % (kind, chan_id))
         client = self.connection.new_client(chan_id)
         client.request.kind = kind
         return paramiko.OPEN_SUCCEEDED
@@ -188,7 +188,7 @@ class SSHInterface(paramiko.ServerInterface):
     def check_channel_pty_request(
             self, channel, term, width, height,
             pixelwidth, pixelheight, modes):
-        logger.info("Check channel pty request: %s %s %s %s %s" %
+        logger.debug("Check channel pty request: %s %s %s %s %s" %
                     (term, width, height, pixelwidth, pixelheight))
         client = self.connection.get_client(channel)
         client.request.type = 'pty'
@@ -201,13 +201,13 @@ class SSHInterface(paramiko.ServerInterface):
         return True
 
     def check_channel_shell_request(self, channel):
-        logger.info("Check channel shell request: %s" % channel.get_id())
+        logger.debug("Check channel shell request: %s" % channel.get_id())
         client = self.connection.get_client(channel)
         client.request.meta['shell'] = True
         return True
 
     def check_channel_subsystem_request(self, channel, name):
-        logger.info("Check channel subsystem request: %s" % name)
+        logger.debug("Check channel subsystem request: %s" % name)
         client = self.connection.get_client(channel)
         client.request.type = 'subsystem'
         client.request.meta['subsystem'] = name
@@ -228,7 +228,7 @@ class SSHInterface(paramiko.ServerInterface):
 
     def check_channel_x11_request(self, channel, single_connection,
                                   auth_protocol, auth_cookie, screen_number):
-        logger.info("Check channel x11 request %s %s %s %s" %
+        logger.debug("Check channel x11 request %s %s %s %s" %
                     (single_connection, auth_protocol,
                      auth_cookie, screen_number))
         client = self.connection.get_client(channel)

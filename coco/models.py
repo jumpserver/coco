@@ -59,7 +59,6 @@ class Connection(object):
         client.close()
         self.__class__.clients_num -= 1
         del self.clients[tid]
-        del client
         logger.info("Client {} leave, total {} now".format(
             client, self.__class__.clients_num
         ))
@@ -85,7 +84,6 @@ class Connection(object):
             return
         connection.close()
         del cls.connections[cid]
-        del connection
 
     @classmethod
     def get_connection(cls, cid):

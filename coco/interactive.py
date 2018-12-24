@@ -271,7 +271,7 @@ class InteractiveServer:
             assets, total = app_service.get_user_assets_paging(
                 self.client.user, offset=self.offset, limit=self.limit
             )
-            logger.info('Get user assets paging async: {}'.format(len(assets)))
+            logger.debug('Get user assets paging async: {}'.format(len(assets)))
             if not assets:
                 logger.info('Get user assets paging async finished.')
                 self.finish = True
