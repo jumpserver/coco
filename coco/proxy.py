@@ -85,7 +85,7 @@ class ProxyServer:
         )
 
     def get_server_conn(self):
-        logger.info("Connect to {}".format(self.asset.hostname))
+        logger.info("Connect to {}:{} ...".format(self.asset.hostname, self.asset.port))
         self.send_connecting_message()
         if not self.validate_permission():
             self.client.send(warning(_('No permission')))

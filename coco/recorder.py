@@ -82,7 +82,7 @@ class ReplayRecorder(object):
             self.upload_replay(session_id, times-1)
         else:
             msg = 'Success push replay file: {}'.format(session_id)
-            logger.info(msg)
+            logger.debug(msg)
             self.finish_replay(3, session_id)
             os.unlink(self.file_path)
             return True
@@ -101,11 +101,11 @@ class ReplayRecorder(object):
 
         if app_service.finish_replay(session_id):
             logger.info(
-                "Success finish session {}'s replay ".format(session_id)
+                "Success finished session {}'s replay ".format(session_id)
             )
             return True
         else:
-            msg = "Failed finish session {}'s replay, try {} times"
+            msg = "Failed finished session {}'s replay, try {} times"
             logger.error(msg.format(session_id, times))
             return self.finish_replay(times - 1, session_id)
 
