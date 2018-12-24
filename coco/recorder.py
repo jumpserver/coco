@@ -101,11 +101,11 @@ class ReplayRecorder(object):
 
         if app_service.finish_replay(session_id):
             logger.info(
-                "Success finish session {}'s replay ".format(session_id)
+                "Success get_user_assets_finished session {}'s replay ".format(session_id)
             )
             return True
         else:
-            msg = "Failed finish session {}'s replay, try {} times"
+            msg = "Failed get_user_assets_finished session {}'s replay, try {} times"
             logger.error(msg.format(session_id, times))
             return self.finish_replay(times - 1, session_id)
 

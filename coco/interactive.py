@@ -29,20 +29,20 @@ PROXY = 'proxy'
 
 class InteractiveServer:
     _sentinel = object()
+    _user_assets_cached = {}
 
     def __init__(self, client):
         self.client = client
         self.closed = False
         self._results = None
         self.nodes = None
-        self.offset = 0
-        self.limit = 100
-        self.assets = []
-        self.finish = False
+        self.assets = None
+        self.get_user_assets_finished = False
         self.page = 1
-        self.total_assets = 0   # 用户被授权的所有资产
+        self.total_asset_count = 0   # 用户被授权的所有资产数量
         self.total_count = 0  # 分页展示中的资产总数量
         self.node_tree = None  # 授权节点树
+        self.load_user_assets_from_cache()
         self.get_user_assets_async()
         self.get_user_nodes_async()
 
@@ -144,7 +144,7 @@ class InteractiveServer:
 
     def search_and_display_assets(self, q):
         assets = self.search_assets(q)
-        self.display_assets(assets)
+        self.display_assets_paging(assets)
 
     def search_and_proxy_assets(self, opt):
         assets = self.search_assets(opt)
@@ -159,25 +159,13 @@ class InteractiveServer:
                 return
             self.proxy(asset)
         else:
-            self.display_assets(assets)
+            self.display_assets_paging(assets)
 
     def refresh_assets_nodes(self):
         self.get_user_assets_async()
         self.get_user_nodes_async()
 
     def search_assets(self, q):
-        if self.finish:
-            assets = self.search_assets_from_local(q)
-        else:
-            assets = self.search_assets_from_server(q)
-        return assets
-
-    def search_assets_from_server(self, q):
-        assets = app_service.get_search_user_granted_assets(self.client.user, q)
-        assets = self.filter_system_users(assets)
-        return assets
-
-    def search_assets_from_local(self, q):
         result = []
 
         # 所有的
@@ -205,18 +193,17 @@ class InteractiveServer:
     # Display assets
     #
 
-    def display_assets(self, assets=None):
-        if assets is None:
-            while not self.assets and not self.finish:
-                time.sleep(0.2)
-            assets = self.assets
-        self.display_assets_paging(assets)
+    def display_assets(self):
+        while self.assets is None and not self.get_user_assets_finished:
+            time.sleep(0.5)
+        if self.assets:
+            self.display_assets_paging(self.assets)
 
     def display_assets_paging(self, assets):
         if len(assets) == 0:
             self.client.send(wr(_("No Assets"), before=0))
             return
-        self.total_count = self.total_assets if assets is self.assets else len(assets)
+        self.total_count = self.total_asset_count if assets is self.assets else len(assets)
 
         action = None
         gen = self._page_generator(assets)
@@ -237,22 +224,16 @@ class InteractiveServer:
         start, page = 0, 1
         while True:
             _assets = assets[start:start+self.page_size]
-            # 等待加载
-            if (assets is self.assets) and (not self.finish) and (not self.need_paging):
-                time.sleep(1)
-                continue
             # 最后一页
-            elif _assets and (page == self.total_pages) and (
-                    assets is not self.assets
-                    or (assets is self.assets and self.finish)):
-                return
+            if page == self.total_pages:
+                return page, _assets
             # 执行动作
             else:
                 action = yield page, _assets
 
                 # 退出
                 if action == BACK:
-                    return
+                    return None, None
                 # 不分页, 不对页码和下标做更改
                 elif not self.need_paging:
                     continue
@@ -329,36 +310,27 @@ class InteractiveServer:
     # Get assets
     #
 
+    def load_user_assets_from_cache(self):
+        assets = self.__class__._user_assets_cached.get(
+            self.client.user.id
+        )
+        self.assets = assets
+        if assets:
+            self.total_asset_count = len(assets)
+
+    def set_user_assets_cache(self, assets):
+        self.__class__._user_assets_cached[self.client.user.id] = assets
+
     def get_user_assets_async(self):
-        if self.need_paging:
-            thread = threading.Thread(target=self.get_user_assets_paging)
-        else:
-            thread = threading.Thread(target=self.get_user_assets_direct)
+        thread = threading.Thread(target=self.get_user_assets)
         thread.start()
 
-    def get_user_assets_direct(self):
+    def get_user_assets(self):
         assets = app_service.get_user_assets(self.client.user)
         assets = self.filter_system_users(assets)
-        self.assets = assets
-        self.total_assets = len(assets)
-        self.finish = True
-
-    def get_user_assets_paging(self):
-        while not self.closed:
-            assets, total = app_service.get_user_assets_paging(
-                self.client.user, offset=self.offset, limit=self.limit
-            )
-            if not assets:
-                logger.info('Get user assets paging async finished.')
-                self.finish = True
-                break
-
-            logger.info('Get user assets paging async: {}'.format(len(assets)))
-            assets = self.filter_system_users(assets)
-            self.total_assets = total
-            self.assets.extend(assets)
-            self.offset += self.limit
-
+        self.set_user_assets_cache(assets)
+        self.load_user_assets_from_cache()
+        self.get_user_assets_finished = True
     #
     # Nodes
     #
@@ -413,7 +385,7 @@ class InteractiveServer:
             return
 
         assets = self.nodes[_id-1].assets_granted
-        self.display_assets(assets)
+        self.display_assets_paging(assets)
 
     #
     # System users
