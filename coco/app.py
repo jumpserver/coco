@@ -20,7 +20,7 @@ from .session import Session
 from .models import Connection
 
 
-__version__ = '1.4.4'
+__version__ = '1.4.6'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
@@ -56,6 +56,7 @@ class Coco:
         return self._task_handler
 
     @staticmethod
+    @ignore_error
     def load_extra_conf_from_server():
         configs = app_service.load_config_from_server()
         logger.debug("Loading config from server: {}".format(
@@ -63,8 +64,17 @@ class Coco:
         ))
         config.update(configs)
 
+    def keep_load_extra_conf(self):
+        def func():
+            while True:
+                self.load_extra_conf_from_server()
+                time.sleep(60*10)
+        thread = threading.Thread(target=func)
+        thread.start()
+
     def bootstrap(self):
         self.load_extra_conf_from_server()
+        self.keep_load_extra_conf()
         self.keep_heartbeat()
         self.monitor_sessions()
         self.monitor_sessions_replay()

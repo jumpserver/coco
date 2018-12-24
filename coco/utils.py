@@ -303,7 +303,7 @@ def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
     client.send(wrap_with_line_feed(prompt, before=before, after=after))
 
     while True:
-        data = client.recv(10)
+        data = client.recv(1)
         if len(data) == 0:
             break
         # Client input backspace
@@ -331,18 +331,8 @@ def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
             client.send(b'')
             continue
 
-        # handle shell expect
-        multi_char_with_enter = False
-        if len(data) > 1 and data[-1] in char.ENTER_CHAR_ORDER:
-            if sensitive:
-                client.send(len(data) * '*')
-            else:
-                client.send(data)
-            input_data.append(data[:-1])
-            multi_char_with_enter = True
-
         # If user types ENTER we should get user input
-        if data in char.ENTER_CHAR or multi_char_with_enter:
+        if data in char.ENTER_CHAR:
             client.send(wrap_with_line_feed(b'', after=2))
             option = parser.parse_input(input_data)
             del input_data[:]

@@ -176,7 +176,7 @@ class SSHInterface(paramiko.ServerInterface):
             'command': command
         })
         self.event.set()
-        return False
+        return True
 
     def check_channel_forward_agent_request(self, channel):
         logger.debug("Check channel forward agent request: %s" % channel)
@@ -212,7 +212,7 @@ class SSHInterface(paramiko.ServerInterface):
         client.request.type = 'subsystem'
         client.request.meta['subsystem'] = name
         self.event.set()
-        return super().check_channel_subsystem_request(channel, name)
+        return super(SSHInterface, self).check_channel_subsystem_request(channel, name)
 
     def check_channel_window_change_request(self, channel, width, height,
                                             pixelwidth, pixelheight):

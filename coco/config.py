@@ -92,8 +92,9 @@ class Config(dict):
     """
 
     def __init__(self, root_path, defaults=None):
-        dict.__init__(self, defaults or {})
+        self.defaults = defaults or {}
         self.root_path = root_path
+        super().__init__({})
 
     def from_envvar(self, variable_name, silent=False):
         """Loads a configuration from an environment variable pointing to
@@ -269,6 +270,21 @@ class Config(dict):
             rv[key] = v
         return rv
 
+    def __getitem__(self, item):
+        try:
+            value = super().__getitem__(item)
+        except KeyError:
+            value = None
+        if value is not None:
+            return value
+        value = os.environ.get(item, None)
+        if value is not None:
+            return value
+        return self.defaults.get(item)
+
+    def __getattr__(self, item):
+        return self.__getitem__(item)
+
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, dict.__repr__(self))
 
@@ -277,6 +293,7 @@ access_key_path = os.path.abspath(os.path.join(root_path, 'keys', '.access_key')
 default_config = {
     'NAME': socket.gethostname(),
     'CORE_HOST': 'http://127.0.0.1:8080',
+    'BOOTSTRAP_TOKEN': os.environ.get("BOOTSTRAP_TOKEN") or 'PleaseChangeMe',
     'ROOT_PATH': root_path,
     'DEBUG': True,
     'BIND_HOST': '0.0.0.0',
@@ -301,6 +318,7 @@ default_config = {
     'REPLAY_STORAGE': {'TYPE': 'server'},
     'LANGUAGE_CODE': 'zh',
     'SECURITY_MAX_IDLE_TIME': 60,
+    'ASSET_LIST_PAGE_SIZE': 'auto',
 }
 
 config = Config(root_path, default_config)

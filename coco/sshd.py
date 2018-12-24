@@ -5,6 +5,7 @@
 import os
 import socket
 import threading
+import time
 
 import paramiko
 
@@ -25,7 +26,6 @@ class SSHServer:
         self.stop_evt = threading.Event()
         self.workers = []
         self.pipe = None
-        self.connections = []
 
     @property
     def host_key(self):
@@ -57,12 +57,8 @@ class SSHServer:
             except IndexError as e:
                 logger.error("Start SSH server error: {}".format(e))
 
-    def new_connection(self, addr, sock):
-        connection = Connection.new_connection(addr=addr, sock=sock)
-        self.connections.append(connection)
-        return connection
-
     def handle_connection(self, sock, addr):
+        logger.debug("Handle new connection from: {}".format(addr))
         transport = paramiko.Transport(sock, gss_kex=False)
         try:
             transport.load_server_moduli()
@@ -73,7 +69,7 @@ class SSHServer:
         transport.set_subsystem_handler(
             'sftp', paramiko.SFTPServer, SFTPServer
         )
-        connection = self.new_connection(addr, sock=sock)
+        connection = Connection.new_connection(addr=addr, sock=sock)
         server = SSHInterface(connection)
         try:
             transport.start_server(server=server)
@@ -96,36 +92,37 @@ class SSHServer:
                 t.daemon = True
                 t.start()
             transport.close()
-            del transport
         except paramiko.SSHException:
             logger.warning("SSH negotiation failed")
         except EOFError as e:
             logger.warning("Handle EOF Error: {}".format(e))
         finally:
             Connection.remove_connection(connection.id)
-            del connection
+            sock.close()
 
     @staticmethod
     def dispatch(client):
         supported = {'pty', 'x11', 'forward-agent'}
         chan_type = client.request.type
         kind = client.request.kind
-        if kind == 'session' and chan_type in supported:
-            logger.info("Dispatch client to interactive mode")
-            try:
-                InteractiveServer(client).interact()
-            except IndexError as e:
-                logger.error("Unexpected error occur: {}".format(e))
-            finally:
-                connection = Connection.get_connection(client.connection_id)
-                connection.remove_client(client.id)
-                del client
-        elif chan_type == 'subsystem':
-            pass
-        else:
-            msg = "Request type `{}:{}` not support now".format(kind, chan_type)
-            logger.info(msg)
-            client.send(msg)
+        try:
+            if kind == 'session' and chan_type in supported:
+                logger.info("Dispatch client to interactive mode")
+                try:
+                    InteractiveServer(client).interact()
+                except IndexError as e:
+                    logger.error("Unexpected error occur: {}".format(e))
+            elif chan_type == 'subsystem':
+                while not client.closed:
+                    time.sleep(5)
+                logger.debug("SFTP session finished")
+            else:
+                msg = "Request type `{}:{}` not support now".format(kind, chan_type)
+                logger.error(msg)
+                client.send(msg)
+        finally:
+            connection = Connection.get_connection(client.connection_id)
+            connection.remove_client(client.id)
 
     def shutdown(self):
         self.stop_evt.set()

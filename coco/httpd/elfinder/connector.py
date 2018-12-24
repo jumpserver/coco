@@ -136,6 +136,7 @@ class ElFinderConnector:
             return cmd
         else:
             self.response['error'] = 'No valid command found'
+            return None, None
 
     def run(self, request):
         """ Main entry point for running commands. Attemps to run a command
