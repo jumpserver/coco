@@ -245,20 +245,29 @@ class BaseServer(object):
             return data
         if not self._input:
             return data
+        if self._cmd_filter_rules is None:
+            msg = _("Warning: Failed to load filter rule, "
+                    "please press Ctrl + D to exit retry.")
+            data = self.command_forbidden(msg)
+            return data
         for rule in self._cmd_filter_rules:
             action, cmd = rule.match(self._input)
             if action == rule.ALLOW:
                 break
             elif action == rule.DENY:
-                data = char.CLEAR_LINE_CHAR + b'\r'
                 msg = _("Command `{}` is forbidden ........").format(cmd)
-                msg = wr(warning(msg.encode()), before=1, after=1)
-                self.output_data.append(msg)
-                self.session.send_to_clients(msg)
-                self.session.put_command(self._input, msg.decode())
-                self.session.put_replay(msg)
-                self.input_data.clean()
+                self.command_forbidden(msg)
                 break
+        return data
+
+    def command_forbidden(self, msg):
+        data = char.CLEAR_LINE_CHAR + b'\r'
+        msg = wr(warning(msg.encode()), before=1, after=1)
+        self.output_data.append(msg)
+        self.session.send_to_clients(msg)
+        self.session.put_command(self._input, msg.decode())
+        self.session.put_replay(msg)
+        self.input_data.clean()
         return data
 
     def r_replay_filter(self, data):
