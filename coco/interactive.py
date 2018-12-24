@@ -342,7 +342,7 @@ class InteractiveServer:
                 try:
                     page, result = next(gen_result)
                 except StopIteration:
-                    logger.info('No Assets')
+                    logger.debug('No Assets')
                     # self.display_banner()
                     self.client.send(wr(_("No Assets"), before=0))
                     return None

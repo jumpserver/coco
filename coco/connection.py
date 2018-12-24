@@ -247,7 +247,7 @@ class TelnetConnection:
         :param data: option negotiate data
         :return:
         """
-        logger.info(b'[Server options negotiate]: ' + data)
+        logger.debug(b'[Server options negotiate]: ' + data)
         data_list = data.split(telnetlib.IAC)
         new_data_list = []
         for x in data_list:
@@ -272,7 +272,7 @@ class TelnetConnection:
             else:
                 new_data_list.append(x)
         new_data = telnetlib.IAC.join(new_data_list)
-        logger.info(b'[Client options negotiate]: ' + new_data)
+        logger.debug(b'[Client options negotiate]: ' + new_data)
         self.sock.send(new_data)
 
     def login_auth(self, raw_data):
@@ -284,23 +284,23 @@ class TelnetConnection:
             try:
                 data = raw_data.decode('gbk')
             except UnicodeDecodeError:
-                logger.info(b'[Decode error]: ' + b'>>' + raw_data + b'<<')
+                logger.debug(b'[Decode error]: ' + b'>>' + raw_data + b'<<')
                 return None
 
         if self.incorrect_pattern.search(data):
-            logger.info(b'[Login incorrect prompt]: ' + b'>>' + raw_data + b'<<')
+            logger.debug(b'[Login incorrect prompt]: ' + b'>>' + raw_data + b'<<')
             return False
         elif self.username_pattern.search(data):
-            logger.info(b'[Username prompt]: ' + b'>>' + raw_data + b'<<')
+            logger.debug(b'[Username prompt]: ' + b'>>' + raw_data + b'<<')
             self.sock.send(self.system_user.username.encode('utf-8') + b'\r\n')
             return None
         elif self.password_pattern.search(data):
-            logger.info(b'[Password prompt]: ' + b'>>' + raw_data + b'<<')
+            logger.debug(b'[Password prompt]: ' + b'>>' + raw_data + b'<<')
             self.sock.send(self.system_user.password.encode('utf-8') + b'\r\n')
             return None
         elif self.success_pattern.search(data):
-            logger.info(b'[Login Success prompt]: ' + b'>>' + raw_data + b'<<')
+            logger.debug(b'[Login Success prompt]: ' + b'>>' + raw_data + b'<<')
             return True
         else:
-            logger.info(b'[No match]: ' + b'>>' + raw_data + b'<<')
+            logger.debug(b'[No match]: ' + b'>>' + raw_data + b'<<')
             return None
