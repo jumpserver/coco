@@ -197,7 +197,7 @@ class TelnetConnection:
         )
 
     def get_socket(self):
-        logger.info('Get telnet server socket. {}'.format(self.client.user))
+        logger.debug('Get telnet server socket. {}'.format(self.client.user))
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(10)
         self.sock.connect((self.asset.ip, self.asset.port))
@@ -211,7 +211,7 @@ class TelnetConnection:
             for sock in [key.fileobj for key, _ in events]:
                 data = sock.recv(BUF_SIZE)
                 if sock == self.sock:
-                    logger.info(b'[Telnet server send]: ' + data)
+                    logger.debug(b'[Telnet server send]: ' + data)
 
                     if not data:
                         self.sock.close()
@@ -276,7 +276,7 @@ class TelnetConnection:
         self.sock.send(new_data)
 
     def login_auth(self, raw_data):
-        logger.info('[Telnet login auth]: ({})'.format(self.client.user))
+        logger.debug('[Telnet login auth]: ({})'.format(self.client.user))
 
         try:
             data = raw_data.decode('utf-8')

@@ -72,14 +72,14 @@ class Session:
         :param silent: If true not send welcome message
         :return:
         """
-        logger.info("Session add watcher: {} -> {} ".format(self.id, watcher))
+        logger.debug("Session add watcher: {} -> {} ".format(self.id, watcher))
         if not silent:
             watcher.send("Welcome to watch session {}\r\n".format(self.id).encode())
         self.sel.register(watcher, selectors.EVENT_READ)
         self._watchers.append(watcher)
 
     def remove_watcher(self, watcher):
-        logger.info("Session %s remove watcher %s" % (self.id, watcher))
+        logger.debug("Session %s remove watcher %s" % (self.id, watcher))
         self.sel.unregister(watcher)
         self._watchers.remove(watcher)
 
@@ -90,7 +90,7 @@ class Session:
         :param silent: If true not send welcome message
         :return:
         """
-        logger.info("Session %s add share %s" % (self.id, sharer))
+        logger.debug("Session %s add share %s" % (self.id, sharer))
         if not silent:
             sharer.send("Welcome to join session: {}\r\n"
                         .format(self.id).encode("utf-8"))
@@ -194,7 +194,7 @@ class Session:
                     break
                 elif sock == self.client.change_size_evt:
                     self.resize_win_size()
-        logger.info("Session stop event set: {}".format(self.id))
+        logger.debug("Session stop event set: {}".format(self.id))
 
     def resize_win_size(self):
         width, height = self.client.request.meta['width'], \
@@ -205,7 +205,7 @@ class Session:
     @ignore_error
     def close(self):
         if self.closed:
-            logger.info("Session has been closed: {} ".format(self.id))
+            logger.debug("Session has been closed: {} ".format(self.id))
             return
         logger.info("Close the session: {} ".format(self.id))
         self.is_finished = True
