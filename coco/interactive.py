@@ -245,14 +245,14 @@ class InteractiveServer:
             elif _assets and (page == self.total_pages) and (
                     assets is not self.assets
                     or (assets is self.assets and self.finish)):
-                return page, _assets
+                return
             # 执行动作
             else:
                 action = yield page, _assets
 
                 # 退出
                 if action == BACK:
-                    return None, None
+                    return
                 # 不分页, 不对页码和下标做更改
                 elif not self.need_paging:
                     continue
