@@ -203,7 +203,7 @@ class InteractiveServer:
         if len(assets) == 0:
             self.client.send(wr(_("No Assets"), before=0))
             return
-        self.total_count = self.total_asset_count if assets is self.assets else len(assets)
+        self.total_count = len(assets)
 
         action = None
         gen = self._page_generator(assets)
