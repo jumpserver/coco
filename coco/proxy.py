@@ -52,7 +52,7 @@ class ProxyServer:
             return False
         return True
 
-    def manual_set_system_user_username_if_need(self):
+    def get_system_user_username_if_need(self):
         if self.system_user.login_mode == MANUAL_LOGIN and \
                 not self.system_user.username:
             username = net_input(self.client, prompt='username: ', before=1)
@@ -63,15 +63,17 @@ class ProxyServer:
     def proxy(self):
         if not self.check_protocol():
             return
-        self.manual_set_system_user_username_if_need()
+        self.get_system_user_username_if_need()
         self.get_system_user_auth_or_manual_set()
         self.server = self.get_server_conn()
         if self.server is None:
             return
         session = Session.new_session(self.client, self.server)
-        session.bridge()
-        Session.remove_session(session.id)
-        self.server.close()
+        try:
+            session.bridge()
+        finally:
+            Session.remove_session(session.id)
+            self.server.close()
 
     def validate_permission(self):
         """

@@ -58,6 +58,7 @@ class SSHServer:
                 logger.error("Start SSH server error: {}".format(e))
 
     def handle_connection(self, sock, addr):
+        logger.debug("Handle new connection from: {}".format(addr))
         transport = paramiko.Transport(sock, gss_kex=False)
         try:
             transport.load_server_moduli()
