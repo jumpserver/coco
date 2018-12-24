@@ -94,7 +94,7 @@ class Config(dict):
     def __init__(self, root_path, defaults=None):
         self.defaults = defaults or {}
         self.root_path = root_path
-        super().__init__({})
+        super(Config, self).__init__({})
 
     def from_envvar(self, variable_name, silent=False):
         """Loads a configuration from an environment variable pointing to
@@ -272,7 +272,7 @@ class Config(dict):
 
     def __getitem__(self, item):
         try:
-            value = super().__getitem__(item)
+            value = super(Config, self).__getitem__(item)
         except KeyError:
             value = None
         if value is not None:

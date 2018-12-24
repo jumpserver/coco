@@ -46,7 +46,7 @@ class ProxyNamespace(BaseNamespace):
     def on_connect(self):
         logger.debug("On connect event trigger")
         self.get_current_user()
-        super().on_connect()
+        super(ProxyNamespace, self).on_connect()
         self.new_connection()
 
     def on_host(self, message):
