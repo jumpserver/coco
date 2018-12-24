@@ -407,7 +407,8 @@ class InteractiveServer:
         self.display_prompt_of_page()
 
     def display_prompt_of_page(self):
-        self.client.send(wr(_('Tips: Enter the asset ID and log directly into the asset.'), before=1))
+        msg = wr(_('Tips: Enter the asset ID and log directly into the asset.'))
+        self.client.send(msg, before=1)
         prompt_page_up = _("Page up: P/p")
         prompt_page_down = _("Page down: Enter|N/n")
         prompt_back = _("BACK: b/q")
@@ -457,7 +458,6 @@ class InteractiveServer:
     def close(self):
         logger.debug("Interactive server server close: {}".format(self))
         self.closed = True
-        # current_app.remove_client(self.client)
 
     # def __del__(self):
     #     print("GC: Interactive class been gc")

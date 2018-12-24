@@ -62,10 +62,11 @@ class SFTPServer(paramiko.SFTPServerInterface):
             }
 
         """
-        super().__init__(server, **kwargs)
+        super(SFTPServer, self).__init__(server, **kwargs)
         self.server = server
         self._sftp = {}
         self.hosts = self.get_permed_hosts()
+        self.is_finished = False
 
     def get_permed_hosts(self):
         hosts = {}
@@ -88,7 +89,8 @@ class SFTPServer(paramiko.SFTPServerInterface):
         return hosts
 
     def session_ended(self):
-        super().session_ended()
+        self.is_finished = True
+        super(SFTPServer, self).session_ended()
         for _, v in self._sftp.items():
             sftp = v['client']
             proxy = v.get('proxy')
@@ -388,7 +390,7 @@ class InternalSFTPClient(SFTPServer):
     def __init__(self, connection):
         fake_server = FakeServer()
         fake_server.connection = connection
-        super().__init__(fake_server)
+        super(InternalSFTPClient, self).__init__(fake_server)
 
     def listdir_attr(self, path):
         return self.list_folder.__wrapped__(self, path)
@@ -408,15 +410,15 @@ class InternalSFTPClient(SFTPServer):
             self.create_ftp_log(path, operate, success)
 
     def stat(self, path):
-        attr = super().stat.__wrapped__(self, path)
+        attr = super(InternalSFTPClient, self).stat.__wrapped__(self, path)
         return attr
 
     def lstat(self, path):
-        attr = super().lstat.__wrapped__(self, path)
+        attr = super(InternalSFTPClient, self).lstat.__wrapped__(self, path)
         return attr
 
     def rmdir(self, path):
-        return super().rmdir.__wrapped__(self, path)
+        return super(InternalSFTPClient, self).rmdir.__wrapped__(self, path)
 
     def get_channel(self):
         return FakeChannel.new()

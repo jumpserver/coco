@@ -16,9 +16,9 @@ class SFTPVolume(BaseVolume):
     def __init__(self, sftp):
         self.sftp = sftp
         self.root_name = 'Home'
-        super().__init__()
         self._stat_cache = {}
         self.lock = threading.Lock()
+        super(SFTPVolume, self).__init__()
 
     def close(self):
         self.sftp.close()
