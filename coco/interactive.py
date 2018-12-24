@@ -304,8 +304,8 @@ class InteractiveServer:
         )
 
     def display_page_bottom_prompt(self):
-        msg = wr(_('Tips: Enter the asset ID and log directly into the asset.'))
-        self.client.send(msg, before=1)
+        msg = wr(_('Tips: Enter the asset ID and log directly into the asset.'), before=1)
+        self.client.send(msg)
         prompt_page_up = _("Page up: P/p")
         prompt_page_down = _("Page down: Enter|N/n")
         prompt_back = _("BACK: b/q")

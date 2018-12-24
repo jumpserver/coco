@@ -92,7 +92,7 @@ class SSHServer:
                 t.daemon = True
                 t.start()
             transport.close()
-        except paramiko.SSHException:
+        except (paramiko.SSHException, sock.timeout):
             logger.warning("SSH negotiation failed")
         except EOFError as e:
             logger.warning("Handle EOF Error: {}".format(e))
