@@ -347,7 +347,7 @@ class InteractiveServer:
                     self.client.send(wr(_("No Assets"), before=0))
                     return None
             except StopIteration:
-                logger.info('Back display result paging.')
+                logger.debug('Back display result paging.')
                 # self.display_banner()
                 return None
             self.display_result_of_page(page, result)

@@ -41,7 +41,7 @@ class Connection(object):
         client.connection_id = self.id
         self.clients[tid] = client
         self.__class__.clients_num += 1
-        logger.info("New client {} join, total {} now".format(
+        logger.debug("New client {} join, total {} now".format(
             client, self.__class__.clients_num
         ))
         return client
@@ -59,7 +59,7 @@ class Connection(object):
         client.close()
         self.__class__.clients_num -= 1
         del self.clients[tid]
-        logger.info("Client {} leave, total {} now".format(
+        logger.debug("Client {} leave, total {} now".format(
             client, self.__class__.clients_num
         ))
 

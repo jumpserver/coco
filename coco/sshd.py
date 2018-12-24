@@ -111,7 +111,7 @@ class SSHServer:
         chan_type = client.request.type
         kind = client.request.kind
         if kind == 'session' and chan_type in supported:
-            logger.info("Request type `{}:{}`, dispatch to interactive mode".format(kind, chan_type))
+            logger.info("Dispatch client to interactive mode")
             try:
                 InteractiveServer(client).interact()
             except IndexError as e:
