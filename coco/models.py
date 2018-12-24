@@ -59,6 +59,7 @@ class Connection(object):
         client.close()
         self.__class__.clients_num -= 1
         del self.clients[tid]
+        del client
         logger.info("Client {} leave, total {} now".format(
             client, self.__class__.clients_num
         ))
@@ -80,8 +81,11 @@ class Connection(object):
     @classmethod
     def remove_connection(cls, cid):
         connection = cls.get_connection(cid)
+        if not connection:
+            return
         connection.close()
         del cls.connections[cid]
+        del connection
 
     @classmethod
     def get_connection(cls, cid):
@@ -134,7 +138,9 @@ class Client(object):
 
     def close(self):
         logger.info("Client {} close".format(self))
-        return self.chan.close()
+        self.chan.close()
+        self.chan = None
+        return
 
     def __getattr__(self, item):
         return getattr(self.chan, item)
@@ -343,6 +349,7 @@ class BaseServer(object):
         logger.info("Closed server {}".format(self))
         self.r_input_output_data_filter(b'')
         self.chan.close()
+        self.chan = None
 
     def __getattr__(self, item):
         return getattr(self.chan, item)
@@ -379,6 +386,9 @@ class Server(BaseServer):
     def close(self):
         super(Server, self).close()
         self.chan.transport.close()
+        self.chan.transport = None
+        self.chan = None
+        logger.debug("Backend server closed")
         if self.sock:
             self.sock.transport.close()
 

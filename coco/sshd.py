@@ -77,31 +77,33 @@ class SSHServer:
         server = SSHInterface(connection)
         try:
             transport.start_server(server=server)
+            while transport.is_active():
+                chan = transport.accept()
+                server.event.wait(5)
+                if chan is None:
+                    continue
+
+                if not server.event.is_set():
+                    logger.warning("Client not request invalid, exiting")
+                    sock.close()
+                    continue
+                else:
+                    server.event.clear()
+
+                client = connection.clients.get(chan.get_id())
+                client.chan = chan
+                t = threading.Thread(target=self.dispatch, args=(client,))
+                t.daemon = True
+                t.start()
+            transport.close()
+            del transport
         except paramiko.SSHException:
             logger.warning("SSH negotiation failed")
-            return
         except EOFError as e:
             logger.warning("Handle EOF Error: {}".format(e))
-            return
-        while transport.is_active():
-            chan = transport.accept()
-            server.event.wait(5)
-            if chan is None:
-                continue
-
-            if not server.event.is_set():
-                logger.warning("Client not request invalid, exiting")
-                sock.close()
-                return
-            else:
-                server.event.clear()
-
-            client = connection.clients.get(chan.get_id())
-            client.chan = chan
-            t = threading.Thread(target=self.dispatch, args=(client,))
-            t.daemon = True
-            t.start()
-        Connection.remove_connection(connection.id)
+        finally:
+            Connection.remove_connection(connection.id)
+            del connection
 
     @staticmethod
     def dispatch(client):
@@ -114,8 +116,10 @@ class SSHServer:
                 InteractiveServer(client).interact()
             except IndexError as e:
                 logger.error("Unexpected error occur: {}".format(e))
-            connection = Connection.get_connection(client.connection_id)
-            connection.remove_client(client.id)
+            finally:
+                connection = Connection.get_connection(client.connection_id)
+                connection.remove_client(client.id)
+                del client
         elif chan_type == 'subsystem':
             pass
         else:
