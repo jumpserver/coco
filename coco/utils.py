@@ -12,7 +12,6 @@ from io import StringIO
 from binascii import hexlify
 from werkzeug.local import Local, LocalProxy
 from functools import partial, wraps
-import builtins
 
 import paramiko
 import pyte
@@ -294,7 +293,7 @@ def get_logger(file_name):
     return logging.getLogger('coco.'+file_name)
 
 
-def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0, only_one_char=False):
+def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
     """实现了一个ssh input, 提示用户输入, 获取并返回
 
     :return user input string
@@ -303,12 +302,8 @@ def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0, only_o
     parser = TtyIOParser()
     client.send(wrap_with_line_feed(prompt, before=before, after=after))
 
-    if only_one_char:
-        data = client.recv(1)
-        return data.decode()
-
     while True:
-        data = client.recv(10)
+        data = client.recv(1)
         if len(data) == 0:
             break
         # Client input backspace
@@ -336,18 +331,8 @@ def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0, only_o
             client.send(b'')
             continue
 
-        # handle shell expect
-        multi_char_with_enter = False
-        if len(data) > 1 and data[-1] in char.ENTER_CHAR_ORDER:
-            if sensitive:
-                client.send(len(data) * '*')
-            else:
-                client.send(data)
-            input_data.append(data[:-1])
-            multi_char_with_enter = True
-
         # If user types ENTER we should get user input
-        if data in char.ENTER_CHAR or multi_char_with_enter:
+        if data in char.ENTER_CHAR:
             client.send(wrap_with_line_feed(b'', after=2))
             option = parser.parse_input(input_data)
             del input_data[:]
@@ -435,11 +420,17 @@ def get_current_lang(attr):
 
 
 def _gettext(lang):
+    import builtins
     if lang == 'en':
         trans_en.install()
     else:
         trans_zh.install()
-    return builtins.__dict__['_']
+    try:
+        return builtins.__dict__['_']
+    except KeyError:
+        def _f(x):
+            return x
+        return _f
 
 
 def _find(attr):

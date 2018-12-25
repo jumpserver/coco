@@ -8,14 +8,14 @@ from .service import app_service
 from .struct import SizedList, SelectEvent
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
     ugettext as _
-from . import char
-from . import utils
+from . import char, utils
+from .compat import str
 
 BUF_SIZE = 4096
 logger = utils.get_logger(__file__)
 
 
-class Connection:
+class Connection(object):
     connections = {}
     clients_num = 0
 
@@ -80,6 +80,8 @@ class Connection:
     @classmethod
     def remove_connection(cls, cid):
         connection = cls.get_connection(cid)
+        if not connection:
+            return
         connection.close()
         del cls.connections[cid]
 
@@ -88,7 +90,7 @@ class Connection:
         return cls.connections.get(cid)
 
 
-class Request:
+class Request(object):
     def __init__(self):
         self.type = None
         self.x11 = None
@@ -96,7 +98,7 @@ class Request:
         self.meta = {'env': {}}
 
 
-class Client:
+class Client(object):
     """
     Client is the request client. Nothing more to say
 
@@ -129,12 +131,17 @@ class Client:
             self.close()
             return
 
+    @property
+    def closed(self):
+        return self.chan.closed
+
     def recv(self, size):
         return self.chan.recv(size)
 
     def close(self):
         logger.info("Client {} close".format(self))
-        return self.chan.close()
+        self.chan.close()
+        return
 
     def __getattr__(self, item):
         return getattr(self.chan, item)
@@ -143,12 +150,12 @@ class Client:
         return "<%s from %s:%s>" % (self.user, self.addr[0], self.addr[1])
 
 
-class ServerFilter:
+class ServerFilter(object):
     def run(self, data):
         pass
 
 
-class BaseServer:
+class BaseServer(object):
     """
     Base Server
     Achieve command record
@@ -238,20 +245,29 @@ class BaseServer:
             return data
         if not self._input:
             return data
+        if self._cmd_filter_rules is None:
+            msg = _("Warning: Failed to load filter rule, "
+                    "please press Ctrl + D to exit retry.")
+            data = self.command_forbidden(msg)
+            return data
         for rule in self._cmd_filter_rules:
             action, cmd = rule.match(self._input)
             if action == rule.ALLOW:
                 break
             elif action == rule.DENY:
-                data = char.CLEAR_LINE_CHAR + b'\r'
                 msg = _("Command `{}` is forbidden ........").format(cmd)
-                msg = wr(warning(msg.encode()), before=1, after=1)
-                self.output_data.append(msg)
-                self.session.send_to_clients(msg)
-                self.session.put_command(self._input, msg.decode())
-                self.session.put_replay(msg)
-                self.input_data.clean()
+                self.command_forbidden(msg)
                 break
+        return data
+
+    def command_forbidden(self, msg):
+        data = char.CLEAR_LINE_CHAR + b'\r'
+        msg = wr(warning(msg.encode()), before=1, after=1)
+        self.output_data.append(msg)
+        self.session.send_to_clients(msg)
+        self.session.put_command(self._input, msg.decode())
+        self.session.put_replay(msg)
+        self.input_data.clean()
         return data
 
     def r_replay_filter(self, data):
@@ -382,13 +398,14 @@ class Server(BaseServer):
         super(Server, self).__init__(chan=chan)
 
     def close(self):
-        super().close()
+        super(Server, self).close()
         self.chan.transport.close()
+        logger.debug("Backend server closed")
         if self.sock:
             self.sock.transport.close()
 
 
-class WSProxy:
+class WSProxy(object):
     def __init__(self, ws, client_id):
         self.ws = ws
         self.client_id = client_id

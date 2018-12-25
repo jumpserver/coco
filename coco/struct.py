@@ -21,7 +21,7 @@ class MultiQueueMixin:
             self.put(i)
 
 
-class MemoryQueue(MultiQueueMixin, queue.Queue):
+class MemoryQueue(MultiQueueMixin, queue.Queue, object):
     pass
 
 
@@ -29,11 +29,11 @@ class SizedList(list):
     def __init__(self, maxsize=0):
         self.maxsize = maxsize
         self.size = 0
-        super().__init__()
+        super(list, self).__init__()
 
     def append(self, b):
         if self.maxsize == 0 or self.size < self.maxsize:
-            super().append(b)
+            super(SizedList, self).append(b)
             self.size += len(b)
 
     def clean(self):

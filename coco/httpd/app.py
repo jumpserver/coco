@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 
+import os
 from flask_socketio import SocketIO
 from flask import Flask
 
@@ -17,8 +18,10 @@ socket_io = SocketIO()
 socket_io.on_namespace(ProxyNamespace('/ssh'))
 socket_io.on_namespace(ElfinderNamespace('/elfinder'))
 
-# init_kwargs = {'async_mode': 'threading'}
-init_kwargs = {'async_mode': 'eventlet'}
+if os.environ.get('USE_EVENTLET', '1') == '1':
+    init_kwargs = {'async_mode': 'eventlet'}
+else:
+    init_kwargs = {'async_mode': 'threading'}
 socket_io.init_app(app, **init_kwargs),
 socket_io.on_error_default(lambda x: logger.exception(x))
 

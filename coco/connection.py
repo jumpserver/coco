@@ -4,8 +4,12 @@
 import os
 import re
 import socket
-import selectors
 import telnetlib
+
+try:
+    import selectors
+except ImportError:
+    import selectors2 as selectors
 
 import paramiko
 from paramiko.ssh_exception import SSHException
@@ -54,7 +58,7 @@ class SSHConnection:
                     asset.ip, port=asset.port, username=system_user.username,
                     password=system_user.password, pkey=system_user.private_key,
                     timeout=config['SSH_TIMEOUT'],
-                    compress=True, auth_timeout=config['SSH_TIMEOUT'],
+                    compress=False, auth_timeout=config['SSH_TIMEOUT'],
                     look_for_keys=False, sock=sock
                 )
             except paramiko.AuthenticationException:
@@ -62,7 +66,7 @@ class SSHConnection:
                 ssh.connect(
                     asset.ip, port=asset.port, username=system_user.username,
                     password=system_user.password, timeout=config['SSH_TIMEOUT'],
-                    compress=True, auth_timeout=config['SSH_TIMEOUT'],
+                    compress=False, auth_timeout=config['SSH_TIMEOUT'],
                     look_for_keys=False, sock=sock, allow_agent=False,
                 )
             transport = ssh.get_transport()
@@ -86,7 +90,7 @@ class SSHConnection:
                 password_short, key_fingerprint,
             ))
             return None, None, error + '\n' + str(e)
-        except (socket.error, TimeoutError) as e:
+        except (socket.error, socket.timeout) as e:
             return None, None, error + '\n' + str(e)
         return ssh, sock, None
 
@@ -197,7 +201,7 @@ class TelnetConnection:
         )
 
     def get_socket(self):
-        logger.info('Get telnet server socket. {}'.format(self.client.user))
+        logger.debug('Get telnet server socket. {}'.format(self.client.user))
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(10)
         self.sock.connect((self.asset.ip, self.asset.port))
@@ -211,7 +215,7 @@ class TelnetConnection:
             for sock in [key.fileobj for key, _ in events]:
                 data = sock.recv(BUF_SIZE)
                 if sock == self.sock:
-                    logger.info(b'[Telnet server send]: ' + data)
+                    logger.debug(b'[Telnet server send]: ' + data)
 
                     if not data:
                         self.sock.close()
@@ -247,7 +251,7 @@ class TelnetConnection:
         :param data: option negotiate data
         :return:
         """
-        logger.info(b'[Server options negotiate]: ' + data)
+        logger.debug(b'[Server options negotiate]: ' + data)
         data_list = data.split(telnetlib.IAC)
         new_data_list = []
         for x in data_list:
@@ -272,11 +276,11 @@ class TelnetConnection:
             else:
                 new_data_list.append(x)
         new_data = telnetlib.IAC.join(new_data_list)
-        logger.info(b'[Client options negotiate]: ' + new_data)
+        logger.debug(b'[Client options negotiate]: ' + new_data)
         self.sock.send(new_data)
 
     def login_auth(self, raw_data):
-        logger.info('[Telnet login auth]: ({})'.format(self.client.user))
+        logger.debug('[Telnet login auth]: ({})'.format(self.client.user))
 
         try:
             data = raw_data.decode('utf-8')
@@ -284,23 +288,23 @@ class TelnetConnection:
             try:
                 data = raw_data.decode('gbk')
             except UnicodeDecodeError:
-                logger.info(b'[Decode error]: ' + b'>>' + raw_data + b'<<')
+                logger.debug(b'[Decode error]: ' + b'>>' + raw_data + b'<<')
                 return None
 
         if self.incorrect_pattern.search(data):
-            logger.info(b'[Login incorrect prompt]: ' + b'>>' + raw_data + b'<<')
+            logger.debug(b'[Login incorrect prompt]: ' + b'>>' + raw_data + b'<<')
             return False
         elif self.username_pattern.search(data):
-            logger.info(b'[Username prompt]: ' + b'>>' + raw_data + b'<<')
+            logger.debug(b'[Username prompt]: ' + b'>>' + raw_data + b'<<')
             self.sock.send(self.system_user.username.encode('utf-8') + b'\r\n')
             return None
         elif self.password_pattern.search(data):
-            logger.info(b'[Password prompt]: ' + b'>>' + raw_data + b'<<')
+            logger.debug(b'[Password prompt]: ' + b'>>' + raw_data + b'<<')
             self.sock.send(self.system_user.password.encode('utf-8') + b'\r\n')
             return None
         elif self.success_pattern.search(data):
-            logger.info(b'[Login Success prompt]: ' + b'>>' + raw_data + b'<<')
+            logger.debug(b'[Login Success prompt]: ' + b'>>' + raw_data + b'<<')
             return True
         else:
-            logger.info(b'[No match]: ' + b'>>' + raw_data + b'<<')
+            logger.debug(b'[No match]: ' + b'>>' + raw_data + b'<<')
             return None

@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-
-import eventlet
-from eventlet.debug import hub_prevent_multiple_readers
-eventlet.monkey_patch()
-hub_prevent_multiple_readers(False)
-
 import os
+
+if os.environ.get('USE_EVENTLET', '1') == '1':
+    import eventlet
+    from eventlet.debug import hub_prevent_multiple_readers
+    eventlet.monkey_patch()
+    hub_prevent_multiple_readers(False)
+    print("Use eventlet dispatch")
+else:
+    print("Use local threading")
+
 import sys
 import argparse
 import time
@@ -15,7 +19,8 @@ import signal
 
 dirs = ('logs', 'keys')
 for d in dirs:
-    os.makedirs(d, exist_ok=True)
+    if not os.path.isdir(d):
+        os.makedirs(d)
 
 from coco import Coco
 

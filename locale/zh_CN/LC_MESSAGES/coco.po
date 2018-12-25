@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-12-18 20:04+0800\n"
+"POT-Creation-Date: 2018-12-21 16:48+0800\n"
 "PO-Revision-Date: 2018-08-10 10:42+0800\n"
 "Last-Translator: BaiJiangjie <bugatti_it@163.com>\n"
 "Language-Team: Language locale/zh\n"
@@ -91,75 +91,80 @@ msgstr "{T}0) 输入 {green}q{end} 退出.{R}"
 msgid "Terminal does not support login rdp, please use web terminal to access"
 msgstr "终端不支持登录windows, 请使用web terminal访问"
 
-#: coco/interactive.py:212
+#: coco/interactive.py:217
 msgid "No Assets"
 msgstr "没有资产"
 
-#: coco/interactive.py:275
+#: coco/interactive.py:280
 msgid "Tips: Enter the asset ID and log directly into the asset."
 msgstr "提示: 输入资产ID，直接登录资产."
 
-#: coco/interactive.py:276
+#: coco/interactive.py:281
 msgid "Page up: P/p"
 msgstr "上一页: P/p"
 
-#: coco/interactive.py:277
+#: coco/interactive.py:282
 msgid "Page down: Enter|N/n"
 msgstr "下一页: Enter|N/n"
 
-#: coco/interactive.py:278
+#: coco/interactive.py:283
 msgid "BACK: b/q"
 msgstr "返回: B/b"
 
-#: coco/interactive.py:299
+#: coco/interactive.py:303
 msgid "ID"
 msgstr ""
 
-#: coco/interactive.py:299
+#: coco/interactive.py:303
 msgid "Hostname"
 msgstr "主机名"
 
-#: coco/interactive.py:299
+#: coco/interactive.py:303
 msgid "IP"
 msgstr ""
 
-#: coco/interactive.py:299
+#: coco/interactive.py:303
 msgid "LoginAs"
 msgstr "登录用户"
 
-#: coco/interactive.py:313
+#: coco/interactive.py:317
 msgid "Comment"
 msgstr "备注"
 
-#: coco/interactive.py:322
+#: coco/interactive.py:326
 msgid "Page: {}, Count: {}, Total Page: {}, Total Count: {}"
 msgstr "页码: {}, 数量: {}, 总页数: {}, 总数量: {}"
 
-#: coco/interactive.py:394
+#: coco/interactive.py:398
 msgid "No Nodes"
 msgstr "没有节点"
 
-#: coco/interactive.py:398
+#: coco/interactive.py:402
 msgid "Node: [ ID.Name(Asset amount) ]"
 msgstr "节点: [ ID.名称(资产数量) ]"
 
-#: coco/interactive.py:400
+#: coco/interactive.py:404
 msgid "Tips: Enter g+NodeID to display the host under the node, such as g1"
 msgstr "提示: 输入 g+节点ID 显示节点下主机. 如: g1"
 
-#: coco/interactive.py:408
+#: coco/interactive.py:412
 msgid "There is no matched node, please re-enter"
 msgstr "没有匹配分组，请重新输入"
 
-#: coco/interactive.py:438
+#: coco/interactive.py:442
 msgid "Select a login:: "
 msgstr "选择一个登录:"
 
-#: coco/interactive.py:461
+#: coco/interactive.py:465
 msgid "No system user"
 msgstr "没有系统用户"
 
-#: coco/models.py:247
+#: coco/models.py:242
+msgid ""
+"Warning: Failed to load filter rule, please press Ctrl + D to exit retry."
+msgstr "警告: 加载过滤规则失败，请按 Ctrl + D 退出重试."
+
+#: coco/models.py:251
 msgid "Command `{}` is forbidden ........"
 msgstr "命令 `{}` 是被禁止的 ..."
 

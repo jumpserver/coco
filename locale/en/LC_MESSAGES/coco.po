@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-12-18 20:03+0800\n"
+"POT-Creation-Date: 2018-12-21 16:48+0800\n"
 "PO-Revision-Date: 2018-08-10 10:42+0800\n"
 "Last-Translator: BaiJiangjie <bugatti_it@163.com>\n"
 "Language-Team: Language locale/en/LC\n"
@@ -84,75 +84,80 @@ msgstr ""
 msgid "Terminal does not support login rdp, please use web terminal to access"
 msgstr ""
 
-#: coco/interactive.py:212
+#: coco/interactive.py:217
 msgid "No Assets"
 msgstr ""
 
-#: coco/interactive.py:275
+#: coco/interactive.py:280
 msgid "Tips: Enter the asset ID and log directly into the asset."
 msgstr ""
 
-#: coco/interactive.py:276
+#: coco/interactive.py:281
 msgid "Page up: P/p"
 msgstr ""
 
-#: coco/interactive.py:277
+#: coco/interactive.py:282
 msgid "Page down: Enter|N/n"
 msgstr ""
 
-#: coco/interactive.py:278
+#: coco/interactive.py:283
 msgid "BACK: b/q"
 msgstr ""
 
-#: coco/interactive.py:299
+#: coco/interactive.py:303
 msgid "ID"
 msgstr ""
 
-#: coco/interactive.py:299
+#: coco/interactive.py:303
 msgid "Hostname"
 msgstr ""
 
-#: coco/interactive.py:299
+#: coco/interactive.py:303
 msgid "IP"
 msgstr ""
 
-#: coco/interactive.py:299
+#: coco/interactive.py:303
 msgid "LoginAs"
 msgstr ""
 
-#: coco/interactive.py:313
+#: coco/interactive.py:317
 msgid "Comment"
 msgstr ""
 
-#: coco/interactive.py:322
+#: coco/interactive.py:326
 msgid "Page: {}, Count: {}, Total Page: {}, Total Count: {}"
 msgstr ""
 
-#: coco/interactive.py:394
+#: coco/interactive.py:398
 msgid "No Nodes"
 msgstr ""
 
-#: coco/interactive.py:398
+#: coco/interactive.py:402
 msgid "Node: [ ID.Name(Asset amount) ]"
 msgstr ""
 
-#: coco/interactive.py:400
+#: coco/interactive.py:404
 msgid "Tips: Enter g+NodeID to display the host under the node, such as g1"
 msgstr ""
 
-#: coco/interactive.py:408
+#: coco/interactive.py:412
 msgid "There is no matched node, please re-enter"
 msgstr ""
 
-#: coco/interactive.py:438
+#: coco/interactive.py:442
 msgid "Select a login:: "
 msgstr ""
 
-#: coco/interactive.py:461
+#: coco/interactive.py:465
 msgid "No system user"
 msgstr ""
 
-#: coco/models.py:247
+#: coco/models.py:242
+msgid ""
+"Warning: Failed to load filter rule, please press Ctrl + D to exit retry."
+msgstr ""
+
+#: coco/models.py:251
 msgid "Command `{}` is forbidden ........"
 msgstr ""
 

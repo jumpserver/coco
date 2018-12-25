@@ -51,12 +51,13 @@ def create_logger():
         },
         loggers={
             'coco': main_setting,
-            'paramiko': main_setting,
             'jms': main_setting,
             # 'socket.io': main_setting,
             # 'engineio': main_setting,
         }
     )
+    if level.lower() == 'debug':
+        config['loggers']['paramiko'] = main_setting
     dictConfig(config)
     logger = logging.getLogger()
     return logger

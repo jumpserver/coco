@@ -5,6 +5,7 @@
 import os
 import socket
 import threading
+import time
 
 import paramiko
 
@@ -25,7 +26,6 @@ class SSHServer:
         self.stop_evt = threading.Event()
         self.workers = []
         self.pipe = None
-        self.connections = []
 
     @property
     def host_key(self):
@@ -57,11 +57,6 @@ class SSHServer:
             except IndexError as e:
                 logger.error("Start SSH server error: {}".format(e))
 
-    def new_connection(self, addr, sock):
-        connection = Connection.new_connection(addr=addr, sock=sock)
-        self.connections.append(connection)
-        return connection
-
     def handle_connection(self, sock, addr):
         logger.debug("Handle new connection from: {}".format(addr))
         transport = paramiko.Transport(sock, gss_kex=False)
@@ -74,55 +69,60 @@ class SSHServer:
         transport.set_subsystem_handler(
             'sftp', paramiko.SFTPServer, SFTPServer
         )
-        connection = self.new_connection(addr, sock=sock)
+        connection = Connection.new_connection(addr=addr, sock=sock)
         server = SSHInterface(connection)
         try:
             transport.start_server(server=server)
-        except (paramiko.SSHException, socket.timeout):
+            while transport.is_active():
+                chan = transport.accept()
+                server.event.wait(5)
+                if chan is None:
+                    continue
+
+                if not server.event.is_set():
+                    logger.warning("Client not request invalid, exiting")
+                    sock.close()
+                    continue
+                else:
+                    server.event.clear()
+
+                client = connection.clients.get(chan.get_id())
+                client.chan = chan
+                t = threading.Thread(target=self.dispatch, args=(client,))
+                t.daemon = True
+                t.start()
+            transport.close()
+        except (paramiko.SSHException, sock.timeout):
             logger.warning("SSH negotiation failed")
-            return
         except EOFError as e:
             logger.warning("Handle EOF Error: {}".format(e))
-            return
-        while transport.is_active():
-            chan = transport.accept()
-            server.event.wait(5)
-            if chan is None:
-                continue
-
-            if not server.event.is_set():
-                logger.warning("Client not request invalid, exiting")
-                sock.close()
-                return
-            else:
-                server.event.clear()
-
-            client = connection.clients.get(chan.get_id())
-            client.chan = chan
-            t = threading.Thread(target=self.dispatch, args=(client,))
-            t.daemon = True
-            t.start()
-        Connection.remove_connection(connection.id)
+        finally:
+            Connection.remove_connection(connection.id)
+            sock.close()
 
     @staticmethod
     def dispatch(client):
         supported = {'pty', 'x11', 'forward-agent'}
         chan_type = client.request.type
         kind = client.request.kind
-        if kind == 'session' and chan_type in supported:
-            logger.info("Request type `{}:{}`, dispatch to interactive mode".format(kind, chan_type))
-            try:
-                InteractiveServer(client).interact()
-            except Exception as e:
-                logger.error("Unexpected error occur: {}".format(e))
+        try:
+            if kind == 'session' and chan_type in supported:
+                logger.info("Dispatch client to interactive mode")
+                try:
+                    InteractiveServer(client).interact()
+                except IndexError as e:
+                    logger.error("Unexpected error occur: {}".format(e))
+            elif chan_type == 'subsystem':
+                while not client.closed:
+                    time.sleep(5)
+                logger.debug("SFTP session finished")
+            else:
+                msg = "Request type `{}:{}` not support now".format(kind, chan_type)
+                logger.error(msg)
+                client.send(msg)
+        finally:
             connection = Connection.get_connection(client.connection_id)
             connection.remove_client(client.id)
-        elif chan_type == 'subsystem':
-            pass
-        else:
-            msg = "Request type `{}:{}` not support now".format(kind, chan_type)
-            logger.info(msg)
-            client.send(msg)
 
     def shutdown(self):
         self.stop_evt.set()
