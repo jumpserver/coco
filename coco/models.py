@@ -33,7 +33,7 @@ class Connection(object):
     def __str__(self):
         return '<{} from {}>'.format(self.user, self.addr)
 
-    def new_client(self, tid):
+    def new_client(self, tid, chan=None):
         client = Client(
             tid=tid, user=self.user, addr=self.addr,
             login_from=self.login_from
@@ -107,7 +107,7 @@ class Client(object):
     ```
     """
 
-    def __init__(self, tid=None, user=None, addr=None, login_from=None):
+    def __init__(self, tid=None, user=None, addr=None, login_from=None, chan=None):
         if tid is None:
             tid = str(uuid.uuid4())
         self.id = tid
@@ -138,7 +138,8 @@ class Client(object):
 
     def close(self):
         logger.info("Client {} close".format(self))
-        self.chan.close()
+        if self.chan:
+            self.chan.close()
         return
 
     def __getattr__(self, item):
