@@ -125,8 +125,8 @@ class Client(object):
     def send(self, b):
         try:
             return self.chan.send(b)
-        except (OSError, EOFError) as e:
-            logger.error('Send to client <{}> error: {}'.format(self, e))
+        except (OSError, EOFError, socket.error) as e:
+            logger.error('Send to client {} error: {}'.format(self, e))
             return 0
 
     def send_unicode(self, s):
