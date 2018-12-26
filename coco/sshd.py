@@ -119,7 +119,7 @@ class SSHServer:
             else:
                 msg = "Request type `{}:{}` not support now".format(kind, chan_type)
                 logger.error(msg)
-                client.send(msg.encode())
+                client.send_unicode(msg)
         finally:
             connection = Connection.get_connection(client.connection_id)
             connection.remove_client(client.id)
