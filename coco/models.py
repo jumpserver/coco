@@ -125,7 +125,7 @@ class Client(object):
     def send(self, b):
         try:
             return self.chan.send(b)
-        except EOFError:
+        except (EOFError, OSError):
             return 0
 
     def send_unicode(self, s):
