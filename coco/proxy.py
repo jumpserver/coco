@@ -141,7 +141,7 @@ class ProxyServer:
                 self.system_user, self.asset, delay
             )
             self.client.send_unicode(msg)
-            while not self.connecting and delay > config['SSH_TIMEOUT']:
+            while self.connecting and delay < config['SSH_TIMEOUT']:
                 if 0 <= delay < 10:
                     self.client.send_unicode('\x08\x08\x08{:.1f}'.format(delay))
                 else:
