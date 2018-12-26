@@ -12,7 +12,6 @@ except ImportError:
     import selectors2 as selectors
 
 import paramiko
-from paramiko.ssh_exception import SSHException
 
 from .service import app_service
 from .config import config
