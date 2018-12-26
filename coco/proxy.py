@@ -103,6 +103,7 @@ class ProxyServer:
             server = self.get_ssh_server_conn()
         else:
             server = None
+        self.client.send(b'\r\n')
         self.connecting = False
         return server
 
@@ -148,6 +149,5 @@ class ProxyServer:
                     self.client.send_unicode('\x08\x08\x08\x08{:.1f}'.format(delay))
                 time.sleep(0.1)
                 delay += 0.1
-            self.client.send(b'\r\n')
         thread = threading.Thread(target=func)
         thread.start()
