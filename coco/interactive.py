@@ -226,7 +226,7 @@ class InteractiveServer:
 
     def _page_generator(self, assets):
         start, page = 0, 1
-        while True:
+        while not self.client.closed:
             _assets = assets[start:start+self.page_size]
             # 最后一页
             if page == self.total_pages:
@@ -302,7 +302,7 @@ class InteractiveServer:
         opt = net_input(self.client, prompt=':')
         if opt in ('p', 'P'):
             return PAGE_UP
-        elif opt in ('b', 'q'):
+        elif opt in ('b', 'q', None):
             return BACK
         elif opt and opt.isdigit() and self.results and 0 < int(opt) <= len(self.results):
             self.proxy(self.results[int(opt)-1])
