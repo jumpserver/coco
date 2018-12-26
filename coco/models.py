@@ -123,7 +123,10 @@ class Client(object):
         return self.chan.fileno()
 
     def send(self, b):
-        return self.chan.send(b)
+        try:
+            return self.chan.send(b)
+        except EOFError:
+            return 0
 
     def send_unicode(self, s):
         b = s.encode()
