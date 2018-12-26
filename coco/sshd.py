@@ -92,12 +92,12 @@ class SSHServer:
                 t.daemon = True
                 t.start()
             transport.close()
-        except (paramiko.SSHException, socket.timeout):
-            logger.warning("SSH negotiation failed")
+        except paramiko.SSHException as e:
+            logger.warning("SSH negotiation failed: {}".format(e))
         except EOFError as e:
             logger.warning("Handle connection EOF Error: {}".format(e))
         except Exception as e:
-            logger.error("Handle connection unexpect error occur: ".format(e))
+            logger.error("Unexpect error occur on handle connection: {}".format(e))
         finally:
             Connection.remove_connection(connection.id)
             sock.close()
