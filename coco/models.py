@@ -113,7 +113,7 @@ class Client(object):
         self.id = tid
         self.user = user
         self.addr = addr
-        self.chan = None
+        self.chan = chan
         self.request = Request()
         self.connection_id = None
         self.login_from = login_from
