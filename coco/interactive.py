@@ -43,7 +43,7 @@ class InteractiveServer:
         self.total_count = 0  # 分页展示中的资产总数量
         self.node_tree = None  # 授权节点树
         self.load_user_assets_from_cache()
-        self.get_user_assets_async()
+        self.get_user_assets_and_update_async()
         self.get_user_nodes_async()
 
     @property
@@ -162,10 +162,16 @@ class InteractiveServer:
             self.display_assets_paging(assets)
 
     def refresh_assets_nodes(self):
-        self.get_user_assets_async()
+        self.get_user_assets_and_update_async()
         self.get_user_nodes_async()
 
+    def wait_until_assets_load(self):
+        while self.assets is None and \
+                self.get_user_assets_finished is False:
+            time.sleep(0.2)
+
     def search_assets(self, q):
+        self.wait_until_assets_load()
         result = []
 
         # 所有的
@@ -194,10 +200,8 @@ class InteractiveServer:
     #
 
     def display_assets(self):
-        while self.assets is None and not self.get_user_assets_finished:
-            time.sleep(0.5)
-        if self.assets:
-            self.display_assets_paging(self.assets)
+        self.wait_until_assets_load()
+        self.display_assets_paging(self.assets)
 
     def display_assets_paging(self, assets):
         if len(assets) == 0:
@@ -318,17 +322,14 @@ class InteractiveServer:
         if assets:
             self.total_asset_count = len(assets)
 
-    def set_user_assets_cache(self, assets):
-        self.__class__._user_assets_cached[self.client.user.id] = assets
-
-    def get_user_assets_async(self):
-        thread = threading.Thread(target=self.get_user_assets)
+    def get_user_assets_and_update_async(self):
+        thread = threading.Thread(target=self.get_user_assets_and_update)
         thread.start()
 
-    def get_user_assets(self):
+    def get_user_assets_and_update(self):
         assets = app_service.get_user_assets(self.client.user)
         assets = self.filter_system_users(assets)
-        self.set_user_assets_cache(assets)
+        self.__class__._user_assets_cached[self.client.user.id] = assets
         self.load_user_assets_from_cache()
         self.get_user_assets_finished = True
     #
