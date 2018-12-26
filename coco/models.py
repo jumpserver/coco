@@ -125,7 +125,7 @@ class Client(object):
     def send(self, b):
         try:
             return self.chan.send(b)
-        except Exception as e:
+        except (OSError, EOFError) as e:
             logger.error('Send to client <{}> error: {}'.format(self, e))
             return 0
 
