@@ -166,10 +166,12 @@ class Session:
         self.sel.register(self.server, selectors.EVENT_READ)
         self.sel.register(self.stop_evt, selectors.EVENT_READ)
         self.sel.register(self.client.change_size_evt, selectors.EVENT_READ)
-        if self.client.closed:
-            return
         while not self.is_finished:
             events = self.sel.select(timeout=60)
+            if self.client.closed:
+                break
+            if self.server.closed:
+                break
             for sock in [key.fileobj for key, _ in events]:
                 data = sock.recv(BUF_SIZE)
                 if sock == self.server:
