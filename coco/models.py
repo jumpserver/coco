@@ -58,7 +58,7 @@ class Connection(object):
             return
         client.close()
         self.__class__.clients_num -= 1
-        del self.clients[tid]
+        self.clients.pop(tid, None)
         logger.info("Client {} leave, total {} now".format(
             client, self.__class__.clients_num
         ))
@@ -83,7 +83,7 @@ class Connection(object):
         if not connection:
             return
         connection.close()
-        del cls.connections[cid]
+        cls.connections.pop(cid, None)
 
     @classmethod
     def get_connection(cls, cid):
@@ -123,13 +123,7 @@ class Client(object):
         return self.chan.fileno()
 
     def send(self, b):
-        if isinstance(b, str):
-            b = b.encode("utf-8")
-        try:
-            return self.chan.send(b)
-        except OSError:
-            self.close()
-            return
+        return self.chan.send(b)
 
     @property
     def closed(self):
@@ -256,7 +250,7 @@ class BaseServer(object):
                 break
             elif action == rule.DENY:
                 msg = _("Command `{}` is forbidden ........").format(cmd)
-                self.command_forbidden(msg)
+                data = self.command_forbidden(msg)
                 break
         return data
 
@@ -356,7 +350,7 @@ class BaseServer(object):
         return self.chan.fileno()
 
     def close(self):
-        logger.info("Closed server {}".format(self))
+        logger.info("Close server to {}".format(self))
         self.r_input_output_data_filter(b'')
         self.chan.close()
 
@@ -399,8 +393,10 @@ class Server(BaseServer):
 
     def close(self):
         super(Server, self).close()
-        self.chan.transport.close()
-        logger.debug("Backend server closed")
+        for i in range(5):
+            if not self.chan.transport.is_alive():
+                break
+            self.chan.transport.close()
         if self.sock:
             self.sock.transport.close()
 

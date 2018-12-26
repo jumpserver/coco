@@ -300,7 +300,8 @@ def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
     """
     input_data = []
     parser = TtyIOParser()
-    client.send(wrap_with_line_feed(prompt, before=before, after=after))
+    msg = wrap_with_line_feed(prompt, before=before, after=after)
+    client.send(msg.encode())
 
     while True:
         data = client.recv(1)
@@ -339,7 +340,7 @@ def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
             return option.strip()
         else:
             if sensitive:
-                client.send(len(data) * '*')
+                client.send((len(data) * '*').encode())
             else:
                 client.send(data)
             input_data.append(data)
@@ -460,7 +461,6 @@ def ignore_error(func):
             return resp
         except Exception as e:
             logger.error("Error occur: {} {}".format(func.__name__, e))
-            raise e
     return wrapper
 
 
