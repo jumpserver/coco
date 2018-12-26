@@ -94,12 +94,12 @@ class InteractiveServer:
             _("{T}8) Enter {green}r{end} to refresh your assets and nodes.{R}"),
             _("{T}0) Enter {green}q{end} exit.{R}")
         ]
-        self.client.send(header.format(
+        self.client.send_unicode(header.format(
             title="\033[1;32m", user=self.client.user, end="\033[0m",
             T='\t', R='\r\n\r'
         ))
         for item in menu:
-            self.client.send(item.format(
+            self.client.send_unicode(item.format(
                 green="\033[32m", end="\033[0m",
                 T='\t', R='\r\n\r'
             ))
@@ -112,7 +112,7 @@ class InteractiveServer:
             for i in f:
                 if i.decode('utf-8').startswith('#'):
                     continue
-                self.client.send(i.decode('utf-8').replace('\n', '\r\n'))
+                self.client.send_unicode(i.decode('utf-8').replace('\n', '\r\n'))
 
     def dispatch(self, opt):
         if opt is None:
@@ -152,7 +152,7 @@ class InteractiveServer:
             asset = assets[0]
             if asset.protocol == "rdp" \
                     or asset.platform.lower().startswith("windows"):
-                self.client.send(warning(
+                self.client.send_unicode(warning(
                     _("Terminal does not support login rdp, "
                       "please use web terminal to access"))
                 )
@@ -201,7 +201,7 @@ class InteractiveServer:
 
     def display_assets_paging(self, assets):
         if len(assets) == 0:
-            self.client.send(wr(_("No Assets"), before=0))
+            self.client.send_unicode(wr(_("No Assets"), before=0))
             return
         self.total_count = len(assets)
 
@@ -270,15 +270,15 @@ class InteractiveServer:
         )
         size_list.append(comment_length)
         fake_data.append(_("Comment"))
-        self.client.send(wr(title(format_with_zh(size_list, *fake_data))))
+        self.client.send_unicode(wr(title(format_with_zh(size_list, *fake_data))))
         for index, asset in enumerate(self.results, 1):
             data = [
                 index, asset.hostname, asset.ip,
                 asset.system_users_name_list, asset.comment
             ]
-            self.client.send(wr(format_with_zh(size_list, *data)))
+            self.client.send_unicode(wr(format_with_zh(size_list, *data)))
 
-        self.client.send(wr(title(
+        self.client.send_unicode(wr(title(
             _("Page: {}, Count: {}, Total Page: {}, Total Count: {}").format(
                 self.page, len(self.results), self.total_pages,
                 self.total_count)), before=1)
@@ -286,13 +286,13 @@ class InteractiveServer:
 
     def display_page_bottom_prompt(self):
         msg = wr(_('Tips: Enter the asset ID and log directly into the asset.'), before=1)
-        self.client.send(msg)
+        self.client.send_unicode(msg)
         prompt_page_up = _("Page up: P/p")
         prompt_page_down = _("Page down: Enter|N/n")
         prompt_back = _("BACK: b/q")
         prompts = [prompt_page_up, prompt_page_down, prompt_back]
         prompt = '\t'.join(prompts)
-        self.client.send(wr(prompt, before=1))
+        self.client.send_unicode(wr(prompt, before=1))
 
     def get_user_action(self):
         opt = net_input(self.client, prompt=':')
@@ -365,14 +365,14 @@ class InteractiveServer:
             self.get_user_nodes()
 
         if not self.nodes:
-            self.client.send(wr(_('No Nodes'), before=0))
+            self.client.send_unicode(wr(_('No Nodes'), before=0))
             return
 
         self.node_tree.show(key=lambda node: node.identifier)
-        self.client.send(wr(title(_("Node: [ ID.Name(Asset amount) ]")), before=0))
-        self.client.send(wr(self.node_tree._reader.replace('\n', '\r\n'), before=0))
+        self.client.send_unicode(wr(title(_("Node: [ ID.Name(Asset amount) ]")), before=0))
+        self.client.send_unicode(wr(self.node_tree._reader.replace('\n', '\r\n'), before=0))
         prompt = _("Tips: Enter g+NodeID to display the host under the node, such as g1")
-        self.client.send(wr(title(prompt), before=1))
+        self.client.send_unicode(wr(title(prompt), before=1))
 
     def display_node_assets(self, _id):
         if self.nodes is None:
@@ -380,7 +380,7 @@ class InteractiveServer:
 
         if _id > len(self.nodes) or _id <= 0:
             msg = wr(warning(_("There is no matched node, please re-enter")))
-            self.client.send(msg)
+            self.client.send_unicode(msg)
             self.display_nodes_as_tree()
             return
 
@@ -409,7 +409,7 @@ class InteractiveServer:
             return None
 
         while True:
-            self.client.send(wr(_("Select a login:: "), after=1))
+            self.client.send_unicode(wr(_("Select a login:: "), after=1))
             self.display_system_users(system_users)
             opt = net_input(self.client, prompt="ID> ")
             if opt.isdigit() and len(system_users) > int(opt):
@@ -423,7 +423,7 @@ class InteractiveServer:
 
     def display_system_users(self, system_users):
         for index, system_user in enumerate(system_users):
-            self.client.send(wr("{} {}".format(index, system_user.name)))
+            self.client.send_unicode(wr("{} {}".format(index, system_user.name)))
 
     #
     # Proxy
@@ -432,7 +432,7 @@ class InteractiveServer:
     def proxy(self, asset):
         system_user = self.choose_system_user(asset.system_users_granted)
         if system_user is None:
-            self.client.send(_("No system user"))
+            self.client.send_unicode(_("No system user"))
             return
         forwarder = ProxyServer(self.client, asset, system_user)
         forwarder.proxy()

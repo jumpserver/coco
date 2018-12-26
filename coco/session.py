@@ -62,7 +62,7 @@ class Session:
             session.close()
             app_service.finish_session(session.to_json())
             app_service.finish_replay(sid)
-            del cls.sessions[sid]
+            cls.sessions.pop(sid, None)
 
     def add_watcher(self, watcher, silent=False):
         """
@@ -74,7 +74,7 @@ class Session:
         """
         logger.debug("Session add watcher: {} -> {} ".format(self.id, watcher))
         if not silent:
-            watcher.send("Welcome to watch session {}\r\n".format(self.id).encode())
+            watcher.send_unicode("Welcome to watch session {}\r\n".format(self.id))
         self.sel.register(watcher, selectors.EVENT_READ)
         self._watchers.append(watcher)
 
@@ -146,7 +146,7 @@ class Session:
         if not msg:
             msg = _("Terminated by administrator")
         try:
-            self.client.send(wr(warn(msg), before=1))
+            self.client.send_unicode(wr(warn(msg), before=1))
         except OSError:
             pass
         self.stop_evt.set()
@@ -166,6 +166,8 @@ class Session:
         self.sel.register(self.server, selectors.EVENT_READ)
         self.sel.register(self.stop_evt, selectors.EVENT_READ)
         self.sel.register(self.client.change_size_evt, selectors.EVENT_READ)
+        if self.client.closed:
+            return
         while not self.is_finished:
             events = self.sel.select(timeout=60)
             for sock in [key.fileobj for key, _ in events]:
@@ -202,7 +204,6 @@ class Session:
         logger.debug("Resize server chan size {}*{}".format(width, height))
         self.server.resize_pty(width=width, height=height)
 
-    @ignore_error
     def close(self):
         if self.closed:
             logger.debug("Session has been closed: {} ".format(self.id))

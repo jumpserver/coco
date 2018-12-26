@@ -159,7 +159,7 @@ class Coco:
                             continue
                         # Session已正常关闭
                         if s.closed:
-                            Session.remove_session(s)
+                            Session.remove_session(s.id)
                         else:
                             check_session_idle_too_long(s)
                 except Exception as e:
@@ -182,11 +182,8 @@ class Coco:
                 self.run_httpd()
 
             signal.signal(signal.SIGTERM, lambda x, y: self.shutdown())
-            while True:
-                if self.stop_evt.is_set():
-                    print("Coco receive term signal, exit")
-                    break
-                time.sleep(3)
+            self.lock.acquire()
+            self.lock.acquire()
         except KeyboardInterrupt:
             self.shutdown()
 
@@ -204,8 +201,8 @@ class Coco:
         logger.info("Grace shutdown the server")
         for connection in Connection.connections.values():
             connection.close()
-        time.sleep(1)
         self.heartbeat()
+        self.lock.release()
         self.stop_evt.set()
         self.sshd.shutdown()
         self.httpd.shutdown()
