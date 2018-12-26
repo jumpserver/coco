@@ -48,7 +48,7 @@ class ProxyServer:
             msg = 'System user <{}> and asset <{}> protocol are inconsistent.'.format(
                 self.system_user.name, self.asset.hostname
             )
-            self.client.send(warning(wr(msg, before=1, after=0)).encode())
+            self.client.send_unicode(warning(wr(msg, before=1, after=0)))
             return False
         return True
 
@@ -95,7 +95,7 @@ class ProxyServer:
         logger.info("Connect to {}:{} ...".format(self.asset.hostname, self.asset.port))
         self.send_connecting_message()
         if not self.validate_permission():
-            self.client.send(warning(_('No permission')).encode())
+            self.client.send_unicode(warning(_('No permission')))
             server = None
         elif self.system_user.protocol == self.asset.protocol == 'telnet':
             server = self.get_telnet_server_conn()
@@ -110,7 +110,7 @@ class ProxyServer:
         telnet = TelnetConnection(self.asset, self.system_user, self.client)
         sock, msg = telnet.get_socket()
         if not sock:
-            self.client.send(warning(wr(msg, before=1, after=0)).encode())
+            self.client.send_unicode(warning(wr(msg, before=1, after=0)))
             server = None
         else:
             server = TelnetServer(sock, self.asset, self.system_user)
@@ -127,7 +127,7 @@ class ProxyServer:
             width=width, height=height
         )
         if not chan:
-            self.client.send(warning(wr(msg, before=1, after=0)).encode())
+            self.client.send_unicode(warning(wr(msg, before=1, after=0)))
             server = None
         else:
             server = Server(chan, sock, self.asset, self.system_user)
@@ -140,12 +140,12 @@ class ProxyServer:
             msg = _('Connecting to {}@{} {:.1f}').format(
                 self.system_user, self.asset, delay
             )
-            self.client.send(msg.encode())
+            self.client.send_unicode(msg)
             while not self.connecting and delay > config['SSH_TIMEOUT']:
                 if 0 <= delay < 10:
-                    self.client.send('\x08\x08\x08{:.1f}'.format(delay).encode())
+                    self.client.send_unicode('\x08\x08\x08{:.1f}'.format(delay))
                 else:
-                    self.client.send('\x08\x08\x08\x08{:.1f}'.format(delay).encode())
+                    self.client.send_unicode('\x08\x08\x08\x08{:.1f}'.format(delay))
                 time.sleep(0.1)
                 delay += 0.1
             self.client.send(b'\r\n')

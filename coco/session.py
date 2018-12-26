@@ -146,7 +146,7 @@ class Session:
         if not msg:
             msg = _("Terminated by administrator")
         try:
-            self.client.send(wr(warn(msg), before=1).encode())
+            self.client.send_unicode(wr(warn(msg), before=1))
         except OSError:
             pass
         self.stop_evt.set()

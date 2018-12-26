@@ -125,6 +125,10 @@ class Client(object):
     def send(self, b):
         return self.chan.send(b)
 
+    def send_unicode(self, s):
+        b = s.encode()
+        self.send(b)
+
     @property
     def closed(self):
         return self.chan.closed
