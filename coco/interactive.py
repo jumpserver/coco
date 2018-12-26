@@ -304,7 +304,7 @@ class InteractiveServer:
             return PAGE_UP
         elif opt in ('b', 'q'):
             return BACK
-        elif opt.isdigit() and self.results and 0 < int(opt) <= len(self.results):
+        elif opt and opt.isdigit() and self.results and 0 < int(opt) <= len(self.results):
             self.proxy(self.results[int(opt)-1])
             return BACK
         else:
