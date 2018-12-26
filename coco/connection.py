@@ -71,9 +71,7 @@ class SSHConnection:
                 )
             transport = ssh.get_transport()
             transport.set_keepalive(300)
-        except (paramiko.AuthenticationException,
-                paramiko.BadAuthenticationType,
-                SSHException) as e:
+        except Exception as e:
             password_short = "None"
             key_fingerprint = "None"
             if system_user.password:
@@ -85,12 +83,10 @@ class SSHConnection:
                 )
 
             logger.error("Connect {}@{}:{} auth failed, password: \
-                                 {}, key: {}".format(
+                          {}, key: {}".format(
                 system_user.username, asset.ip, asset.port,
                 password_short, key_fingerprint,
             ))
-            return None, None, error + '\n' + str(e)
-        except (socket.error, socket.timeout) as e:
             return None, None, error + '\n' + str(e)
         return ssh, sock, None
 
@@ -134,48 +130,15 @@ class SSHConnection:
                             password=gateway.password,
                             pkey=gateway.private_key_obj,
                             timeout=config['SSH_TIMEOUT'])
-            except (paramiko.AuthenticationException,
-                    paramiko.BadAuthenticationType,
-                    SSHException, socket.error):
+            except:
                 continue
-            sock = ssh.get_transport().open_channel(
-                'direct-tcpip', (asset.ip, asset.port), ('127.0.0.1', 0)
-            )
-            break
-        return sock
-
-    def get_proxy_sock(self, asset):
-        sock = None
-        domain = app_service.get_domain_detail_with_gateway(
-            asset.domain
-        )
-        if not domain.has_ssh_gateway():
-            return None
-        for i in domain.gateways:
-            gateway = domain.random_ssh_gateway()
-            proxy_command = [
-                "ssh", "-o", "StrictHostKeyChecking=no",
-                "-p", str(gateway.port),
-                "{}@{}".format(gateway.username, gateway.ip),
-                "-W", "{}:{}".format(asset.ip, asset.port), "-q",
-            ]
-
-            if gateway.password:
-                proxy_command.insert(0, "sshpass -p {}".format(gateway.password))
-
-            if gateway.private_key:
-                gateway.set_key_dir(os.path.join(config['ROOT_PATH'], 'keys'))
-                proxy_command.append("-i {}".format(gateway.private_key_file))
-            proxy_command = ' '.join(proxy_command)
-
             try:
-                sock = paramiko.ProxyCommand(proxy_command)
+                sock = ssh.get_transport().open_channel(
+                    'direct-tcpip', (asset.ip, asset.port), ('127.0.0.1', 0)
+                )
                 break
-            except (paramiko.AuthenticationException,
-                    paramiko.BadAuthenticationType, SSHException,
-                    TimeoutError) as e:
-                logger.error(e)
-                continue
+            except:
+                return None
         return sock
 
 
@@ -235,7 +198,6 @@ class TelnetConnection:
                                 self.asset.hostname
                             )
                             logger.info(msg)
-                            self.client.send(b'\r\n' + data)
                             return self.sock, None
                         elif result is False:
                             self.sock.close()

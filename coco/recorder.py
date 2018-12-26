@@ -100,7 +100,7 @@ class ReplayRecorder(object):
             return False
 
         if app_service.finish_replay(session_id):
-            logger.info(
+            logger.debug(
                 "Success finished session {}'s replay ".format(session_id)
             )
             return True
@@ -146,7 +146,9 @@ class CommandRecorder(object):
 
     def push_to_server_async(self):
         def func():
-            while not self.stop_evt.is_set():
+            while True:
+                if self.stop_evt.is_set() and self.queue.empty():
+                    break
                 data_set = self.queue.mget(self.batch_size, timeout=self.timeout)
                 size = self.queue.qsize()
                 if size > 0:
@@ -166,7 +168,7 @@ class CommandRecorder(object):
         pass
 
     def session_end(self, session_id):
-        pass
+        self.stop_evt.set()
 
 
 def get_command_recorder():

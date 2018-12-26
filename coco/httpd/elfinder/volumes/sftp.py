@@ -66,7 +66,7 @@ class SFTPVolume(BaseVolume):
             data["dirs"] = 1
 
         if self._is_root(path):
-            del data['phash']
+            data.pop('phash', None)
             data['name'] = self.root_name
             data['locked'] = 1
             data['volume_id'] = self.get_volume_id()
