@@ -305,7 +305,7 @@ def net_input(client, prompt='Opt> ', sensitive=False, before=0, after=0):
 
     while True:
         data = client.recv(1)
-        if len(data) == 0:
+        if len(data) == 0 or client.closed:
             break
         # Client input backspace
         if data in char.BACKSPACE_CHAR:
