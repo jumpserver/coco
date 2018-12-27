@@ -86,7 +86,7 @@ class SSHConnection:
                 system_user.username, asset.ip, asset.port,
                 password_short, key_fingerprint,
             ))
-            return None, None, error + '\n' + str(e)
+            return None, None, error + '\r\n' + str(e)
         return ssh, sock, None
 
     def get_transport(self, asset, system_user):
@@ -166,7 +166,12 @@ class TelnetConnection:
         logger.debug('Get telnet server socket. {}'.format(self.client.user))
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(10)
-        self.sock.connect((self.asset.ip, self.asset.port))
+        try:
+            self.sock.connect((self.asset.ip, self.asset.port))
+        except ConnectionRefusedError:
+            msg = 'Connection to telnet server failed.'
+            logger.error(msg)
+            return None, msg
         # Send SGA and ECHO options to Telnet Server
         self.sock.send(telnetlib.IAC + telnetlib.DO + telnetlib.SGA)
         self.sock.send(telnetlib.IAC + telnetlib.DO + telnetlib.ECHO)
