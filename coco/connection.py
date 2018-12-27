@@ -48,7 +48,7 @@ class SSHConnection:
         if asset.domain:
             sock = self.get_proxy_sock_v2(asset)
             if not sock:
-                error = 'Connect gateway failed;'
+                error = 'Connect gateway failed.'
                 logger.error(error)
 
         try:
@@ -86,7 +86,8 @@ class SSHConnection:
                 system_user.username, asset.ip, asset.port,
                 password_short, key_fingerprint,
             ))
-            return None, None, error + '\r\n' + str(e)
+            error += '\r\n' + str(e) if error else str(e)
+            return None, None, error
         return ssh, sock, None
 
     def get_transport(self, asset, system_user):
@@ -168,8 +169,8 @@ class TelnetConnection:
         self.sock.settimeout(10)
         try:
             self.sock.connect((self.asset.ip, self.asset.port))
-        except ConnectionRefusedError:
-            msg = 'Connection to telnet server failed.'
+        except Exception as e:
+            msg = 'Connect telnet server failed. \r\n{}'.format(e)
             logger.error(msg)
             return None, msg
         # Send SGA and ECHO options to Telnet Server
