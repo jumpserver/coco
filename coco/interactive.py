@@ -237,7 +237,7 @@ class InteractiveServer:
 
                 # 退出
                 if action == BACK:
-                    return None, None
+                    break
                 # 不分页, 不对页码和下标做更改
                 elif not self.need_paging:
                     continue
@@ -253,6 +253,7 @@ class InteractiveServer:
                 else:
                     page += 1
                     start += len(_assets)
+        return None, None
 
     def display_a_page_assets(self, page, assets):
         self.client.send(char.CLEAR_CHAR)
