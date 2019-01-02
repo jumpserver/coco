@@ -254,7 +254,7 @@ class InteractiveServer:
                     page += 1
                     start += len(_assets)
         return None, None
-    
+
     def display_a_page_assets(self, page, assets):
         self.client.send(char.CLEAR_CHAR)
         self.page = page
