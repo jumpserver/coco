@@ -8,19 +8,18 @@ import threading
 import time
 import random
 import multiprocessing
-from multiprocessing.reduction import recv_handle, send_handle, DupFd
+from multiprocessing.reduction import recv_handle, send_handle
 
 import paramiko
 
-from coco.utils import ssh_key_gen, get_logger
-from coco.interface import SSHInterface
-from coco.interactive import InteractiveServer
-from coco.models import Connection
-from coco.sftp import SFTPServer
-from coco.config import config
+from .utils import ssh_key_gen, get_logger
+from .interface import SSHInterface
+from .interactive import InteractiveServer
+from .models import Connection
+from .sftp import SFTPServer
+from .config import config
 
 logger = get_logger(__file__)
-current_socks = []
 BACKLOG = 5
 
 
@@ -53,7 +52,7 @@ class SSHServer:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
         sock.bind((host, port))
         sock.listen(BACKLOG)
-        while True:
+        while not self.stop_evt.is_set():
             try:
                 client, addr = sock.accept()
                 worker = random.choice(workers)
@@ -63,7 +62,7 @@ class SSHServer:
 
     def start_worker(self, in_p, out_p):
         out_p.close()
-        while True:
+        while not self.stop_evt.is_set():
             fd = recv_handle(in_p)
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, fileno=fd)
             # print("Recv sock: {}".format(sock))
@@ -95,12 +94,10 @@ class SSHServer:
         server_p.join()
         c1.close()
         c2.close()
-        print("Exit")
+        print("Exit ssh server process")
 
     def handle_connection(self, sock, addr):
         logger.debug("Handle new connection from: {}".format(addr))
-        time.sleep(4)
-        print("Sock is closed: {} 2".format(sock._closed))
         transport = paramiko.Transport(sock, gss_kex=False)
         try:
             transport.load_server_moduli()
