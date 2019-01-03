@@ -124,7 +124,8 @@ class SSHServer:
                 client.send_unicode(msg)
         finally:
             connection = Connection.get_connection(client.connection_id)
-            connection.remove_client(client.id)
+            if connection:
+                connection.remove_client(client.id)
 
     def shutdown(self):
         self.stop_evt.set()
