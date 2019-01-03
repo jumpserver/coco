@@ -6,6 +6,9 @@ import os
 import socket
 import threading
 import time
+import random
+import multiprocessing
+from multiprocessing.reduction import recv_handle, send_handle, DupFd
 
 import paramiko
 
@@ -17,13 +20,14 @@ from coco.sftp import SFTPServer
 from coco.config import config
 
 logger = get_logger(__file__)
+current_socks = []
 BACKLOG = 5
 
 
 class SSHServer:
 
     def __init__(self):
-        self.stop_evt = threading.Event()
+        self.stop_evt = multiprocessing.Event()
         self.workers = []
         self.pipe = None
 
@@ -40,7 +44,8 @@ class SSHServer:
         with open(key_path, 'w') as f:
             f.write(ssh_key)
 
-    def run(self):
+    def start_master(self, in_p, out_p, workers):
+        in_p.close()
         host = config["BIND_HOST"]
         port = config["SSHD_PORT"]
         print('Starting ssh server at {}:{}'.format(host, port))
@@ -48,17 +53,54 @@ class SSHServer:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
         sock.bind((host, port))
         sock.listen(BACKLOG)
-        while not self.stop_evt.is_set():
+        while True:
             try:
                 client, addr = sock.accept()
-                t = threading.Thread(target=self.handle_connection, args=(client, addr))
-                t.daemon = True
-                t.start()
+                worker = random.choice(workers)
+                send_handle(out_p, client.fileno(), worker.pid)
             except IndexError as e:
                 logger.error("Start SSH server error: {}".format(e))
 
+    def start_worker(self, in_p, out_p):
+        out_p.close()
+        while True:
+            fd = recv_handle(in_p)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, fileno=fd)
+            # print("Recv sock: {}".format(sock))
+            addr = sock.getpeername()
+            thread = threading.Thread(
+                target=self.handle_connection, args=(sock, addr)
+            )
+            thread.daemon = True
+            thread.start()
+
+    def start_workers(self, in_p, out_p):
+        workers = []
+        for i in range(4):
+            worker = multiprocessing.Process(target=self.start_worker, args=(in_p, out_p))
+            worker.daemon = True
+            workers.append(worker)
+            worker.start()
+        return workers
+
+    def run(self):
+        c1, c2 = multiprocessing.Pipe()
+        self.pipe = (c1, c2)
+        workers = self.start_workers(c1, c2)
+        self.workers = workers
+        server_p = multiprocessing.Process(
+            target=self.start_master, args=(c1, c2, workers), name='master'
+        )
+        server_p.start()
+        server_p.join()
+        c1.close()
+        c2.close()
+        print("Exit")
+
     def handle_connection(self, sock, addr):
         logger.debug("Handle new connection from: {}".format(addr))
+        time.sleep(4)
+        print("Sock is closed: {} 2".format(sock._closed))
         transport = paramiko.Transport(sock, gss_kex=False)
         try:
             transport.load_server_moduli()
@@ -71,6 +113,7 @@ class SSHServer:
         )
         connection = Connection.new_connection(addr=addr, sock=sock)
         server = SSHInterface(connection)
+        print("Sock is closed: {} 3".format(transport.sock._closed))
         try:
             transport.start_server(server=server)
             while transport.is_active():
@@ -94,9 +137,9 @@ class SSHServer:
             transport.close()
         except paramiko.SSHException as e:
             logger.warning("SSH negotiation failed: {}".format(e))
-        except EOFError as e:
+        except IndexError as e:
             logger.warning("Handle connection EOF Error: {}".format(e))
-        except Exception as e:
+        except SyntaxError as e:
             logger.error("Unexpect error occur on handle connection: {}".format(e))
         finally:
             Connection.remove_connection(connection.id)
@@ -129,8 +172,3 @@ class SSHServer:
 
     def shutdown(self):
         self.stop_evt.set()
-
-
-if __name__ == '__main__':
-    ssh_server = SSHServer()
-    ssh_server.run()

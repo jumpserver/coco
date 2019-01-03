@@ -13,7 +13,7 @@ except ImportError:
 from .utils import get_logger, wrap_with_warning as warn, \
     wrap_with_line_feed as wr, ugettext as _, ignore_error
 from .service import app_service
-from .struct import SelectEvent
+from .utils import SelectEvent
 from .recorder import get_recorder
 
 BUF_SIZE = 1024

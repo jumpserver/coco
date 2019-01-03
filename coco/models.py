@@ -5,7 +5,7 @@ import uuid
 import socket
 
 from .service import app_service
-from .struct import SizedList, SelectEvent
+from .utils import SizedList, SelectEvent
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
     ugettext as _
 from . import char, utils
