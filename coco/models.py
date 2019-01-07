@@ -360,7 +360,8 @@ class BaseServer(object):
 
     def close(self):
         logger.info("Close server to {}".format(self))
-        self.r_input_output_data_filter(b'')
+        self.s_input_state_filter(b'')
+        self.s_parse_input_output_filter(b'')
         self.chan.close()
 
     def __getattr__(self, item):
