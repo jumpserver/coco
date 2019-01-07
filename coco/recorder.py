@@ -117,14 +117,6 @@ class CommandRecorder(object):
     storage = None
     _cache = []
 
-    def __new__(cls, *args, **kwargs):
-        if cls._cache:
-            return cls._cache[0]
-        else:
-            self = super(CommandRecorder, cls).__new__(cls, *args, **kwargs)
-            cls._cache.append(self)
-            return self
-
     def __init__(self):
         super(CommandRecorder, self).__init__()
         self.queue = MemoryQueue()
