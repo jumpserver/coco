@@ -25,9 +25,8 @@ for d in dirs:
 from coco import Coco
 
 try:
-    from conf import config
+    from coco.conf import config
 except ImportError:
-    print("Please prepare config file `cp conf_example.py conf.py`")
     sys.exit(1)
 
 

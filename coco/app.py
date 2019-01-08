@@ -9,7 +9,7 @@ import threading
 import json
 import signal
 
-from .config import config
+from .conf import config
 from .sshd import SSHServer
 from .httpd import HttpServer
 from .tasks import TaskHandler

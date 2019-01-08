@@ -11,7 +11,7 @@ import time
 from treelib import Tree
 
 from . import char
-from .config import config
+from .conf import config
 from .utils import wrap_with_line_feed as wr, wrap_with_title as title, \
     wrap_with_warning as warning, is_obj_attr_has, is_obj_attr_eq, \
     sort_assets, ugettext as _, get_logger, net_input, format_with_zh, \

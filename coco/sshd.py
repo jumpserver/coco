@@ -14,7 +14,7 @@ from coco.interface import SSHInterface
 from coco.interactive import InteractiveServer
 from coco.models import Connection
 from coco.sftp import SFTPServer
-from coco.config import config
+from coco.conf import config
 
 logger = get_logger(__file__)
 BACKLOG = 5

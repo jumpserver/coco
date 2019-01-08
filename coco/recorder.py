@@ -12,7 +12,7 @@ from copy import deepcopy
 
 import jms_storage
 
-from .config import config
+from .conf import config
 from .utils import get_logger, Singleton
 from .struct import MemoryQueue
 from .service import app_service
