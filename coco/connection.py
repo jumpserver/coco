@@ -14,7 +14,7 @@ except ImportError:
 import paramiko
 
 from .service import app_service
-from .config import config
+from .conf import config
 from .utils import get_logger, get_private_key_fingerprint
 
 logger = get_logger(__file__)

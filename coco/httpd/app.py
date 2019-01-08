@@ -6,7 +6,7 @@ from flask_socketio import SocketIO
 from flask import Flask
 
 from coco.utils import get_logger
-from coco.config import config
+from coco.conf import config
 from coco.httpd.ws import ProxyNamespace, ElfinderNamespace
 
 logger = get_logger(__file__)

@@ -10,7 +10,7 @@ from ..models import Connection, WSProxy
 from ..proxy import ProxyServer
 from ..utils import get_logger
 from ..service import app_service
-from ..config import config
+from ..conf import config
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)

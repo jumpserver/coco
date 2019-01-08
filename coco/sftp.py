@@ -8,7 +8,7 @@ from paramiko.sftp import SFTP_PERMISSION_DENIED, SFTP_NO_SUCH_FILE, \
     SFTP_FAILURE, SFTP_EOF, SFTP_CONNECTION_LOST
 
 from coco.utils import get_logger
-from .config import config
+from .conf import config
 from .service import app_service
 from .connection import SSHConnection
 

@@ -5,7 +5,7 @@
 import os
 import logging
 from logging.config import dictConfig
-from .config import config as app_config
+from .conf import config as app_config
 
 
 def create_logger():

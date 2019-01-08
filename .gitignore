@@ -9,3 +9,4 @@ conf.py
 host_rsa_key
 sessions/*
 coco.pid
+config.yml
