@@ -5,7 +5,6 @@ env/
 .access_key
 *.log
 logs/*
-conf.py
 host_rsa_key
 sessions/*
 coco.pid
