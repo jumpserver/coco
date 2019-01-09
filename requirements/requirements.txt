@@ -43,4 +43,4 @@ wcwidth==0.1.7
 eventlet==0.24.1
 Werkzeug==0.14.1
 treelib==1.5.3     
-
+pyyaml==3.13

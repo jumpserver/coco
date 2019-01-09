@@ -317,7 +317,7 @@ defaults = {
     'COCO_ACCESS_KEY': '',
     'ACCESS_KEY_FILE': access_key_path,
     'SECRET_KEY': 'SDK29K03%MM0ksf&#2',
-    'LOG_LEVEL': 'DEBUG',
+    'LOG_LEVEL': 'INFO',
     'LOG_DIR': os.path.join(root_path, 'logs'),
     'SESSION_DIR': os.path.join(root_path, 'sessions'),
     'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
