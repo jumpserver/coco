@@ -31,7 +31,11 @@ class SSHServer:
     def host_key(self):
         host_key_path = os.path.join(config['ROOT_PATH'], 'keys', 'host_rsa_key')
         if not os.path.isfile(host_key_path):
-            self.gen_host_key(host_key_path)
+            if config.HOST_KEY:
+                with open(host_key_path, 'w') as f:
+                    f.write(config.HOST_KEY)
+            else:
+                self.gen_host_key(host_key_path)
         return paramiko.RSAKey(filename=host_key_path)
 
     @staticmethod

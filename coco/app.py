@@ -8,6 +8,7 @@ import time
 import threading
 import json
 import signal
+import copy
 
 from .conf import config
 from .sshd import SSHServer
@@ -59,10 +60,13 @@ class Coco:
     @ignore_error
     def load_extra_conf_from_server():
         configs = app_service.load_config_from_server()
-        logger.debug("Loading config from server: {}".format(
-            json.dumps(configs)
-        ))
         config.update(configs)
+
+        tmp = copy.deepcopy(configs)
+        tmp['HOST_KEY'] = tmp['HOST_KEY'][32:50] + '...'
+        logger.debug("Loading config from server: {}".format(
+            json.dumps(tmp)
+        ))
 
     def keep_load_extra_conf(self):
         def func():
