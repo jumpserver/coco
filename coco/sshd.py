@@ -29,7 +29,7 @@ class SSHServer:
 
     @property
     def host_key(self):
-        host_key_path = os.path.join(config['ROOT_PATH'], 'keys', 'host_rsa_key')
+        host_key_path = config['HOST_KEY_FILE']
         if not os.path.isfile(host_key_path):
             if config.HOST_KEY:
                 with open(host_key_path, 'w') as f:

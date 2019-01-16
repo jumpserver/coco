@@ -15,7 +15,7 @@ COPY . /opt/coco
 VOLUME /opt/coco/logs
 VOLUME /opt/coco/keys
 
-RUN cp conf_docker.py conf.py
+RUN cp config_example.yml config.yml
 
 EXPOSE 2222
 CMD python run_server.py

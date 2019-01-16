@@ -6,7 +6,6 @@ from .conf import config
 
 
 inited = False
-
 app_service = AppService(config)
 
 if not inited:

@@ -10,6 +10,8 @@ import json
 import signal
 import copy
 
+import psutil
+
 from .conf import config
 from .sshd import SSHServer
 from .httpd import HttpServer
@@ -83,10 +85,26 @@ class Coco:
         self.monitor_sessions()
         self.monitor_sessions_replay()
 
-    @ignore_error
+    # @ignore_error
     def heartbeat(self):
-        _sessions = [s.to_json() for s in Session.sessions.values() if s]
-        tasks = app_service.terminal_heartbeat(_sessions)
+        sessions = list(Session.sessions.keys())
+        p = psutil.Process(os.getpid())
+        cpu_used = p.cpu_percent(interval=1.0)
+        memory_used = int(p.memory_info().rss / 1024 / 1024)
+        connections = len(p.connections())
+        threads = p.num_threads()
+        session_online = len(sessions)
+        data = {
+            "cpu_used": cpu_used,
+            "memory_used": memory_used,
+            "connections": connections,
+            "threads": threads,
+            "boot_time": p.create_time(),
+            "session_online": session_online,
+            "sessions": sessions,
+        }
+        tasks = app_service.terminal_heartbeat(data)
+
         if tasks:
             self.handle_task(tasks)
         if tasks is False:
@@ -107,7 +125,7 @@ class Coco:
             while not self.stop_evt.is_set():
                 try:
                     self.heartbeat()
-                except Exception as e:
+                except IndexError as e:
                     logger.error("Unexpected error occur: {}".format(e))
                 time.sleep(config["HEARTBEAT_INTERVAL"])
         thread = threading.Thread(target=func)
