@@ -12,7 +12,7 @@ from .conf import config as app_config
 def create_logger():
     level = app_config['LOG_LEVEL']
     log_dir = app_config['LOG_DIR']
-    filename = '{}.log'.format(socket.gethostname())
+    filename = 'coco-{}.log'.format(socket.gethostname())
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
     log_path = os.path.join(log_dir, filename)
