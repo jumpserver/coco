@@ -14,7 +14,7 @@ ENV LC_ALL=zh_CN.UTF-8
 COPY . /opt/coco
 VOLUME /opt/coco/data
 
-RUN cp config_docker.yml config.yml
+RUN  echo > config.yml
 
 EXPOSE 2222
 CMD python run_server.py
