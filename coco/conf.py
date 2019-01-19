@@ -344,10 +344,7 @@ defaults = {
     'LANGUAGE_CODE': 'zh',
     'SECURITY_MAX_IDLE_TIME': 60,
     'ASSET_LIST_PAGE_SIZE': 'auto',
-    'REDIS_HOST': '127.0.0.1',
-    'REDIS_PORT': 6379,
-    'REDIS_PASSWORD': '',
-    'REDIS_DB': 8,
+    'SFTP_HOME': 'tmp',
 }
 
 
