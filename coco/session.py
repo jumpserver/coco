@@ -48,7 +48,14 @@ class Session:
         session.set_command_recorder(command_recorder)
         session.set_replay_recorder(replay_recorder)
         cls.sessions[session.id] = session
-        app_service.create_session(session.to_json())
+        _session = None
+        for i in range(5):
+            _session = app_service.create_session(session.to_json())
+            if _session:
+                break
+            time.sleep(0.2)
+        if _session is None:
+            return None
         return session
 
     @classmethod

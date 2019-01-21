@@ -72,6 +72,12 @@ class ProxyServer:
             self.server.close()
             return
         session = Session.new_session(self.client, self.server)
+        if not session:
+            msg = _("Connect with api server failed")
+            logger.error(msg)
+            self.client.send_unicode(msg)
+            self.server.close()
+
         try:
             session.bridge()
         finally:

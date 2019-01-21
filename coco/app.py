@@ -9,6 +9,7 @@ import threading
 import json
 import signal
 import copy
+from collections import defaultdict
 
 import psutil
 
@@ -88,19 +89,19 @@ class Coco:
     # @ignore_error
     def heartbeat(self):
         sessions = list(Session.sessions.keys())
-        p = psutil.Process(os.getpid())
-        cpu_used = p.cpu_percent(interval=1.0)
-        memory_used = int(p.memory_info().rss / 1024 / 1024)
-        connections = len(p.connections())
-        threads = p.num_threads()
-        session_online = len(sessions)
+        # p = psutil.Process(os.getpid())
+        # cpu_used = p.cpu_percent(interval=1.0)
+        # memory_used = int(p.memory_info().rss / 1024 / 1024)
+        # connections = len(p.connections())
+        # threads = p.num_threads()
+        # session_online = len(sessions)
         data = {
-            "cpu_used": cpu_used,
-            "memory_used": memory_used,
-            "connections": connections,
-            "threads": threads,
-            "boot_time": p.create_time(),
-            "session_online": session_online,
+            # "cpu_used": cpu_used,
+            # "memory_used": memory_used,
+            # "connections": connections,
+            # "threads": threads,
+            # "boot_time": p.create_time(),
+            # "session_online": session_online,
             "sessions": sessions,
         }
         tasks = app_service.terminal_heartbeat(data)
@@ -134,23 +135,38 @@ class Coco:
     def monitor_sessions_replay(self):
         interval = 10
         log_dir = os.path.join(config['LOG_DIR'])
+        max_try = 5
+        upload_failed = defaultdict(int)
 
         def func():
             while not self.stop_evt.is_set():
-                active_sessions = [sid for sid in Session.sessions]
                 for filename in os.listdir(log_dir):
+                    suffix = filename.split('.')[-1]
+                    if suffix != 'gz':
+                        continue
                     session_id = filename.split('.')[0]
-                    full_path = os.path.join(log_dir, filename)
-
                     if len(session_id) != 36:
                         continue
 
+                    full_path = os.path.join(log_dir, filename)
+                    stat = os.stat(full_path)
+                    # 是否是一天前的，因为现在多个coco共享了日志目录，
+                    # 不能单纯判断session是否关闭
+                    if stat.st_mtime > time.time() - 24*60*60:
+                        continue
+                    # 失败次数过多
+                    if session_id in upload_failed \
+                            and upload_failed[session_id] >= max_try:
+                        continue
                     recorder = get_replay_recorder()
-                    if session_id not in active_sessions:
-                        recorder.file_path = full_path
-                        ok = recorder.upload_replay(session_id, 1)
-                        if not ok and os.path.getsize(full_path) == 0:
-                            os.unlink(full_path)
+                    recorder.file_path = full_path
+                    ok = recorder.upload_replay(session_id, 1)
+                    if ok:
+                        upload_failed.pop(session_id, None)
+                    elif not ok and os.path.getsize(full_path) == 0:
+                        os.unlink(full_path)
+                    else:
+                        upload_failed[session_id] += 1
                     time.sleep(1)
                 time.sleep(interval)
         thread = threading.Thread(target=func)

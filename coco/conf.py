@@ -344,7 +344,7 @@ defaults = {
     'LANGUAGE_CODE': 'zh',
     'SECURITY_MAX_IDLE_TIME': 60,
     'ASSET_LIST_PAGE_SIZE': 'auto',
-    'SFTP_ROOT': 'tmp',
+    'SFTP_ROOT': '/tmp',
 }
 
 
