@@ -295,6 +295,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
         try:
             client, rpath = self.get_sftp_client_rpath(path)
             f = client.open(rpath, mode, bufsize=4096)
+            f.prefetch()
             obj = paramiko.SFTPHandle(flags)
             obj.filename = rpath
             obj.readfile = f
