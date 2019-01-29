@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 #
 
-import abc
 import threading
 import time
 import os
@@ -12,8 +11,8 @@ from copy import deepcopy
 
 import jms_storage
 
-from .config import config
-from .utils import get_logger, Singleton
+from .conf import config
+from .utils import get_logger
 from .struct import MemoryQueue
 from .service import app_service
 

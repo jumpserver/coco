@@ -12,10 +12,9 @@ ENV LANG=zh_CN.UTF-8
 ENV LC_ALL=zh_CN.UTF-8
 
 COPY . /opt/coco
-VOLUME /opt/coco/logs
-VOLUME /opt/coco/keys
+VOLUME /opt/coco/data
 
-RUN cp conf_docker.py conf.py
+RUN  echo > config.yml
 
 EXPOSE 2222
 CMD python run_server.py

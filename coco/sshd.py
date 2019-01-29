@@ -14,7 +14,7 @@ from coco.interface import SSHInterface
 from coco.interactive import InteractiveServer
 from coco.models import Connection
 from coco.sftp import SFTPServer
-from coco.config import config
+from coco.conf import config
 
 logger = get_logger(__file__)
 BACKLOG = 5
@@ -29,9 +29,13 @@ class SSHServer:
 
     @property
     def host_key(self):
-        host_key_path = os.path.join(config['ROOT_PATH'], 'keys', 'host_rsa_key')
+        host_key_path = config['HOST_KEY_FILE']
         if not os.path.isfile(host_key_path):
-            self.gen_host_key(host_key_path)
+            if config.HOST_KEY:
+                with open(host_key_path, 'w') as f:
+                    f.write(config.HOST_KEY)
+            else:
+                self.gen_host_key(host_key_path)
         return paramiko.RSAKey(filename=host_key_path)
 
     @staticmethod

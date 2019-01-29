@@ -17,7 +17,7 @@ import paramiko
 import pyte
 
 from . import char
-from .config import config
+from .conf import config
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 

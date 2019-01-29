@@ -14,10 +14,12 @@
 """
 
 import os
+import sys
 import types
 import errno
 import json
 import socket
+import yaml
 
 from werkzeug.utils import import_string
 
@@ -206,6 +208,21 @@ class Config(dict):
             raise
         return self.from_mapping(obj)
 
+    def from_yaml(self, filename, silent=False):
+        if self.root_path:
+            filename = os.path.join(self.root_path, filename)
+        try:
+            with open(filename) as f:
+                obj = yaml.load(f)
+        except IOError as e:
+            if silent and e.errno in (errno.ENOENT, errno.EISDIR):
+                return False
+            e.strerror = 'Unable to load configuration file (%s)' % e.strerror
+            raise
+        if obj:
+            return self.from_mapping(obj)
+        return True
+
     def from_mapping(self, *mapping, **kwargs):
         """Updates the config like :meth:`update` ignoring items with non-upper
         keys.
@@ -279,21 +296,31 @@ class Config(dict):
             return value
         value = os.environ.get(item, None)
         if value is not None:
+            if value.isdigit():
+                value = int(value)
             return value
         return self.defaults.get(item)
 
     def __getattr__(self, item):
         return self.__getitem__(item)
 
+    def __setattr__(self, key, value):
+        return self.__setitem__(key, value)
+
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, dict.__repr__(self))
 
 
-access_key_path = os.path.abspath(os.path.join(root_path, 'keys', '.access_key'))
-default_config = {
+access_key_path = os.path.abspath(
+    os.path.join(root_path, 'data', 'keys', '.access_key')
+)
+host_key_path = os.path.abspath(
+    os.path.join(root_path, 'data', 'keys', 'host_rsa_key')
+)
+defaults = {
     'NAME': socket.gethostname(),
     'CORE_HOST': 'http://127.0.0.1:8080',
-    'BOOTSTRAP_TOKEN': os.environ.get("BOOTSTRAP_TOKEN") or 'PleaseChangeMe',
+    'BOOTSTRAP_TOKEN': '',
     'ROOT_PATH': root_path,
     'DEBUG': True,
     'BIND_HOST': '0.0.0.0',
@@ -301,17 +328,17 @@ default_config = {
     'HTTPD_PORT': 5000,
     'COCO_ACCESS_KEY': '',
     'ACCESS_KEY_FILE': access_key_path,
+    'HOST_KEY_FILE': host_key_path,
     'SECRET_KEY': 'SDK29K03%MM0ksf&#2',
-    'LOG_LEVEL': 'DEBUG',
-    'LOG_DIR': os.path.join(root_path, 'logs'),
-    'SESSION_DIR': os.path.join(root_path, 'sessions'),
+    'LOG_LEVEL': 'INFO',
+    'LOG_DIR': os.path.join(root_path, 'data', 'logs'),
     'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
     'PASSWORD_AUTH': True,
     'PUBLIC_KEY_AUTH': True,
     'SSH_TIMEOUT': 10,
     'ALLOW_SSH_USER': [],
     'BLOCK_SSH_USER': [],
-    'HEARTBEAT_INTERVAL': 5,
+    'HEARTBEAT_INTERVAL': 20,
     'MAX_CONNECTIONS': 500,  # Not use now
     'ADMINS': '',
     'COMMAND_STORAGE': {'TYPE': 'server'},   # server
@@ -319,16 +346,57 @@ default_config = {
     'LANGUAGE_CODE': 'zh',
     'SECURITY_MAX_IDLE_TIME': 60,
     'ASSET_LIST_PAGE_SIZE': 'auto',
+    'SFTP_ROOT': '/tmp',
+    'SFTP_SHOW_HIDDEN_FILE': False
 }
 
-config = Config(root_path, default_config)
-config.from_pyfile('conf.py')
 
-try:
-    from conf import config as _conf
-    config.from_object(_conf)
-except ImportError:
-    pass
+def load_from_object(config):
+    try:
+        from conf import config as c
+        config.from_object(c)
+        return True
+    except ImportError:
+        pass
+    return False
 
-if not config['NAME']:
-    config['NAME'] = default_config['NAME']
+
+def load_from_yml(config):
+    for i in ['config.yml', 'config.yaml']:
+        if not os.path.isfile(os.path.join(config.root_path, i)):
+            continue
+        loaded = config.from_yaml(i)
+        if loaded:
+            return True
+    return False
+
+
+def load_user_config():
+    sys.path.insert(0, root_path)
+    config = Config(root_path, defaults)
+
+    loaded = load_from_object(config)
+    if not loaded:
+        loaded = load_from_yml(config)
+    if not loaded:
+        msg = """
+
+        Error: No config file found.
+
+        You can run `cp config_example.yml config.yml`, and edit it.
+        """
+        raise ImportError(msg)
+    return config
+
+
+config = load_user_config()
+
+old_host_key_path = os.path.join(root_path, 'keys', 'host_rsa_key')
+old_access_key_path = os.path.join(root_path, 'keys', '.access_key')
+
+if os.path.isfile(old_host_key_path) and not os.path.isfile(config.HOST_KEY_FILE):
+    config.HOST_KEY_FILE = old_host_key_path
+
+if os.path.isfile(old_access_key_path) and not os.path.isfile(config.ACCESS_KEY_FILE):
+    config.ACCESS_KEY_FILE = old_access_key_path
+

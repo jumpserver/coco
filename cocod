@@ -19,15 +19,15 @@ import signal
 
 dirs = ('logs', 'keys')
 for d in dirs:
-    if not os.path.isdir(d):
-        os.makedirs(d)
+    d2 = os.path.join('data', d)
+    if not os.path.isdir(d2):
+        os.makedirs(d2)
 
 from coco import Coco
 
 try:
-    from conf import config
+    from coco.conf import config
 except ImportError:
-    print("Please prepare config file `cp conf_example.py conf.py`")
     sys.exit(1)
 
 

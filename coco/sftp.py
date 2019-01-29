@@ -8,7 +8,7 @@ from paramiko.sftp import SFTP_PERMISSION_DENIED, SFTP_NO_SUCH_FILE, \
     SFTP_FAILURE, SFTP_EOF, SFTP_CONNECTION_LOST
 
 from coco.utils import get_logger
-from .config import config
+from .conf import config
 from .service import app_service
 from .connection import SSHConnection
 
@@ -45,7 +45,8 @@ def convert_error(func):
 
 
 class SFTPServer(paramiko.SFTPServerInterface):
-    root = '/tmp'  # Home or /tmp or other path, must exist on all server
+    # Home or /tmp or other path, must exist on all server
+    root = config.SFTP_ROOT
 
     def __init__(self, server, **kwargs):
         """
@@ -234,6 +235,9 @@ class SFTPServer(paramiko.SFTPServerInterface):
         else:
             client, rpath = self.get_sftp_client_rpath(request)
             output = client.listdir_attr(rpath)
+            show_hidden_file = config['SFTP_SHOW_HIDDEN_FILE']
+            if not show_hidden_file:
+                output = [attr for attr in output if not attr.filename.startswith('.')]
         return output
 
     @convert_error
@@ -291,6 +295,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
         try:
             client, rpath = self.get_sftp_client_rpath(path)
             f = client.open(rpath, mode, bufsize=4096)
+            f.prefetch()
             obj = paramiko.SFTPHandle(flags)
             obj.filename = rpath
             obj.readfile = f

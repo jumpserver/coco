@@ -8,8 +8,12 @@ import time
 import threading
 import json
 import signal
+import copy
+from collections import defaultdict
 
-from .config import config
+import psutil
+
+from .conf import config
 from .sshd import SSHServer
 from .httpd import HttpServer
 from .tasks import TaskHandler
@@ -59,10 +63,13 @@ class Coco:
     @ignore_error
     def load_extra_conf_from_server():
         configs = app_service.load_config_from_server()
-        logger.debug("Loading config from server: {}".format(
-            json.dumps(configs)
-        ))
         config.update(configs)
+
+        tmp = copy.deepcopy(configs)
+        tmp['HOST_KEY'] = tmp['HOST_KEY'][32:50] + '...'
+        logger.debug("Loading config from server: {}".format(
+            json.dumps(tmp)
+        ))
 
     def keep_load_extra_conf(self):
         def func():
@@ -79,10 +86,26 @@ class Coco:
         self.monitor_sessions()
         self.monitor_sessions_replay()
 
-    @ignore_error
+    # @ignore_error
     def heartbeat(self):
-        _sessions = [s.to_json() for s in Session.sessions.values() if s]
-        tasks = app_service.terminal_heartbeat(_sessions)
+        sessions = list(Session.sessions.keys())
+        # p = psutil.Process(os.getpid())
+        # cpu_used = p.cpu_percent(interval=1.0)
+        # memory_used = int(p.memory_info().rss / 1024 / 1024)
+        # connections = len(p.connections())
+        # threads = p.num_threads()
+        # session_online = len(sessions)
+        data = {
+            # "cpu_used": cpu_used,
+            # "memory_used": memory_used,
+            # "connections": connections,
+            # "threads": threads,
+            # "boot_time": p.create_time(),
+            # "session_online": session_online,
+            "sessions": sessions,
+        }
+        tasks = app_service.terminal_heartbeat(data)
+
         if tasks:
             self.handle_task(tasks)
         if tasks is False:
@@ -103,7 +126,7 @@ class Coco:
             while not self.stop_evt.is_set():
                 try:
                     self.heartbeat()
-                except Exception as e:
+                except IndexError as e:
                     logger.error("Unexpected error occur: {}".format(e))
                 time.sleep(config["HEARTBEAT_INTERVAL"])
         thread = threading.Thread(target=func)
@@ -112,23 +135,38 @@ class Coco:
     def monitor_sessions_replay(self):
         interval = 10
         log_dir = os.path.join(config['LOG_DIR'])
+        max_try = 5
+        upload_failed = defaultdict(int)
 
         def func():
             while not self.stop_evt.is_set():
-                active_sessions = [sid for sid in Session.sessions]
                 for filename in os.listdir(log_dir):
+                    suffix = filename.split('.')[-1]
+                    if suffix != 'gz':
+                        continue
                     session_id = filename.split('.')[0]
-                    full_path = os.path.join(log_dir, filename)
-
                     if len(session_id) != 36:
                         continue
 
+                    full_path = os.path.join(log_dir, filename)
+                    stat = os.stat(full_path)
+                    # 是否是一天前的，因为现在多个coco共享了日志目录，
+                    # 不能单纯判断session是否关闭
+                    if stat.st_mtime > time.time() - 24*60*60:
+                        continue
+                    # 失败次数过多
+                    if session_id in upload_failed \
+                            and upload_failed[session_id] >= max_try:
+                        continue
                     recorder = get_replay_recorder()
-                    if session_id not in active_sessions:
-                        recorder.file_path = full_path
-                        ok = recorder.upload_replay(session_id, 1)
-                        if not ok and os.path.getsize(full_path) == 0:
-                            os.unlink(full_path)
+                    recorder.file_path = full_path
+                    ok = recorder.upload_replay(session_id, 1)
+                    if ok:
+                        upload_failed.pop(session_id, None)
+                    elif not ok and os.path.getsize(full_path) == 0:
+                        os.unlink(full_path)
+                    else:
+                        upload_failed[session_id] += 1
                     time.sleep(1)
                 time.sleep(interval)
         thread = threading.Thread(target=func)

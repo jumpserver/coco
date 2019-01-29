@@ -2,11 +2,10 @@
 #
 
 from jms.service import AppService
-from .config import config
+from .conf import config
 
 
 inited = False
-
 app_service = AppService(config)
 
 if not inited:

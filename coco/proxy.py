@@ -9,7 +9,7 @@ from .session import Session
 from .models import Server, TelnetServer
 from .connection import SSHConnection, TelnetConnection
 from .service import app_service
-from .config import config
+from .conf import config
 from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
      get_logger, net_input, ugettext as _, ignore_error
 
@@ -72,6 +72,12 @@ class ProxyServer:
             self.server.close()
             return
         session = Session.new_session(self.client, self.server)
+        if not session:
+            msg = _("Connect with api server failed")
+            logger.error(msg)
+            self.client.send_unicode(msg)
+            self.server.close()
+
         try:
             session.bridge()
         finally:
