@@ -66,7 +66,7 @@ class Coco:
         config.update(configs)
 
         tmp = copy.deepcopy(configs)
-        tmp['HOST_KEY'] = tmp['HOST_KEY'][32:50] + '...'
+        tmp['HOST_KEY'] = tmp.get('HOST_KEY', '')[32:50] + '...'
         logger.debug("Loading config from server: {}".format(
             json.dumps(tmp)
         ))
