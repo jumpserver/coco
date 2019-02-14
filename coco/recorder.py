@@ -3,6 +3,7 @@
 #
 
 import threading
+import datetime
 import time
 import os
 import gzip
@@ -22,13 +23,20 @@ BUF_SIZE = 1024
 
 class ReplayRecorder(object):
     time_start = None
+    target = None
     storage = None
+    session_id = None
+    filename = None
+    file = None
+    file_path = None
 
     def __init__(self):
-        super(ReplayRecorder, self).__init__()
-        self.file = None
-        self.file_path = None
         self.get_storage()
+
+    def get_storage(self):
+        conf = deepcopy(config["REPLAY_STORAGE"])
+        conf["SERVICE"] = app_service
+        self.storage = jms_storage.get_object_storage(conf)
 
     def record(self, data):
         """
@@ -47,49 +55,56 @@ class ReplayRecorder(object):
 
     def session_start(self, session_id):
         self.time_start = time.time()
-        filename = session_id + '.replay.gz'
-        self.file_path = os.path.join(config['LOG_DIR'], filename)
+        self.session_id = session_id
+        self.filename = session_id + '.replay.gz'
+        date = datetime.datetime.utcnow().strftime('%Y-%m-%d')
+        self.target = date + '/' + self.filename
+        replay_dir = os.path.join(config.REPLAY_DIR, date)
+        if not os.path.isdir(replay_dir):
+            os.makedirs(replay_dir, exist_ok=True)
+        self.file_path = os.path.join(replay_dir, self.filename)
         self.file = gzip.open(self.file_path, 'at')
         self.file.write('{')
 
     def session_end(self, session_id):
         self.file.write('"0":""}')
         self.file.close()
-        self.upload_replay(session_id)
+        self.upload_replay_some_times()
 
-    def get_storage(self):
-        conf = deepcopy(config["REPLAY_STORAGE"])
-        conf["SERVICE"] = app_service
-        self.storage = jms_storage.get_object_storage(conf)
-
-    def upload_replay(self, session_id, times=3):
+    def upload_replay_some_times(self, times=3):
+        # 如果上传OSS、S3失败则尝试上传到服务器
         if times < 1:
             if self.storage.type == 'jms':
                 return False
-            else:
-                self.storage = jms_storage.JMSReplayStorage(
-                    {"SERVICE": app_service}
-                )
-                self.upload_replay(session_id, times=3)
+            self.storage = jms_storage.JMSReplayStorage(
+                {"SERVICE": app_service}
+            )
+            self.upload_replay_some_times(times=3)
 
-        ok, msg = self.push_to_storage(session_id)
+        ok, msg = self.upload_replay()
         if not ok:
             msg = 'Failed push replay file {}: {}, try again {}'.format(
-                session_id, msg, times
+                self.filename, msg, times
             )
             logger.warn(msg)
-            self.upload_replay(session_id, times-1)
+            self.upload_replay_some_times(times - 1)
         else:
-            msg = 'Success push replay file: {}'.format(session_id)
+            msg = 'Success push replay file: {}'.format(self.session_id)
             logger.debug(msg)
-            self.finish_replay(3, session_id)
-            os.unlink(self.file_path)
             return True
 
-    def push_to_storage(self, session_id):
-        dt = time.strftime('%Y-%m-%d', time.localtime(self.time_start))
-        target = dt + '/' + session_id + '.replay.gz'
-        return self.storage.upload(self.file_path, target)
+    def upload_replay(self):
+        # 如果文件为空就直接删除
+        if not os.path.isfile(self.file_path):
+            return False, 'Not found the file: {}'.format(self.file_path)
+        if os.path.getsize(self.file_path) == 0:
+            os.unlink(self.file_path)
+            return True, ''
+        ok, msg = self.storage.upload(self.file_path, self.target)
+        if ok:
+            self.finish_replay(3, self.session_id)
+            os.unlink(self.file_path)
+        return ok, msg
 
     def finish_replay(self, times, session_id):
         if times < 1:

@@ -332,6 +332,7 @@ defaults = {
     'SECRET_KEY': 'SDK29K03%MM0ksf&#2',
     'LOG_LEVEL': 'INFO',
     'LOG_DIR': os.path.join(root_path, 'data', 'logs'),
+    'REPLAY_DIR': os.path.join(root_path, 'data', 'replays'),
     'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
     'PASSWORD_AUTH': True,
     'PUBLIC_KEY_AUTH': True,
