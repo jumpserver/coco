@@ -4,8 +4,7 @@ env/
 *.pyo
 .access_key
 *.log
-logs/*
+data/*
 host_rsa_key
-sessions/*
 coco.pid
 config.yml

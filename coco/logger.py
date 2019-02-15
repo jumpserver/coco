@@ -45,12 +45,11 @@ def create_logger():
             },
             'file': {
                 'level': 'DEBUG',
-                'class': 'logging.handlers.TimedRotatingFileHandler',
+                'class': 'logging.handlers.RotatingFileHandler',
                 'formatter': 'main',
                 'filename': log_path,
-                'when': "D",
-                'interval': 1,
-                "backupCount": 7
+                'maxBytes': 1024*1024*100,
+                'backupCount': 7,
             },
         },
         loggers={
