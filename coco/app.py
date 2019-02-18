@@ -38,6 +38,7 @@ class Coco:
         self.replay_recorder_class = None
         self.command_recorder_class = None
         self._task_handler = None
+        self.first_load_extra_conf = True
 
     @property
     def sshd(self):
@@ -57,17 +58,18 @@ class Coco:
             self._task_handler = TaskHandler()
         return self._task_handler
 
-    @staticmethod
     @ignore_error
-    def load_extra_conf_from_server():
+    def load_extra_conf_from_server(self):
         configs = app_service.load_config_from_server()
         config.update(configs)
 
         tmp = copy.deepcopy(configs)
         tmp['HOST_KEY'] = tmp.get('HOST_KEY', '')[32:50] + '...'
-        logger.debug("Loading config from server: {}".format(
-            json.dumps(tmp)
-        ))
+        if self.first_load_extra_conf:
+            logger.debug("Loading config from server: {}".format(
+                json.dumps(tmp)
+            ))
+            self.first_load_extra_conf = False
 
     def keep_load_extra_conf(self):
         def func():
