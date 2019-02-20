@@ -170,9 +170,10 @@ class CommandRecorder(object):
                 if not data_set:
                     continue
                 logger.debug("Send {} commands to server".format(len(data_set)))
-                ok = self.storage.bulk_save(data_set)
-                if not ok:
-                    self.queue.mput(data_set)
+                for i in range(5):
+                    ok = self.storage.bulk_save(data_set)
+                    if ok:
+                        break
 
         thread = threading.Thread(target=func)
         thread.daemon = True
