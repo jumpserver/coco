@@ -352,7 +352,8 @@ defaults = {
     'SECURITY_MAX_IDLE_TIME': 60,
     'ASSET_LIST_PAGE_SIZE': 'auto',
     'SFTP_ROOT': '/tmp',
-    'SFTP_SHOW_HIDDEN_FILE': False
+    'SFTP_SHOW_HIDDEN_FILE': False,
+    'UPLOAD_FAILED_REPLAY_ON_START': True
 }
 
 
