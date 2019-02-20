@@ -9,7 +9,6 @@ import threading
 import json
 import signal
 import copy
-from collections import defaultdict
 
 from .conf import config
 from .sshd import SSHServer
