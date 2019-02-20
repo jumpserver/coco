@@ -138,37 +138,47 @@ class Coco:
         max_try = 5
         upload_failed = defaultdict(int)
 
+        def retry_upload_replay(session_id, full_path, target):
+            recorder = get_replay_recorder()
+            recorder.file_path = full_path
+            recorder.session_id = session_id
+            recorder.target = target
+            ok, msg = recorder.upload_replay()
+            if ok:
+                upload_failed.pop(session_id, None)
+            else:
+                upload_failed[session_id] += 1
+
+        def check_replay_need_upload(full_path):
+            filename = os.path.basename(full_path)
+            suffix = filename.split('.')[-1]
+            if suffix != 'gz':
+                return False
+            session_id = filename.split('.')[0]
+            if len(session_id) != 36:
+                return False
+            stat = os.stat(full_path)
+            if stat.st_mtime > time.time() - 24 * 60 * 60:
+                return False
+
         def func():
             while not self.stop_evt.is_set():
                 for d in os.listdir(replay_dir):
                     date_path = os.path.join(replay_dir, d)
                     for filename in os.listdir(date_path):
-                        suffix = filename.split('.')[-1]
-                        if suffix != 'gz':
-                            continue
-                        session_id = filename.split('.')[0]
-                        if len(session_id) != 36:
-                            continue
-
                         full_path = os.path.join(date_path, filename)
-                        stat = os.stat(full_path)
+                        session_id = filename.split('.')[0]
+
                         # 是否是一天前的，因为现在多个coco共享了日志目录，
                         # 不能单纯判断session是否关闭
-                        if stat.st_mtime > time.time() - 24*60*60:
+                        if not check_replay_need_upload(full_path):
                             continue
                         # 失败次数过多
                         if session_id in upload_failed \
                                 and upload_failed[session_id] >= max_try:
                             continue
-                        recorder = get_replay_recorder()
-                        recorder.file_path = full_path
-                        recorder.session_id = session_id
-                        recorder.target = os.path.join(d, filename)
-                        ok, msg = recorder.upload_replay()
-                        if ok:
-                            upload_failed.pop(session_id, None)
-                        else:
-                            upload_failed[session_id] += 1
+                        target = os.path.join(d, filename)
+                        retry_upload_replay(session_id, full_path, target)
                         time.sleep(1)
                 time.sleep(interval)
         thread = threading.Thread(target=func)
