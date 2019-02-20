@@ -8,6 +8,7 @@ import logging
 import re
 import os
 import gettext
+import gzip
 from io import StringIO
 from binascii import hexlify
 from werkzeug.local import Local, LocalProxy
@@ -462,6 +463,13 @@ def ignore_error(func):
         except Exception as e:
             logger.error("Error occur: {} {}".format(func.__name__, e))
     return wrapper
+
+
+def gzip_file(src_path, dst_path, unlink_ori=True):
+    with open(src_path, 'rt') as src, gzip.open(dst_path, 'at') as dst:
+        dst.writelines(src)
+    if unlink_ori:
+        os.unlink(src_path)
 
 
 ugettext = LocalProxy(partial(_find, 'LANGUAGE_CODE'))

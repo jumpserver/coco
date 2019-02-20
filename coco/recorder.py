@@ -6,14 +6,13 @@ import threading
 import datetime
 import time
 import os
-import gzip
 import json
 from copy import deepcopy
 
 import jms_storage
 
 from .conf import config
-from .utils import get_logger
+from .utils import get_logger, gzip_file
 from .struct import MemoryQueue
 from .service import app_service
 
@@ -29,6 +28,8 @@ class ReplayRecorder(object):
     filename = None
     file = None
     file_path = None
+    filename_gz = None
+    file_gz_path = None
 
     def __init__(self):
         self.get_storage()
@@ -56,19 +57,26 @@ class ReplayRecorder(object):
     def session_start(self, session_id):
         self.time_start = time.time()
         self.session_id = session_id
-        self.filename = session_id + '.replay.gz'
+        self.filename = session_id
+        self.filename_gz = session_id + '.replay.gz'
+
         date = datetime.datetime.utcnow().strftime('%Y-%m-%d')
-        self.target = date + '/' + self.filename
         replay_dir = os.path.join(config.REPLAY_DIR, date)
         if not os.path.isdir(replay_dir):
             os.makedirs(replay_dir, exist_ok=True)
+        # 录像记录路径
         self.file_path = os.path.join(replay_dir, self.filename)
-        self.file = gzip.open(self.file_path, 'at')
+        # 录像压缩到的路径
+        self.file_gz_path = os.path.join(replay_dir, self.filename_gz)
+        # 录像上传上去的路径
+        self.target = date + '/' + self.filename_gz
+        self.file = open(self.file_path, 'at')
         self.file.write('{')
 
     def session_end(self, session_id):
         self.file.write('"0":""}')
         self.file.close()
+        gzip_file(self.file_path, self.file_gz_path)
         self.upload_replay_some_times()
 
     def upload_replay_some_times(self, times=3):
@@ -95,15 +103,15 @@ class ReplayRecorder(object):
 
     def upload_replay(self):
         # 如果文件为空就直接删除
-        if not os.path.isfile(self.file_path):
-            return False, 'Not found the file: {}'.format(self.file_path)
-        if os.path.getsize(self.file_path) == 0:
-            os.unlink(self.file_path)
+        if not os.path.isfile(self.file_gz_path):
+            return False, 'Not found the file: {}'.format(self.file_gz_path)
+        if os.path.getsize(self.file_gz_path) == 0:
+            os.unlink(self.file_gz_path)
             return True, ''
-        ok, msg = self.storage.upload(self.file_path, self.target)
+        ok, msg = self.storage.upload(self.file_gz_path, self.target)
         if ok:
             self.finish_replay(3, self.session_id)
-            os.unlink(self.file_path)
+            os.unlink(self.file_gz_path)
         return ok, msg
 
     def finish_replay(self, times, session_id):
