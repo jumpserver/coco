@@ -338,6 +338,7 @@ defaults = {
     'LOG_DIR': os.path.join(root_path, 'data', 'logs'),
     'REPLAY_DIR': os.path.join(root_path, 'data', 'replays'),
     'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
+    'TELNET_REGEX': '',
     'PASSWORD_AUTH': True,
     'PUBLIC_KEY_AUTH': True,
     'SSH_TIMEOUT': 10,

@@ -385,6 +385,9 @@ class TelnetServer(BaseServer):
         """ self.chan: socket object """
         return getattr(self.chan, '_closed', False)
 
+    def resize_pty(self):
+        pass
+
 
 class Server(BaseServer):
     """
