@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-02-21 19:20+0800\n"
+"POT-Creation-Date: 2019-02-21 20:00+0800\n"
 "PO-Revision-Date: 2018-08-10 10:42+0800\n"
 "Last-Translator: BaiJiangjie <bugatti_it@163.com>\n"
 "Language-Team: Language locale/zh\n"
@@ -21,16 +21,16 @@ msgid "Connect idle more than {} minutes, disconnect"
 msgstr "空闲时间超过 {} 分钟，断开连接"
 
 #: coco/interactive.py:83
-msgid "Jumpserver open source fortress system"
-msgstr "Jumpserver开源跳板机系统"
+msgid "Welcome to use Jumpserver open source fortress system"
+msgstr "欢迎使用Jumpserver开源跳板机系统"
 
 #: coco/interactive.py:87
 msgid ""
 "\n"
-"{T}{T}{title} {user}, Welcome to use {header_title} {end}{R}{R}"
+"{T}{T}{title} {user}, {header_title} {end}{R}{R}"
 msgstr ""
 "\n"
-"{T}{T}{title} {user}, 欢迎使用{header_title} {end}{R}{R}"
+"{T}{T}{title} {user}, {header_title} {end}{R}{R}"
 
 #: coco/interactive.py:89
 #, python-brace-format

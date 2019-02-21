@@ -80,11 +80,11 @@ class InteractiveServer:
     #
 
     def display_banner(self):
-        default_title = _('Jumpserver open source fortress system')
-        header_title = config.get('HEADER_TITLE', default_title)
+        default_title = _('Welcome to use Jumpserver open source fortress system')
+        header_title = config.get('HEADER_TITLE') or default_title
         self.client.send(char.CLEAR_CHAR)
         self.display_logo()
-        header = _("\n{T}{T}{title} {user}, Welcome to use {header_title} {end}{R}{R}")
+        header = _("\n{T}{T}{title} {user}, {header_title} {end}{R}{R}")
         menu = [
             _("{T}1) Enter {green}ID{end} directly login or enter {green}part IP, Hostname, Comment{end} to search login(if unique).{R}"),
             _("{T}2) Enter {green}/{end} + {green}IP, Hostname{end} or {green}Comment {end} search, such as: /ip.{R}"),
