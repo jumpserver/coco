@@ -17,4 +17,4 @@ VOLUME /opt/coco/data
 RUN  echo > config.yml
 
 EXPOSE 2222
-CMD python run_server.py
+ENTRYPOINT ["./entrypoint.sh"]
