@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-12-21 16:48+0800\n"
+"POT-Creation-Date: 2019-02-21 20:00+0800\n"
 "PO-Revision-Date: 2018-08-10 10:42+0800\n"
 "Last-Translator: BaiJiangjie <bugatti_it@163.com>\n"
 "Language-Team: Language locale/en/LC\n"
@@ -16,159 +16,166 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: coco/app.py:145
+#: coco/app.py:180
 msgid "Connect idle more than {} minutes, disconnect"
 msgstr ""
 
-#: coco/interactive.py:84
+#: coco/interactive.py:83
+msgid "Welcome to use Jumpserver open source fortress system"
+msgstr ""
+
+#: coco/interactive.py:87
 #, python-brace-format
 msgid ""
 "\n"
-"{T}{T}{title} {user}, Welcome to use Jumpserver open source fortress system "
-"{end}{R}{R}"
+"{T}{T}{title} {user}, {header_title} {end}{R}{R}"
 msgstr ""
 
-#: coco/interactive.py:86
+#: coco/interactive.py:89
 #, python-brace-format
 msgid ""
 "{T}1) Enter {green}ID{end} directly login or enter {green}part IP, Hostname, "
 "Comment{end} to search login(if unique).{R}"
 msgstr ""
 
-#: coco/interactive.py:87
+#: coco/interactive.py:90
 #, python-brace-format
 msgid ""
 "{T}2) Enter {green}/{end} + {green}IP, Hostname{end} or {green}Comment {end} "
 "search, such as: /ip.{R}"
 msgstr ""
 
-#: coco/interactive.py:88
+#: coco/interactive.py:91
 #, python-brace-format
 msgid "{T}3) Enter {green}p{end} to display the host you have permission.{R}"
 msgstr ""
 
-#: coco/interactive.py:89
+#: coco/interactive.py:92
 #, python-brace-format
 msgid ""
 "{T}4) Enter {green}g{end} to display the node that you have permission.{R}"
 msgstr ""
 
-#: coco/interactive.py:90
+#: coco/interactive.py:93
 #, python-brace-format
 msgid ""
 "{T}5) Enter {green}g{end} + {green}NodeID{end} to display the host under the "
 "node, such as g1.{R}"
 msgstr ""
 
-#: coco/interactive.py:91
+#: coco/interactive.py:94
 #, python-brace-format
 msgid "{T}6) Enter {green}s{end} Chinese-english switch.{R}"
 msgstr ""
 
-#: coco/interactive.py:92
+#: coco/interactive.py:95
 #, python-brace-format
 msgid "{T}7) Enter {green}h{end} help.{R}"
 msgstr ""
 
-#: coco/interactive.py:93
+#: coco/interactive.py:96
 #, python-brace-format
 msgid "{T}8) Enter {green}r{end} to refresh your assets and nodes.{R}"
 msgstr ""
 
-#: coco/interactive.py:94
+#: coco/interactive.py:97
 #, python-brace-format
 msgid "{T}0) Enter {green}q{end} exit.{R}"
 msgstr ""
 
-#: coco/interactive.py:155
+#: coco/interactive.py:159
 msgid "Terminal does not support login rdp, please use web terminal to access"
 msgstr ""
 
-#: coco/interactive.py:217
+#: coco/interactive.py:211
 msgid "No Assets"
 msgstr ""
 
-#: coco/interactive.py:280
-msgid "Tips: Enter the asset ID and log directly into the asset."
-msgstr ""
-
-#: coco/interactive.py:281
-msgid "Page up: P/p"
-msgstr ""
-
-#: coco/interactive.py:282
-msgid "Page down: Enter|N/n"
-msgstr ""
-
-#: coco/interactive.py:283
-msgid "BACK: b/q"
-msgstr ""
-
-#: coco/interactive.py:303
+#: coco/interactive.py:266
 msgid "ID"
 msgstr ""
 
-#: coco/interactive.py:303
+#: coco/interactive.py:266
 msgid "Hostname"
 msgstr ""
 
-#: coco/interactive.py:303
+#: coco/interactive.py:266
 msgid "IP"
 msgstr ""
 
-#: coco/interactive.py:303
+#: coco/interactive.py:266
 msgid "LoginAs"
 msgstr ""
 
-#: coco/interactive.py:317
+#: coco/interactive.py:280
 msgid "Comment"
 msgstr ""
 
-#: coco/interactive.py:326
+#: coco/interactive.py:290
 msgid "Page: {}, Count: {}, Total Page: {}, Total Count: {}"
 msgstr ""
 
-#: coco/interactive.py:398
+#: coco/interactive.py:296
+msgid "Tips: Enter the asset ID and log directly into the asset."
+msgstr ""
+
+#: coco/interactive.py:298
+msgid "Page up: P/p"
+msgstr ""
+
+#: coco/interactive.py:299
+msgid "Page down: Enter|N/n"
+msgstr ""
+
+#: coco/interactive.py:300
+msgid "BACK: b/q"
+msgstr ""
+
+#: coco/interactive.py:373
 msgid "No Nodes"
 msgstr ""
 
-#: coco/interactive.py:402
+#: coco/interactive.py:377
 msgid "Node: [ ID.Name(Asset amount) ]"
 msgstr ""
 
-#: coco/interactive.py:404
+#: coco/interactive.py:379
 msgid "Tips: Enter g+NodeID to display the host under the node, such as g1"
 msgstr ""
 
-#: coco/interactive.py:412
+#: coco/interactive.py:387
 msgid "There is no matched node, please re-enter"
 msgstr ""
 
-#: coco/interactive.py:442
+#: coco/interactive.py:417
 msgid "Select a login:: "
 msgstr ""
 
-#: coco/interactive.py:465
+#: coco/interactive.py:440
 msgid "No system user"
 msgstr ""
 
-#: coco/models.py:242
+#: coco/models.py:252
 msgid ""
 "Warning: Failed to load filter rule, please press Ctrl + D to exit retry."
 msgstr ""
 
-#: coco/models.py:251
+#: coco/models.py:261
 msgid "Command `{}` is forbidden ........"
 msgstr ""
 
-#: coco/proxy.py:89
+#: coco/proxy.py:76
+msgid "Connect with api server failed"
+msgstr ""
+
+#: coco/proxy.py:104
 msgid "No permission"
 msgstr ""
 
-#: coco/proxy.py:131
+#: coco/proxy.py:147
 msgid "Connecting to {}@{} {:.1f}"
 msgstr ""
 
-#: coco/session.py:143
+#: coco/session.py:154
 msgid "Terminated by administrator"
 msgstr ""
