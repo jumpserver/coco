@@ -154,6 +154,8 @@ class Coco:
             return True
 
         def func():
+            if not os.path.isdir(replay_dir):
+                return
             for d in os.listdir(replay_dir):
                 date_path = os.path.join(replay_dir, d)
                 for filename in os.listdir(date_path):
