@@ -68,7 +68,7 @@ class SSHConnection:
                     look_for_keys=False, sock=sock, allow_agent=False,
                 )
             transport = ssh.get_transport()
-            transport.set_keepalive(300)
+            transport.set_keepalive(20)
         except Exception as e:
             password_short = "None"
             key_fingerprint = "None"
@@ -132,7 +132,9 @@ class SSHConnection:
             except:
                 continue
             try:
-                sock = ssh.get_transport().open_channel(
+                transport = ssh.get_transport()
+                transport.set_keep_alive(20)
+                sock = transport.open_channel(
                     'direct-tcpip', (asset.ip, asset.port), ('127.0.0.1', 0)
                 )
                 break
