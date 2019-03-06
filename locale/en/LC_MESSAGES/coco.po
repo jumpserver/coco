@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-02-21 20:00+0800\n"
+"POT-Creation-Date: 2019-03-06 14:51+0800\n"
 "PO-Revision-Date: 2018-08-10 10:42+0800\n"
 "Last-Translator: BaiJiangjie <bugatti_it@163.com>\n"
 "Language-Team: Language locale/en/LC\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: coco/app.py:180
+#: coco/app.py:182
 msgid "Connect idle more than {} minutes, disconnect"
 msgstr ""
 
@@ -83,8 +83,12 @@ msgstr ""
 msgid "{T}0) Enter {green}q{end} exit.{R}"
 msgstr ""
 
-#: coco/interactive.py:159
+#: coco/interactive.py:158
 msgid "Terminal does not support login rdp, please use web terminal to access"
+msgstr ""
+
+#: coco/interactive.py:169
+msgid "Refresh done"
 msgstr ""
 
 #: coco/interactive.py:211
@@ -131,27 +135,27 @@ msgstr ""
 msgid "BACK: b/q"
 msgstr ""
 
-#: coco/interactive.py:373
+#: coco/interactive.py:371
 msgid "No Nodes"
 msgstr ""
 
-#: coco/interactive.py:377
+#: coco/interactive.py:375
 msgid "Node: [ ID.Name(Asset amount) ]"
 msgstr ""
 
-#: coco/interactive.py:379
+#: coco/interactive.py:377
 msgid "Tips: Enter g+NodeID to display the host under the node, such as g1"
 msgstr ""
 
-#: coco/interactive.py:387
+#: coco/interactive.py:385
 msgid "There is no matched node, please re-enter"
 msgstr ""
 
-#: coco/interactive.py:417
+#: coco/interactive.py:415
 msgid "Select a login:: "
 msgstr ""
 
-#: coco/interactive.py:440
+#: coco/interactive.py:438
 msgid "No system user"
 msgstr ""
 
