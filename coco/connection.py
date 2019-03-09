@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 #
 
-import os
 import re
 import socket
 import telnetlib
@@ -69,7 +68,7 @@ class SSHConnection:
                     look_for_keys=False, sock=sock, allow_agent=False,
                 )
             transport = ssh.get_transport()
-            transport.set_keepalive(300)
+            transport.set_keepalive(20)
         except Exception as e:
             password_short = "None"
             key_fingerprint = "None"
@@ -133,7 +132,9 @@ class SSHConnection:
             except:
                 continue
             try:
-                sock = ssh.get_transport().open_channel(
+                transport = ssh.get_transport()
+                transport.set_keep_alive(20)
+                sock = transport.open_channel(
                     'direct-tcpip', (asset.ip, asset.port), ('127.0.0.1', 0)
                 )
                 break
@@ -143,6 +144,17 @@ class SSHConnection:
 
 
 class TelnetConnection:
+    incorrect_pattern = re.compile(
+        r'incorrect|failed|失败|错误', re.I
+    )
+    username_pattern = re.compile(
+        r'login:?\s*$|username:?\s*$|用户名:?\s*$|账\s*号:?\s*$', re.I
+    )
+    password_pattern = re.compile(
+        r'Password:?\s*$|passwd:?\s*$|密\s*码:?\s*$', re.I
+    )
+    success_pattern = re.compile(r'Last\s*login|success|成功|#|\$', re.I)
+    custom_success_pattern = None
 
     def __init__(self, asset, system_user, client):
         self.client = client
@@ -150,18 +162,13 @@ class TelnetConnection:
         self.system_user = system_user
         self.sock = None
         self.sel = selectors.DefaultSelector()
-        self.incorrect_pattern = re.compile(
-            r'incorrect|failed|失败|错误', re.I
-        )
-        self.username_pattern = re.compile(
-            r'login:?\s*$|username:?\s*$|用户名:?\s*$|账\s*号:?\s*$', re.I
-        )
-        self.password_pattern = re.compile(
-            r'Password:?\s*$|passwd:?\s*$|密\s*码:?\s*$', re.I
-        )
-        self.success_pattern = re.compile(
-            r'Last\s*login|success|成功|#|\$', re.I
-        )
+        if config.TELNET_REGEX:
+            try:
+                self.custom_success_pattern = re.compile(
+                    r'{}'.format(config.TELNET_REGEX), re.I
+                )
+            except (TypeError, ValueError):
+                pass
 
     def get_socket(self):
         logger.debug('Get telnet server socket. {}'.format(self.client.user))
@@ -269,7 +276,10 @@ class TelnetConnection:
             logger.debug(b'[Password prompt]: ' + b'>>' + raw_data + b'<<')
             self.sock.send(self.system_user.password.encode('utf-8') + b'\r\n')
             return None
-        elif self.success_pattern.search(data):
+        elif self.success_pattern.search(data) or \
+                (self.custom_success_pattern and
+                 self.custom_success_pattern.search(data)):
+            self.client.send(raw_data)
             logger.debug(b'[Login Success prompt]: ' + b'>>' + raw_data + b'<<')
             return True
         else:

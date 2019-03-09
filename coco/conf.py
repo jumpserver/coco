@@ -296,6 +296,12 @@ class Config(dict):
             return value
         value = os.environ.get(item, None)
         if value is not None:
+            if value.isdigit():
+                value = int(value)
+            elif value.lower() == 'false':
+                value = False
+            elif value.lower() == 'true':
+                value = True
             return value
         return self.defaults.get(item)
 
@@ -330,7 +336,9 @@ defaults = {
     'SECRET_KEY': 'SDK29K03%MM0ksf&#2',
     'LOG_LEVEL': 'INFO',
     'LOG_DIR': os.path.join(root_path, 'data', 'logs'),
+    'REPLAY_DIR': os.path.join(root_path, 'data', 'replays'),
     'ASSET_LIST_SORT_BY': 'hostname',  # hostname, ip
+    'TELNET_REGEX': '',
     'PASSWORD_AUTH': True,
     'PUBLIC_KEY_AUTH': True,
     'SSH_TIMEOUT': 10,
@@ -344,7 +352,9 @@ defaults = {
     'LANGUAGE_CODE': 'zh',
     'SECURITY_MAX_IDLE_TIME': 60,
     'ASSET_LIST_PAGE_SIZE': 'auto',
-    'SFTP_ROOT': 'tmp',
+    'SFTP_ROOT': '/tmp',
+    'SFTP_SHOW_HIDDEN_FILE': False,
+    'UPLOAD_FAILED_REPLAY_ON_START': True
 }
 
 
