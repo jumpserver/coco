@@ -108,7 +108,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
         self._sftp = {}
 
     def get_host_sftp(self, host, su):
-        asset = self.hosts.get(host)['asset']
+        asset = self.hosts.get(host, {}).get('asset')
         system_user = self.get_host_system_users(host, only_name=False).get(su)
 
         if not asset or not system_user:
