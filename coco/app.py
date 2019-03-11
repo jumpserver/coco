@@ -14,7 +14,10 @@ from .conf import config
 from .sshd import SSHServer
 from .httpd import HttpServer
 from .tasks import TaskHandler
-from .utils import get_logger, ugettext as _, ignore_error
+from .utils import (
+    get_logger, ugettext as _, ignore_error, get_monitor_data,
+    get_coco_monitor_data
+)
 from .service import app_service
 from .recorder import get_replay_recorder
 from .session import Session
@@ -89,20 +92,8 @@ class Coco:
     # @ignore_error
     def heartbeat(self):
         sessions = list(Session.sessions.keys())
-        # p = psutil.Process(os.getpid())
-        # cpu_used = p.cpu_percent(interval=1.0)
-        # memory_used = int(p.memory_info().rss / 1024 / 1024)
-        # connections = len(p.connections())
-        # threads = p.num_threads()
-        # session_online = len(sessions)
         data = {
-            # "cpu_used": cpu_used,
-            # "memory_used": memory_used,
-            # "connections": connections,
-            # "threads": threads,
-            # "boot_time": p.create_time(),
-            # "session_online": session_online,
-            "sessions": sessions,
+            'sessions': sessions,
         }
         tasks = app_service.terminal_heartbeat(data)
 

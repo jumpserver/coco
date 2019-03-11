@@ -4,11 +4,13 @@
 
 from __future__ import unicode_literals
 
+import time
 import logging
 import re
 import os
 import gettext
 import gzip
+import psutil
 from io import StringIO
 from binascii import hexlify
 from werkzeug.local import Local, LocalProxy
@@ -470,6 +472,68 @@ def gzip_file(src_path, dst_path, unlink_ori=True):
         dst.writelines(src)
     if unlink_ori:
         os.unlink(src_path)
+
+
+def get_cpu_info():
+    cpus = ['cpu%s' % i for i in range(psutil.cpu_count())]
+    percents = psutil.cpu_percent(interval=0.5, percpu=True)
+    return dict(zip(cpus, percents))
+
+
+def get_memory_info():
+    mem = psutil.virtual_memory()
+    return {
+        'total': mem.total,
+        'avail': mem.available,
+        'used': mem.used,
+        'percent': mem.percent,
+    }
+
+
+def get_disk_info():
+    partitions = psutil.disk_partitions()
+    info = {}
+    for partition in partitions:
+        usage = psutil.disk_usage(partition.mountpoint)
+        info[partition.device] = {
+            'mountpoint': partition.mountpoint,
+            'device': partition.device,
+            'total': usage.total,
+            'used': usage.used,
+            'free': usage.free,
+            'percent': usage.percent
+        }
+    return info
+
+
+def get_net_info():
+    counter = psutil.net_io_counters()
+    return {
+        'bytes_sent': counter.bytes_sent,
+        'bytes_recv': counter.bytes_recv,
+    }
+
+
+def get_coco_monitor_data():
+    p = psutil.Process(os.getpid())
+    cpu_used = p.cpu_percent(interval=0.5)
+    memory_used = p.memory_info().rss
+    connections = len(p.connections())
+    return {
+        'p_cpu': cpu_used,
+        'p_memory': memory_used,
+        'p_conns': connections
+    }
+
+
+def get_monitor_data():
+    return {
+        'timestamp': int(time.time()),
+        'cpu': get_cpu_info(),
+        'memory': get_memory_info(),
+        'disk': get_disk_info(),
+        'net': get_net_info(),
+    }
 
 
 ugettext = LocalProxy(partial(_find, 'LANGUAGE_CODE'))

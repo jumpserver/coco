@@ -341,7 +341,7 @@ defaults = {
     'TELNET_REGEX': '',
     'PASSWORD_AUTH': True,
     'PUBLIC_KEY_AUTH': True,
-    'SSH_TIMEOUT': 10,
+    'SSH_TIMEOUT': 15,
     'ALLOW_SSH_USER': [],
     'BLOCK_SSH_USER': [],
     'HEARTBEAT_INTERVAL': 20,

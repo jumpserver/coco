@@ -22,7 +22,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 sys.path.insert(0, BASE_DIR)
 
 
-dirs = ('logs', 'keys')
+dirs = ('logs',)
 for d in dirs:
     d2 = os.path.join('data', d)
     if not os.path.isdir(d2):
