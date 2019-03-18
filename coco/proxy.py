@@ -34,7 +34,7 @@ class ProxyServer:
         :return: system user have full info
         """
         password, private_key = \
-            app_service.get_system_user_auth_info(self.system_user)
+            app_service.get_system_user_auth_info(self.system_user, self.asset)
         if self.system_user.login_mode == MANUAL_LOGIN \
                 or (not password and not private_key):
             prompt = "{}'s password: ".format(self.system_user.username)
