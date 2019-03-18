@@ -10,15 +10,12 @@ import json
 import signal
 import copy
 
-import psutil
-
 from .conf import config
 from .sshd import SSHServer
 from .httpd import HttpServer
 from .tasks import TaskHandler
 from .utils import (
-    get_logger, ugettext as _, ignore_error, get_monitor_data,
-    get_coco_monitor_data
+    get_logger, ugettext as _, ignore_error,
 )
 from .service import app_service
 from .recorder import get_replay_recorder
