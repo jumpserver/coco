@@ -25,13 +25,13 @@ AUTO_LOGIN = 'auto'
 
 class SSHConnection:
     @staticmethod
-    def get_system_user_auth(system_user):
+    def get_system_user_auth(system_user, asset):
         """
         获取系统用户的认证信息，密码或秘钥
         :return: system user have full info
         """
         password, private_key = \
-            app_service.get_system_user_auth_info(system_user)
+            app_service.get_system_user_auth_info(system_user, asset)
         system_user.password = password
         system_user.private_key = private_key
 
@@ -42,7 +42,7 @@ class SSHConnection:
         error = ''
 
         if not system_user.password and not system_user.private_key:
-            self.get_system_user_auth(system_user)
+            self.get_system_user_auth(system_user, asset)
 
         if asset.domain:
             sock = self.get_proxy_sock_v2(asset)
