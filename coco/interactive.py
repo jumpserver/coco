@@ -80,9 +80,11 @@ class InteractiveServer:
     #
 
     def display_banner(self):
+        default_title = _('Welcome to use Jumpserver open source fortress system')
+        header_title = config.get('HEADER_TITLE') or default_title
         self.client.send(char.CLEAR_CHAR)
         self.display_logo()
-        header = _("\n{T}{T}{title} {user}, Welcome to use Jumpserver open source fortress system {end}{R}{R}")
+        header = _("\n{T}{T}{title} {user}, {header_title} {end}{R}{R}")
         menu = [
             _("{T}1) Enter {green}ID{end} directly login or enter {green}part IP, Hostname, Comment{end} to search login(if unique).{R}"),
             _("{T}2) Enter {green}/{end} + {green}IP, Hostname{end} or {green}Comment {end} search, such as: /ip.{R}"),
@@ -95,7 +97,8 @@ class InteractiveServer:
             _("{T}0) Enter {green}q{end} exit.{R}")
         ]
         self.client.send_unicode(header.format(
-            title="\033[1;32m", user=self.client.user, end="\033[0m",
+            title="\033[1;32m", user=self.client.user,
+            header_title=header_title, end="\033[0m",
             T='\t', R='\r\n\r'
         ))
         for item in menu:
@@ -132,7 +135,6 @@ class InteractiveServer:
             self.display_banner()
         elif opt in ['r', 'R']:
             self.refresh_assets_nodes()
-            self.display_banner()
         elif opt in ['h', 'H']:
             self.display_banner()
         else:
@@ -162,8 +164,9 @@ class InteractiveServer:
             self.display_assets_paging(assets)
 
     def refresh_assets_nodes(self):
-        self.get_user_assets_and_update_async()
-        self.get_user_nodes_async()
+        self.get_user_assets_and_update(cache_policy='2')
+        self.get_user_nodes(cache_policy='2')
+        self.client.send_unicode(_("Refresh done"))
 
     def wait_until_assets_load(self):
         while self.assets is None and \
@@ -316,9 +319,7 @@ class InteractiveServer:
     #
 
     def load_user_assets_from_cache(self):
-        assets = self.__class__._user_assets_cached.get(
-            self.client.user.id
-        )
+        assets = self.__class__._user_assets_cached.get(self.client.user.id)
         self.assets = assets
         if assets:
             self.total_asset_count = len(assets)
@@ -327,8 +328,8 @@ class InteractiveServer:
         thread = threading.Thread(target=self.get_user_assets_and_update)
         thread.start()
 
-    def get_user_assets_and_update(self):
-        assets = app_service.get_user_assets(self.client.user)
+    def get_user_assets_and_update(self, cache_policy='1'):
+        assets = app_service.get_user_assets(self.client.user, cache_policy=cache_policy)
         assets = self.filter_system_users(assets)
         self.__class__._user_assets_cached[self.client.user.id] = assets
         self.load_user_assets_from_cache()
@@ -341,8 +342,8 @@ class InteractiveServer:
         thread = threading.Thread(target=self.get_user_nodes)
         thread.start()
 
-    def get_user_nodes(self):
-        nodes = app_service.get_user_asset_groups(self.client.user)
+    def get_user_nodes(self, cache_policy='1'):
+        nodes = app_service.get_user_asset_groups(self.client.user, cache_policy=cache_policy)
         nodes = sorted(nodes, key=lambda node: node.key)
         self.nodes = self.filter_system_users_of_assets_under_nodes(nodes)
         self._construct_node_tree()

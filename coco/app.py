@@ -16,14 +16,17 @@ from .conf import config
 from .sshd import SSHServer
 from .httpd import HttpServer
 from .tasks import TaskHandler
-from .utils import get_logger, ugettext as _, ignore_error
+from .utils import (
+    get_logger, ugettext as _, ignore_error, get_monitor_data,
+    get_coco_monitor_data
+)
 from .service import app_service
 from .recorder import get_replay_recorder
 from .session import Session
 from .models import Connection
 
 
-__version__ = '1.4.6'
+__version__ = '1.4.8'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
@@ -39,6 +42,7 @@ class Coco:
         self.replay_recorder_class = None
         self.command_recorder_class = None
         self._task_handler = None
+        self.first_load_extra_conf = True
 
     @property
     def sshd(self):
@@ -58,17 +62,18 @@ class Coco:
             self._task_handler = TaskHandler()
         return self._task_handler
 
-    @staticmethod
     @ignore_error
-    def load_extra_conf_from_server():
+    def load_extra_conf_from_server(self):
         configs = app_service.load_config_from_server()
         config.update(configs)
 
         tmp = copy.deepcopy(configs)
-        tmp['HOST_KEY'] = tmp['HOST_KEY'][32:50] + '...'
-        logger.debug("Loading config from server: {}".format(
-            json.dumps(tmp)
-        ))
+        tmp['HOST_KEY'] = tmp.get('HOST_KEY', '')[32:50] + '...'
+        if self.first_load_extra_conf:
+            logger.debug("Loading config from server: {}".format(
+                json.dumps(tmp)
+            ))
+            self.first_load_extra_conf = False
 
     def keep_load_extra_conf(self):
         def func():
@@ -83,25 +88,14 @@ class Coco:
         self.keep_load_extra_conf()
         self.keep_heartbeat()
         self.monitor_sessions()
-        self.monitor_sessions_replay()
+        if config.UPLOAD_FAILED_REPLAY_ON_START:
+            self.upload_failed_replay()
 
     # @ignore_error
     def heartbeat(self):
         sessions = list(Session.sessions.keys())
-        p = psutil.Process(os.getpid())
-        cpu_used = p.cpu_percent(interval=1.0)
-        memory_used = int(p.memory_info().rss / 1024 / 1024)
-        connections = len(p.connections())
-        threads = p.num_threads()
-        session_online = len(sessions)
         data = {
-            "cpu_used": cpu_used,
-            "memory_used": memory_used,
-            "connections": connections,
-            "threads": threads,
-            "boot_time": p.create_time(),
-            "session_online": session_online,
-            "sessions": sessions,
+            'sessions': sessions,
         }
         tasks = app_service.terminal_heartbeat(data)
 
@@ -131,28 +125,42 @@ class Coco:
         thread = threading.Thread(target=func)
         thread.start()
 
-    def monitor_sessions_replay(self):
-        interval = 10
-        log_dir = os.path.join(config['LOG_DIR'])
+    @staticmethod
+    def upload_failed_replay():
+        replay_dir = os.path.join(config.REPLAY_DIR)
+
+        def retry_upload_replay(session_id, file_gz_path, target):
+            recorder = get_replay_recorder()
+            recorder.file_gz_path = file_gz_path
+            recorder.session_id = session_id
+            recorder.target = target
+            recorder.upload_replay()
+
+        def check_replay_is_need_upload(full_path):
+            filename = os.path.basename(full_path)
+            suffix = filename.split('.')[-1]
+            if suffix != 'gz':
+                return False
+            session_id = filename.split('.')[0]
+            if len(session_id) != 36:
+                return False
+            return True
 
         def func():
-            while not self.stop_evt.is_set():
-                active_sessions = [sid for sid in Session.sessions]
-                for filename in os.listdir(log_dir):
+            if not os.path.isdir(replay_dir):
+                return
+            for d in os.listdir(replay_dir):
+                date_path = os.path.join(replay_dir, d)
+                for filename in os.listdir(date_path):
+                    full_path = os.path.join(date_path, filename)
                     session_id = filename.split('.')[0]
-                    full_path = os.path.join(log_dir, filename)
-
-                    if len(session_id) != 36:
+                    # 检查是否需要上传
+                    if not check_replay_is_need_upload(full_path):
                         continue
-
-                    recorder = get_replay_recorder()
-                    if session_id not in active_sessions:
-                        recorder.file_path = full_path
-                        ok = recorder.upload_replay(session_id, 1)
-                        if not ok and os.path.getsize(full_path) == 0:
-                            os.unlink(full_path)
+                    logger.debug("Retry upload retain replay: {}".format(filename))
+                    target = os.path.join(d, filename)
+                    retry_upload_replay(session_id, full_path, target)
                     time.sleep(1)
-                time.sleep(interval)
         thread = threading.Thread(target=func)
         thread.start()
 

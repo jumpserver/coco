@@ -3,6 +3,7 @@
 #
 
 import os
+import socket
 import logging
 from logging.config import dictConfig
 from .conf import config as app_config
@@ -11,7 +12,10 @@ from .conf import config as app_config
 def create_logger():
     level = app_config['LOG_LEVEL']
     log_dir = app_config['LOG_DIR']
-    log_path = os.path.join(log_dir, 'coco.log')
+    filename = 'coco-{}.log'.format(socket.gethostname())
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
+    log_path = os.path.join(log_dir, filename)
     main_setting = {
         'handlers': ['console', 'file'],
         'level': level,
@@ -41,12 +45,11 @@ def create_logger():
             },
             'file': {
                 'level': 'DEBUG',
-                'class': 'logging.handlers.TimedRotatingFileHandler',
+                'class': 'logging.handlers.RotatingFileHandler',
                 'formatter': 'main',
                 'filename': log_path,
-                'when': "D",
-                'interval': 1,
-                "backupCount": 7
+                'maxBytes': 1024*1024*100,
+                'backupCount': 7,
             },
         },
         loggers={

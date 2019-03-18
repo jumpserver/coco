@@ -34,7 +34,7 @@ class ProxyServer:
         :return: system user have full info
         """
         password, private_key = \
-            app_service.get_system_user_auth_info(self.system_user)
+            app_service.get_system_user_auth_info(self.system_user, self.asset)
         if self.system_user.login_mode == MANUAL_LOGIN \
                 or (not password and not private_key):
             prompt = "{}'s password: ".format(self.system_user.username)
@@ -72,6 +72,12 @@ class ProxyServer:
             self.server.close()
             return
         session = Session.new_session(self.client, self.server)
+        if not session:
+            msg = _("Connect with api server failed")
+            logger.error(msg)
+            self.client.send_unicode(msg)
+            self.server.close()
+
         try:
             session.bridge()
         finally:

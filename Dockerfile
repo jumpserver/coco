@@ -6,16 +6,15 @@ WORKDIR /opt/coco
 
 RUN yum -y install epel-release
 RUN cd requirements && yum -y install $(cat rpm_requirements.txt)
-RUN cd requirements && pip install $(egrep "jumpserver|jms" requirements.txt | tr '\n' ' ') && pip install -r requirements.txt -i https://mirrors.ustc.edu.cn/pypi/web/simple
+RUN cd requirements && pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ || pip install -r requirements.txt
 
 ENV LANG=zh_CN.UTF-8
 ENV LC_ALL=zh_CN.UTF-8
 
 COPY . /opt/coco
-VOLUME /opt/coco/logs
-VOLUME /opt/coco/keys
+VOLUME /opt/coco/data
 
-RUN cp config_example.yml config.yml
+RUN  echo > config.yml
 
 EXPOSE 2222
-CMD python run_server.py
+ENTRYPOINT ["./entrypoint.sh"]

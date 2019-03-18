@@ -45,7 +45,8 @@ def convert_error(func):
 
 
 class SFTPServer(paramiko.SFTPServerInterface):
-    root = '/tmp'  # Home or /tmp or other path, must exist on all server
+    # Home or /tmp or other path, must exist on all server
+    root = config.SFTP_ROOT
 
     def __init__(self, server, **kwargs):
         """
@@ -107,7 +108,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
         self._sftp = {}
 
     def get_host_sftp(self, host, su):
-        asset = self.hosts.get(host)['asset']
+        asset = self.hosts.get(host, {}).get('asset')
         system_user = self.get_host_system_users(host, only_name=False).get(su)
 
         if not asset or not system_user:
@@ -234,6 +235,9 @@ class SFTPServer(paramiko.SFTPServerInterface):
         else:
             client, rpath = self.get_sftp_client_rpath(request)
             output = client.listdir_attr(rpath)
+            show_hidden_file = config['SFTP_SHOW_HIDDEN_FILE']
+            if not show_hidden_file:
+                output = [attr for attr in output if not attr.filename.startswith('.')]
         return output
 
     @convert_error
@@ -291,6 +295,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
         try:
             client, rpath = self.get_sftp_client_rpath(path)
             f = client.open(rpath, mode, bufsize=4096)
+            f.prefetch()
             obj = paramiko.SFTPHandle(flags)
             obj.filename = rpath
             obj.readfile = f
