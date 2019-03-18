@@ -326,7 +326,7 @@ class BaseServer(object):
             self.s_parse_input_output_filter(data)
             data = self.s_filter_cmd_filter(data)
         except Exception as e:
-            logger.exception(e)
+            logger.error(e, exc_info=True)
         return self.chan.send(data)
 
     def recv(self, size):

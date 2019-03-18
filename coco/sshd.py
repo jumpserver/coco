@@ -102,6 +102,7 @@ class SSHServer:
             logger.warning("Handle connection EOF Error: {}".format(e))
         except Exception as e:
             logger.error("Unexpect error occur on handle connection: {}".format(e))
+            logger.error(e, exc_info=True)
         finally:
             Connection.remove_connection(connection.id)
             sock.close()

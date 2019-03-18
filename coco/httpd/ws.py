@@ -87,6 +87,7 @@ class ProxyNamespace(BaseNamespace):
                 forwarder.proxy()
             except Exception as e:
                 logger.error("Unexpected error occur: {}".format(e))
+                logger.error(e, exc_info=True)
             self.logout(client_id, connection)
         self.socketio.start_background_task(proxy)
 
@@ -175,7 +176,7 @@ class ProxyNamespace(BaseNamespace):
             try:
                 self.on_logout(client_id)
             except Exception as e:
-                logger.warn(e)
+                logger.error(e, exc_info=True)
         Connection.remove_connection(connection.id)
 
     def logout(self, client_id, connection):

@@ -35,6 +35,7 @@ def convert_error(func):
             error = e
             response = SFTP_EOF
         except Exception as e:
+            logger.error(e, exc_info=True)
             error = e
             response = SFTP_FAILURE
         finally:

@@ -191,6 +191,7 @@ class Coco:
                             check_session_idle_too_long(s)
                 except Exception as e:
                     logger.error("Unexpected error occur: {}".format(e))
+                    logger.error(e, exc_info=True)
                 time.sleep(interval)
         thread = threading.Thread(target=func)
         thread.start()

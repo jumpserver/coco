@@ -463,7 +463,7 @@ def ignore_error(func):
             resp = func(*args, **kwargs)
             return resp
         except Exception as e:
-            logger.error("Error occur: {} {}".format(func.__name__, e))
+            logger.error(e, exc_info=True)
     return wrapper
 
 
