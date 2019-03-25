@@ -29,12 +29,24 @@ class SizedList(list):
     def __init__(self, maxsize=0):
         self.maxsize = maxsize
         self.size = 0
+        self.end_with_ascii = False
         super(list, self).__init__()
 
+    def is_full(self):
+        if self.maxsize == 0:
+            return False
+        if not self.end_with_ascii:
+            return False
+        if self.size >= self.maxsize:
+            return True
+        else:
+            return False
+
     def append(self, b):
-        if self.maxsize == 0 or self.size < self.maxsize:
+        if not self.is_full():
             super(SizedList, self).append(b)
             self.size += len(b)
+            self.end_with_ascii = b[-1] <= 126
 
     def clean(self):
         self.size = 0
