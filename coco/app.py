@@ -14,14 +14,16 @@ from .conf import config
 from .sshd import SSHServer
 from .httpd import HttpServer
 from .tasks import TaskHandler
-from .utils import get_logger, ugettext as _, ignore_error
+from .utils import (
+    get_logger, ugettext as _, ignore_error,
+)
 from .service import app_service
 from .recorder import get_replay_recorder
 from .session import Session
 from .models import Connection
 
 
-__version__ = '1.4.8'
+__version__ = '1.4.9'
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 logger = get_logger(__file__)
@@ -89,20 +91,8 @@ class Coco:
     # @ignore_error
     def heartbeat(self):
         sessions = list(Session.sessions.keys())
-        # p = psutil.Process(os.getpid())
-        # cpu_used = p.cpu_percent(interval=1.0)
-        # memory_used = int(p.memory_info().rss / 1024 / 1024)
-        # connections = len(p.connections())
-        # threads = p.num_threads()
-        # session_online = len(sessions)
         data = {
-            # "cpu_used": cpu_used,
-            # "memory_used": memory_used,
-            # "connections": connections,
-            # "threads": threads,
-            # "boot_time": p.create_time(),
-            # "session_online": session_online,
-            "sessions": sessions,
+            'sessions': sessions,
         }
         tasks = app_service.terminal_heartbeat(data)
 
@@ -201,6 +191,7 @@ class Coco:
                             check_session_idle_too_long(s)
                 except Exception as e:
                     logger.error("Unexpected error occur: {}".format(e))
+                    logger.error(e, exc_info=True)
                 time.sleep(interval)
         thread = threading.Thread(target=func)
         thread.start()

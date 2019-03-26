@@ -135,7 +135,6 @@ class InteractiveServer:
             self.display_banner()
         elif opt in ['r', 'R']:
             self.refresh_assets_nodes()
-            self.display_banner()
         elif opt in ['h', 'H']:
             self.display_banner()
         else:
@@ -165,8 +164,9 @@ class InteractiveServer:
             self.display_assets_paging(assets)
 
     def refresh_assets_nodes(self):
-        self.get_user_assets_and_update_async()
-        self.get_user_nodes_async()
+        self.get_user_assets_and_update(cache_policy='2')
+        self.get_user_nodes(cache_policy='2')
+        self.client.send_unicode(_("Refresh done"))
 
     def wait_until_assets_load(self):
         while self.assets is None and \
@@ -319,9 +319,7 @@ class InteractiveServer:
     #
 
     def load_user_assets_from_cache(self):
-        assets = self.__class__._user_assets_cached.get(
-            self.client.user.id
-        )
+        assets = self.__class__._user_assets_cached.get(self.client.user.id)
         self.assets = assets
         if assets:
             self.total_asset_count = len(assets)
@@ -330,8 +328,8 @@ class InteractiveServer:
         thread = threading.Thread(target=self.get_user_assets_and_update)
         thread.start()
 
-    def get_user_assets_and_update(self):
-        assets = app_service.get_user_assets(self.client.user)
+    def get_user_assets_and_update(self, cache_policy='1'):
+        assets = app_service.get_user_assets(self.client.user, cache_policy=cache_policy)
         assets = self.filter_system_users(assets)
         self.__class__._user_assets_cached[self.client.user.id] = assets
         self.load_user_assets_from_cache()
@@ -344,8 +342,8 @@ class InteractiveServer:
         thread = threading.Thread(target=self.get_user_nodes)
         thread.start()
 
-    def get_user_nodes(self):
-        nodes = app_service.get_user_asset_groups(self.client.user)
+    def get_user_nodes(self, cache_policy='1'):
+        nodes = app_service.get_user_asset_groups(self.client.user, cache_policy=cache_policy)
         nodes = sorted(nodes, key=lambda node: node.key)
         self.nodes = self.filter_system_users_of_assets_under_nodes(nodes)
         self._construct_node_tree()

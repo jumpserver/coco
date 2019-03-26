@@ -25,8 +25,7 @@ sys.path.insert(0, BASE_DIR)
 dirs = ('logs', 'keys')
 for d in dirs:
     d2 = os.path.join('data', d)
-    if not os.path.isdir(d2):
-        os.makedirs(d2)
+    os.makedirs(d2, exist_ok=True)
 
 try:
     from coco import Coco

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-02-21 20:00+0800\n"
+"POT-Creation-Date: 2019-03-06 14:51+0800\n"
 "PO-Revision-Date: 2018-08-10 10:42+0800\n"
 "Last-Translator: BaiJiangjie <bugatti_it@163.com>\n"
 "Language-Team: Language locale/zh\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: coco/app.py:180
+#: coco/app.py:182
 msgid "Connect idle more than {} minutes, disconnect"
 msgstr "空闲时间超过 {} 分钟，断开连接"
 
@@ -25,6 +25,7 @@ msgid "Welcome to use Jumpserver open source fortress system"
 msgstr "欢迎使用Jumpserver开源跳板机系统"
 
 #: coco/interactive.py:87
+#, python-brace-format
 msgid ""
 "\n"
 "{T}{T}{title} {user}, {header_title} {end}{R}{R}"
@@ -89,9 +90,13 @@ msgstr "{T}0) 输入 {green}r{end} 刷新最新的机器和节点信息.{R}"
 msgid "{T}0) Enter {green}q{end} exit.{R}"
 msgstr "{T}0) 输入 {green}q{end} 退出.{R}"
 
-#: coco/interactive.py:159
+#: coco/interactive.py:158
 msgid "Terminal does not support login rdp, please use web terminal to access"
 msgstr "终端不支持登录windows, 请使用web terminal访问"
+
+#: coco/interactive.py:169
+msgid "Refresh done"
+msgstr "刷新完成"
 
 #: coco/interactive.py:211
 msgid "No Assets"
@@ -137,27 +142,27 @@ msgstr "下一页: Enter|N/n"
 msgid "BACK: b/q"
 msgstr "返回: B/b"
 
-#: coco/interactive.py:373
+#: coco/interactive.py:371
 msgid "No Nodes"
 msgstr "没有节点"
 
-#: coco/interactive.py:377
+#: coco/interactive.py:375
 msgid "Node: [ ID.Name(Asset amount) ]"
 msgstr "节点: [ ID.名称(资产数量) ]"
 
-#: coco/interactive.py:379
+#: coco/interactive.py:377
 msgid "Tips: Enter g+NodeID to display the host under the node, such as g1"
 msgstr "提示: 输入 g+节点ID 显示节点下主机. 如: g1"
 
-#: coco/interactive.py:387
+#: coco/interactive.py:385
 msgid "There is no matched node, please re-enter"
 msgstr "没有匹配分组，请重新输入"
 
-#: coco/interactive.py:417
+#: coco/interactive.py:415
 msgid "Select a login:: "
 msgstr "选择一个登录:"
 
-#: coco/interactive.py:440
+#: coco/interactive.py:438
 msgid "No system user"
 msgstr "没有系统用户"
 
