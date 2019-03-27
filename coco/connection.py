@@ -129,17 +129,21 @@ class SSHConnection:
                             password=gateway.password,
                             pkey=gateway.private_key_obj,
                             timeout=config['SSH_TIMEOUT'])
-            except:
+            except Exception as e:
+                logger.error("Connect gateway error")
+                logger.error(e, exc_info=True)
                 continue
             try:
                 transport = ssh.get_transport()
-                transport.set_keep_alive(20)
+                transport.set_keepalive(20)
                 sock = transport.open_channel(
                     'direct-tcpip', (asset.ip, asset.port), ('127.0.0.1', 0)
                 )
                 break
-            except:
-                return None
+            except Exception as e:
+                logger.error("Open gateway channel error")
+                logger.error(e, exc_info=True)
+                continue
         return sock
 
 
