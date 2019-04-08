@@ -229,7 +229,10 @@ class SFTPServer(paramiko.SFTPServerInterface):
                 attr.filename = hostname
                 output.append(attr)
         elif not request['su']:
-            for su in self.get_host_system_users(request['host']):
+            for su, su_obj in self.get_host_system_users(request['host']).items():
+                # 不显示没有文件动作的系统用户
+                if not su_obj.has_file_actions:
+                    continue
                 attr = self.stat_fake_dir()
                 attr.filename = su
                 output.append(attr)
@@ -257,6 +260,9 @@ class SFTPServer(paramiko.SFTPServerInterface):
             raise PermissionError("Permission deny")
         if su and not self.is_su_in_asset(su, host):
             raise PermissionError("Permission deny")
+        # cd su: host下有此系统用户，但是没有任何文件动作
+        if su and not self.check_su_action(su, host, 'has_file_actions'):
+            raise PermissionError("Permission deny")
 
         client, rpath = self.get_sftp_client_rpath(request)
         logger.debug("Stat path2: {} => {}".format(client, rpath))
@@ -266,6 +272,24 @@ class SFTPServer(paramiko.SFTPServerInterface):
     @convert_error
     def lstat(self, path):
         return self.stat(path)
+
+    def check_su_action(self, su, host, action):
+        system_user = self.get_host_system_users(host).get(su)
+        if action == 'upload_file':
+            return system_user.allow_upload_file
+        elif action == 'download_file':
+            return system_user.allow_download_file
+        elif action == 'has_file_actions':
+            return system_user.has_file_actions
+        else:
+            return True
+
+    def check_action_is_allowed(self, path, action):
+        path_list = path.split('/')
+        if len(path_list) > 2:
+            host, su = path_list[1], path_list[2]
+            if not self.check_su_action(su, host, action):
+                raise PermissionError("Permission deny")
 
     @convert_error
     def open(self, path, flags, attr=None):
@@ -288,10 +312,14 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
         if 'r' in mode:
             operate = "Download"
+            # 判断下载文件动作
+            self.check_action_is_allowed(path, 'download_file')
         elif 'a' in mode:
             operate = "Append"
         else:
             operate = "Upload"
+            # 判断上传文件动作
+            self.check_action_is_allowed(path, 'upload_file')
 
         try:
             client, rpath = self.get_sftp_client_rpath(path)
