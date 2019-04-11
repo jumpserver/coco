@@ -76,7 +76,11 @@ class ProxyNamespace(BaseNamespace):
             return
 
         asset = app_service.get_asset(asset_id)
-        system_user = app_service.get_system_user(system_user_id)
+        # system_user = app_service.get_system_user(system_user_id)
+        # Get system user with actions(perms)
+        system_user = app_service.get_system_user_from_perms(
+            self.get_current_user(), asset_id, system_user_id
+        )
 
         if not asset or not system_user:
             return
