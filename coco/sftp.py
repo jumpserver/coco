@@ -312,14 +312,15 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
         if 'r' in mode:
             operate = "Download"
-            # 判断下载文件动作
-            self.check_action_is_allowed(path, 'download_file')
+            action = 'download_file'
         elif 'a' in mode:
             operate = "Append"
+            action = ''
         else:
             operate = "Upload"
-            # 判断上传文件动作
-            self.check_action_is_allowed(path, 'upload_file')
+            action = 'upload_file'
+
+        self.check_action_is_allowed(path, action)
 
         try:
             client, rpath = self.get_sftp_client_rpath(path)
@@ -429,12 +430,18 @@ class InternalSFTPClient(SFTPServer):
     def listdir_attr(self, path):
         return self.list_folder.__wrapped__(self, path)
 
+    @convert_error
     def open(self, path, mode, **kwargs):
         client, rpath = self.get_sftp_client_rpath(path)
         if 'r' in mode:
             operate = "Download"
+            action = 'download_file'
         else:
             operate = "Upload"
+            action = 'upload_file'
+
+        self.check_action_is_allowed(path, action)
+
         success = False
         try:
             f = client.open(rpath, mode, bufsize=4096)
