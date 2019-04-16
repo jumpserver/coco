@@ -6,7 +6,7 @@ import threading
 import time
 
 from .session import Session
-from .models import Server, TelnetServer
+from .models import Server, TelnetServer, PERMS_ACTION_NAME_CONNECT
 from .connection import SSHConnection, TelnetConnection
 from .service import app_service
 from .conf import config
@@ -94,14 +94,16 @@ class ProxyServer:
         :return: True or False
         """
         return app_service.validate_user_asset_permission(
-            self.client.user.id, self.asset.id, self.system_user.id
+            self.client.user.id, self.asset.id, self.system_user.id,
+            action_name=PERMS_ACTION_NAME_CONNECT
         )
 
     def get_server_conn(self):
         logger.info("Connect to {}:{} ...".format(self.asset.hostname, self.asset.port))
         self.send_connecting_message()
         if not self.validate_permission():
-            self.client.send_unicode(warning(_('No permission')))
+            msg = _('No permission')
+            self.client.send_unicode(warning(wr(msg, before=2, after=0)))
             server = None
         elif self.system_user.protocol == self.asset.protocol == 'telnet':
             server = self.get_telnet_server_conn()
