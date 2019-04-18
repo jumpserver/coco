@@ -286,7 +286,6 @@ class SFTPServer(paramiko.SFTPServerInterface):
         system_user = self.get_host_system_users(host, only_name=False).get(su)
 
         if not asset or not system_user:
-            logger.debug("Path => {}".format(path))
             raise PermissionError("No asset or system user explicit")
 
         if not self.validate_permission(asset, system_user, action):
