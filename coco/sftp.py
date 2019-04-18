@@ -12,7 +12,8 @@ from .conf import config
 from .service import app_service
 from .connection import SSHConnection
 from .const import (
-    PERMS_ACTION_NAME_DOWNLOAD_FILE, PERMS_ACTION_NAME_UPLOAD_FILE
+    PERMS_ACTION_NAME_DOWNLOAD_FILE, PERMS_ACTION_NAME_UPLOAD_FILE,
+    PERMS_ACTION_NAME_ALL,
 )
 
 CURRENT_DIR = os.path.dirname(__file__)
@@ -270,25 +271,21 @@ class SFTPServer(paramiko.SFTPServerInterface):
     def lstat(self, path):
         return self.stat(path)
 
-    def validate_permission(self, asset, system_user, action):
-        kwargs = {
-            'user_id': self.server.connection.user.id,
-            'asset_id': asset.id,
-            'system_user_id': system_user.id,
-            'action_name': action
-        }
-        return app_service.validate_user_asset_permission(**kwargs)
+    @staticmethod
+    def validate_permission(system_user, action):
+        check_actions = [PERMS_ACTION_NAME_ALL, action]
+        granted_actions = getattr(system_user, 'actions', [])
+        actions = list(set(granted_actions).intersection(set(check_actions)))
+        return bool(actions)
 
     def check_action(self, path, action):
         request = self.parse_path(path)
         host, su = request['host'], request['su']
-        asset = self.hosts.get(host, {}).get('asset')
-        system_user = self.get_host_system_users(host, only_name=False).get(su)
+        system_user = self.hosts.get(host, {}).get('system_users', {}).get(su)
+        if not system_user:
+            raise PermissionError("No system user explicit")
 
-        if not asset or not system_user:
-            raise PermissionError("No asset or system user explicit")
-
-        if not self.validate_permission(asset, system_user, action):
+        if not self.validate_permission(system_user, action):
             raise PermissionError("Permission deny")
 
     @convert_error
