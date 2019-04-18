@@ -140,6 +140,7 @@ class SFTPVolume(BaseVolume):
         if not many:
             names = [names]
         for name in names:
+            name = name.lstrip(self.path_sep)
             path = self._join(parent_path, name)
             remote_path = self._remote_path(path)
             self.sftp.mkdir(remote_path)

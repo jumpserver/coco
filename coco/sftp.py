@@ -270,36 +270,32 @@ class SFTPServer(paramiko.SFTPServerInterface):
     def lstat(self, path):
         return self.stat(path)
 
-    def validate_permission(self, asset, system_user, action_name):
-        return app_service.validate_user_asset_permission(
-            self.server.connection.user.id, asset.id, system_user.id,
-            action_name=action_name
-        )
+    def validate_permission(self, asset, system_user, action):
+        kwargs = {
+            'user_id': self.server.connection.user.id,
+            'asset_id': asset.id,
+            'system_user_id': system_user.id,
+            'action_name': action
+        }
+        return app_service.validate_user_asset_permission(**kwargs)
 
-    def get_host_asset(self, host):
-        return self.hosts.get(host, {}).get('asset')
+    def check_action(self, path, action):
+        request = self.parse_path(path)
+        host, su = request['host'], request['su']
+        asset = self.hosts.get(host, {}).get('asset')
+        system_user = self.get_host_system_users(host, only_name=False).get(su)
 
-    def get_asset_and_system_user_by_path(self, path):
-        path_list = path.split('/')
-        host, su_name = path_list[1], path_list[2]
-        asset = self.get_host_asset(host)
-        system_user = self.get_host_system_users(host).get(su_name)
-        return asset, system_user
+        if not asset or not system_user:
+            logger.debug("Path => {}".format(path))
+            raise PermissionError("No asset or system user explicit")
 
-    def check_action(self, path, action_name):
-        asset, system_user = self.get_asset_and_system_user_by_path(path)
-        if self.validate_permission(asset, system_user, action_name):
-            return
-
-        msg = "No permission. user: {} asset: {} system_user: {} action: {}"
-        logger.debug(msg.format(self.server.connection.user, asset, system_user, action_name))
-        raise PermissionError("Permission deny")
+        if not self.validate_permission(asset, system_user, action):
+            raise PermissionError("Permission deny")
 
     @convert_error
     def open(self, path, flags, attr=None):
         binary_flag = getattr(os, 'O_BINARY', 0)
         flags |= binary_flag
-        success = False
 
         if flags & os.O_WRONLY:
             if flags & os.O_APPEND:
@@ -316,18 +312,17 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
         if 'r' in mode:
             operate = "Download"
-            action_name = PERMS_ACTION_NAME_DOWNLOAD_FILE
+            action = PERMS_ACTION_NAME_DOWNLOAD_FILE
         elif 'a' in mode:
             operate = "Append"
-            action_name = PERMS_ACTION_NAME_UPLOAD_FILE
+            action = PERMS_ACTION_NAME_UPLOAD_FILE
         else:
             operate = "Upload"
-            action_name = PERMS_ACTION_NAME_UPLOAD_FILE
+            action = PERMS_ACTION_NAME_UPLOAD_FILE
 
-        # check action - cmd
-        self.check_action(path, action_name)
-
+        success = False
         try:
+            self.check_action(path, action)
             client, rpath = self.get_sftp_client_rpath(path)
             f = client.open(rpath, mode, bufsize=4096)
             f.prefetch()
@@ -343,7 +338,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
     @convert_error
     def remove(self, path):
-        self.check_action(path, action_name=PERMS_ACTION_NAME_UPLOAD_FILE)
+        self.check_action(path, action=PERMS_ACTION_NAME_UPLOAD_FILE)
         client, rpath = self.get_sftp_client_rpath(path)
         success = False
 
@@ -356,7 +351,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
     @convert_error
     def rename(self, src, dest):
-        self.check_action(src, action_name=PERMS_ACTION_NAME_UPLOAD_FILE)
+        self.check_action(src, action=PERMS_ACTION_NAME_UPLOAD_FILE)
         client, rsrc = self.get_sftp_client_rpath(src)
         client2, rdest = self.get_sftp_client_rpath(dest)
         success = False
@@ -374,7 +369,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
     @convert_error
     def mkdir(self, path, attr=0o755):
-        self.check_action(path, action_name=PERMS_ACTION_NAME_UPLOAD_FILE)
+        self.check_action(path, action=PERMS_ACTION_NAME_UPLOAD_FILE)
         client, rpath = self.get_sftp_client_rpath(path)
         success = False
 
@@ -389,7 +384,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
     @convert_error
     def rmdir(self, path):
-        self.check_action(path, action_name=PERMS_ACTION_NAME_UPLOAD_FILE)
+        self.check_action(path, action=PERMS_ACTION_NAME_UPLOAD_FILE)
         client, rpath = self.get_sftp_client_rpath(path)
         success = False
 
@@ -443,15 +438,14 @@ class InternalSFTPClient(SFTPServer):
         client, rpath = self.get_sftp_client_rpath(path)
         if 'r' in mode:
             operate = "Download"
-            action_name = PERMS_ACTION_NAME_DOWNLOAD_FILE
+            action = PERMS_ACTION_NAME_DOWNLOAD_FILE
         else:
             operate = "Upload"
-            action_name = PERMS_ACTION_NAME_UPLOAD_FILE
-
-        self.check_action(path, action_name=action_name)
+            action = PERMS_ACTION_NAME_UPLOAD_FILE
 
         success = False
         try:
+            self.check_action(path, action=action)
             f = client.open(rpath, mode, bufsize=4096)
             success = True
             return f
@@ -482,7 +476,7 @@ class InternalSFTPClient(SFTPServer):
         return super(InternalSFTPClient, self).remove.__wrapped__(self, path)
 
     def putfo(self, f, path, callback=None, confirm=True):
-        self.check_action(path, action_name=PERMS_ACTION_NAME_UPLOAD_FILE)
+        self.check_action(path, action=PERMS_ACTION_NAME_UPLOAD_FILE)
         client, rpath = self.get_sftp_client_rpath(path)
         success = False
         try:

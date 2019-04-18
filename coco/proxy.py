@@ -94,10 +94,13 @@ class ProxyServer:
         验证用户是否有连接改资产的权限
         :return: True or False
         """
-        return app_service.validate_user_asset_permission(
-            self.client.user.id, self.asset.id, self.system_user.id,
-            action_name=PERMS_ACTION_NAME_CONNECT
-        )
+        kwargs = {
+            'user_id': self.client.user.id,
+            'asset_id': self.asset.id,
+            'system_user_id': self.system_user.id,
+            'action_name': PERMS_ACTION_NAME_CONNECT
+        }
+        return app_service.validate_user_asset_permission(**kwargs)
 
     def get_server_conn(self):
         logger.info("Connect to {}:{} ...".format(self.asset.hostname, self.asset.port))
