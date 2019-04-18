@@ -14,14 +14,6 @@ from .compat import str
 BUF_SIZE = 4096
 logger = utils.get_logger(__file__)
 
-#
-# Permission actions choices
-#
-PERMS_ACTION_NAME_ALL = 'all'
-PERMS_ACTION_NAME_CONNECT = 'connect'
-PERMS_ACTION_NAME_UPLOAD_FILE = 'upload_file'
-PERMS_ACTION_NAME_DOWNLOAD_FILE = 'download_file'
-
 
 class Connection(object):
     connections = {}

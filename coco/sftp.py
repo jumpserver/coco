@@ -11,7 +11,7 @@ from coco.utils import get_logger
 from .conf import config
 from .service import app_service
 from .connection import SSHConnection
-from .models import (
+from .const import (
     PERMS_ACTION_NAME_DOWNLOAD_FILE, PERMS_ACTION_NAME_UPLOAD_FILE
 )
 
@@ -343,6 +343,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
     @convert_error
     def remove(self, path):
+        self.check_action(path, action_name=PERMS_ACTION_NAME_UPLOAD_FILE)
         client, rpath = self.get_sftp_client_rpath(path)
         success = False
 
@@ -355,6 +356,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
     @convert_error
     def rename(self, src, dest):
+        self.check_action(src, action_name=PERMS_ACTION_NAME_UPLOAD_FILE)
         client, rsrc = self.get_sftp_client_rpath(src)
         client2, rdest = self.get_sftp_client_rpath(dest)
         success = False
@@ -372,6 +374,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
     @convert_error
     def mkdir(self, path, attr=0o755):
+        self.check_action(path, action_name=PERMS_ACTION_NAME_UPLOAD_FILE)
         client, rpath = self.get_sftp_client_rpath(path)
         success = False
 
@@ -386,6 +389,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
     @convert_error
     def rmdir(self, path):
+        self.check_action(path, action_name=PERMS_ACTION_NAME_UPLOAD_FILE)
         client, rpath = self.get_sftp_client_rpath(path)
         success = False
 
@@ -444,8 +448,7 @@ class InternalSFTPClient(SFTPServer):
             operate = "Upload"
             action_name = PERMS_ACTION_NAME_UPLOAD_FILE
 
-        # check action - luna
-        self.check_action(path, action_name)
+        self.check_action(path, action_name=action_name)
 
         success = False
         try:
@@ -463,6 +466,12 @@ class InternalSFTPClient(SFTPServer):
         attr = super(InternalSFTPClient, self).lstat.__wrapped__(self, path)
         return attr
 
+    def rename(self, src, dest):
+        return super(InternalSFTPClient, self).rename.__wrapped__(self, src, dest)
+
+    def mkdir(self, path, attr=0o755):
+        return super(InternalSFTPClient, self).mkdir.__wrapped__(self, path, attr)
+
     def rmdir(self, path):
         return super(InternalSFTPClient, self).rmdir.__wrapped__(self, path)
 
@@ -470,9 +479,10 @@ class InternalSFTPClient(SFTPServer):
         return FakeChannel.new()
 
     def unlink(self, path):
-        return self.remove(path)
+        return super(InternalSFTPClient, self).remove.__wrapped__(self, path)
 
     def putfo(self, f, path, callback=None, confirm=True):
+        self.check_action(path, action_name=PERMS_ACTION_NAME_UPLOAD_FILE)
         client, rpath = self.get_sftp_client_rpath(path)
         success = False
         try:

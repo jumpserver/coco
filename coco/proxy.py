@@ -6,7 +6,8 @@ import threading
 import time
 
 from .session import Session
-from .models import Server, TelnetServer, PERMS_ACTION_NAME_CONNECT
+from .models import Server, TelnetServer
+from .const import PERMS_ACTION_NAME_CONNECT
 from .connection import SSHConnection, TelnetConnection
 from .service import app_service
 from .conf import config
