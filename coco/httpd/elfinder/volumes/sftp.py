@@ -140,6 +140,7 @@ class SFTPVolume(BaseVolume):
         if not many:
             names = [names]
         for name in names:
+            name = name.lstrip(self.path_sep)
             path = self._join(parent_path, name)
             remote_path = self._remote_path(path)
             self.sftp.mkdir(remote_path)
@@ -214,14 +215,11 @@ class SFTPVolume(BaseVolume):
         """ Delete a File or Directory object. """
         path = self._path(target)
         remote_path = self._remote_path(path)
-        try:
-            info = self.info(target)
-            if info['mime'] == 'directory':
-                self.sftp.rmdir(remote_path)
-            else:
-                self.sftp.unlink(remote_path)
-        except OSError:
-            raise OSError("Delete {} failed".format(self._base_name(path)))
+        info = self.info(target)
+        if info['mime'] == 'directory':
+            self.sftp.rmdir(remote_path)
+        else:
+            self.sftp.unlink(remote_path)
         return target
 
     def upload_as_url(self, url, parent):
