@@ -157,7 +157,7 @@ class TelnetConnection:
     password_pattern = re.compile(
         r'Password:?\s*$|passwd:?\s*$|密\s*码:?\s*$', re.I
     )
-    success_pattern = re.compile(r'Last\s*login|success|成功|#|\$', re.I)
+    success_pattern = re.compile(r'Last\s*login|success|成功|#|>|\$', re.I)
     custom_success_pattern = None
 
     def __init__(self, asset, system_user, client):
