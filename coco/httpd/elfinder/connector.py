@@ -109,8 +109,8 @@ class ElFinderConnector:
         try:
             func()
         except Exception as e:
+            logger.debug(e, exc_info=True)
             self.response['error'] = '%s' % e
-            logger.error(e, exc_info=True)
 
     def get_request_data(self):
         data_source = {}
