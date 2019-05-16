@@ -77,7 +77,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
     def get_permed_hosts(self):
         hosts = {}
         assets = app_service.get_user_assets(
-            self.server.connection.user
+            self.server.connection.user, cache_policy='1',
         )
         for asset in assets:
             if asset.protocol != 'ssh':
