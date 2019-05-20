@@ -161,7 +161,7 @@ def is_obj_attr_has(obj, val, attrs=("hostname", "ip", "comment")):
                 hasattr(obj, attr) and isinstance(hasattr(obj, attr), (str, int))]
 
     for v in vals:
-        if str(v).find(val) != -1:
+        if str(v).lower().find(val.lower()) != -1:
             return True
     return False
 
@@ -173,7 +173,7 @@ def is_obj_attr_eq(obj, val, attrs=("id", "hostname", "ip")):
         vals = [getattr(obj, attr) for attr in attrs if hasattr(obj, attr)]
 
     for v in vals:
-        if str(v) == str(val):
+        if str(v).lower() == str(val).lower():
             return True
     return False
 
