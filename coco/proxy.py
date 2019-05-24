@@ -64,9 +64,9 @@ class ProxyServer:
     def proxy(self):
         if not self.check_protocol():
             return
-        self.get_system_user_username_if_need()
-        self.get_system_user_auth_or_manual_set()
-        self.server = self.get_server_conn()
+        self.server = self.get_server_conn_from_cache()
+        if not self.server:
+            self.server = self.get_server_conn()
         if self.server is None:
             return
         if self.client.closed:
@@ -102,16 +102,25 @@ class ProxyServer:
         }
         return app_service.validate_user_asset_permission(**kwargs)
 
+    def get_server_conn_from_cache(self):
+        server = None
+        if self.system_user.protocol == 'ssh':
+            server = self.get_ssh_server_conn(cache=True)
+        return server
+
     def get_server_conn(self):
-        logger.info("Connect to {}:{} ...".format(self.asset.hostname, self.asset.port))
+        # 与获取连接
+        self.get_system_user_username_if_need()
+        self.get_system_user_auth_or_manual_set()
         self.send_connecting_message()
+        logger.info("Connect to {}:{} ...".format(self.asset.hostname, self.asset.port))
         if not self.validate_permission():
             msg = _('No permission')
             self.client.send_unicode(warning(wr(msg, before=2, after=0)))
             server = None
-        elif self.system_user.protocol == self.asset.protocol == 'telnet':
+        elif self.system_user.protocol == 'telnet':
             server = self.get_telnet_server_conn()
-        elif self.system_user.protocol == self.asset.protocol == 'ssh':
+        elif self.system_user.protocol == 'ssh':
             server = self.get_ssh_server_conn()
         else:
             server = None
@@ -129,21 +138,28 @@ class ProxyServer:
             server = TelnetServer(sock, self.asset, self.system_user)
         return server
 
-    def get_ssh_server_conn(self):
+    def get_ssh_server_conn(self, cache=False):
         request = self.client.request
         term = request.meta.get('term', 'xterm')
         width = request.meta.get('width', 80)
         height = request.meta.get('height', 24)
-        ssh = SSHConnection()
-        chan, sock, msg = ssh.get_channel(
-            self.asset, self.system_user, term=term,
-            width=width, height=height
-        )
+
+        if cache:
+            conn = SSHConnection.new_connection_from_cache(
+                self.client.user, self.asset, self.system_user
+            )
+            if not conn:
+                return None
+        else:
+            conn = SSHConnection.new_connection(
+                self.client.user, self.asset, self.system_user
+            )
+        chan = conn.get_channel(term=term, width=width, height=height)
         if not chan:
-            self.client.send_unicode(warning(wr(msg, before=1, after=0)))
+            self.client.send_unicode(warning(wr(conn.error, before=1, after=0)))
             server = None
         else:
-            server = Server(chan, sock, self.asset, self.system_user)
+            server = Server(chan, conn, self.asset, self.system_user)
         return server
 
     def send_connecting_message(self):

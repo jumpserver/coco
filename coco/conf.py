@@ -292,27 +292,37 @@ class Config(dict):
         if default_value is None:
             return v
         tp = type(default_value)
-        try:
-            if tp in [list, dict]:
-                v = json.loads(v)
+        # 对bool特殊处理
+        if tp is bool and isinstance(v, str):
+            if v in ("true", "True", "1"):
+                return True
             else:
-                v = tp(v)
+                return False
+        if tp in [list, dict] and isinstance(v, str):
+            try:
+                v = json.loads(v)
+                return v
+            except json.JSONDecodeError:
+                return v
+
+        try:
+            v = tp(v)
         except Exception:
             pass
         return v
 
     def __getitem__(self, item):
+        # 先从设置的来
         try:
-            value = super(Config, self).__getitem__(item)
+            value = super().__getitem__(item)
         except KeyError:
             value = None
         if value is not None:
-            return self.convert_type(item, value)
+            return value
+        # 其次从环境变量来
         value = os.environ.get(item, None)
         if value is not None:
-            if value.isdigit():
-                value = int(value)
-            elif value.lower() == 'false':
+            if value.lower() == 'false':
                 value = False
             elif value.lower() == 'true':
                 value = True
@@ -368,7 +378,8 @@ defaults = {
     'ASSET_LIST_PAGE_SIZE': 'auto',
     'SFTP_ROOT': '/tmp',
     'SFTP_SHOW_HIDDEN_FILE': False,
-    'UPLOAD_FAILED_REPLAY_ON_START': True
+    'UPLOAD_FAILED_REPLAY_ON_START': True,
+    'REUSE_CONNECTION': False,
 }
 
 
