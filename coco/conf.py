@@ -322,10 +322,6 @@ class Config(dict):
         # 其次从环境变量来
         value = os.environ.get(item, None)
         if value is not None:
-            if value.lower() == 'false':
-                value = False
-            elif value.lower() == 'true':
-                value = True
             return self.convert_type(item, value)
         return self.defaults.get(item)
 
