@@ -213,7 +213,7 @@ class Config(dict):
             filename = os.path.join(self.root_path, filename)
         try:
             with open(filename) as f:
-                obj = yaml.load(f)
+                obj = yaml.safe_load(f)
         except IOError as e:
             if silent and e.errno in (errno.ENOENT, errno.EISDIR):
                 return False
@@ -287,22 +287,42 @@ class Config(dict):
             rv[key] = v
         return rv
 
-    def __getitem__(self, item):
+    def convert_type(self, k, v):
+        default_value = self.defaults.get(k)
+        if default_value is None:
+            return v
+        tp = type(default_value)
+        # 对bool特殊处理
+        if tp is bool and isinstance(v, str):
+            if v in ("true", "True", "1"):
+                return True
+            else:
+                return False
+        if tp in [list, dict] and isinstance(v, str):
+            try:
+                v = json.loads(v)
+                return v
+            except json.JSONDecodeError:
+                return v
+
         try:
-            value = super(Config, self).__getitem__(item)
+            v = tp(v)
+        except Exception:
+            pass
+        return v
+
+    def __getitem__(self, item):
+        # 先从设置的来
+        try:
+            value = super().__getitem__(item)
         except KeyError:
             value = None
         if value is not None:
             return value
+        # 其次从环境变量来
         value = os.environ.get(item, None)
         if value is not None:
-            if value.isdigit():
-                value = int(value)
-            elif value.lower() == 'false':
-                value = False
-            elif value.lower() == 'true':
-                value = True
-            return value
+            return self.convert_type(item, value)
         return self.defaults.get(item)
 
     def __getattr__(self, item):
@@ -354,7 +374,8 @@ defaults = {
     'ASSET_LIST_PAGE_SIZE': 'auto',
     'SFTP_ROOT': '/tmp',
     'SFTP_SHOW_HIDDEN_FILE': False,
-    'UPLOAD_FAILED_REPLAY_ON_START': True
+    'UPLOAD_FAILED_REPLAY_ON_START': True,
+    'REUSE_CONNECTION': False,
 }
 
 

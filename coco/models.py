@@ -398,20 +398,15 @@ class Server(BaseServer):
     """
 
     # Todo: Server name is not very suitable
-    def __init__(self, chan, sock, asset, system_user):
-        self.sock = sock
+    def __init__(self, chan, connection, asset, system_user):
+        self.connection = connection
         self.asset = asset
         self.system_user = system_user
         super(Server, self).__init__(chan=chan)
 
     def close(self):
         super(Server, self).close()
-        for i in range(5):
-            if not self.chan.transport.is_alive():
-                break
-            self.chan.transport.close()
-        if self.sock:
-            self.sock.transport.close()
+        self.connection.close()
 
 
 class WSProxy(object):

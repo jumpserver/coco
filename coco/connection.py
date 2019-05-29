@@ -24,32 +24,85 @@ AUTO_LOGIN = 'auto'
 
 
 class SSHConnection:
+    connections = {}
+
     @staticmethod
-    def get_system_user_auth(system_user, asset):
+    def make_key(user, asset, system_user):
+        key = "{}_{}_{}".format(user.id, asset.id, system_user.id)
+        return key
+
+    @classmethod
+    def new_connection_from_cache(cls, user, asset, system_user):
+        if not config.REUSE_CONNECTION:
+            return None
+        key = cls.make_key(user, asset, system_user)
+        connection = cls.connections.get(key)
+        if not connection:
+            return None
+        connection.ref += 1
+        return connection
+
+    @classmethod
+    def set_connection_to_cache(cls, conn):
+        if not config.REUSE_CONNECTION:
+            return None
+        key = cls.make_key(conn.user, conn.asset, conn.system_user)
+        cls.connections[key] = conn
+
+    @classmethod
+    def new_connection(cls, user, asset, system_user):
+        connection = cls.new_connection_from_cache(user, asset, system_user)
+
+        if connection:
+            logger.debug("Reuse connection: {}->{}@{}".format(
+                user.username, asset.ip, system_user.username)
+            )
+            return connection
+        connection = cls(user, asset, system_user)
+        cls.set_connection_to_cache(connection)
+        return connection
+
+    @classmethod
+    def remove_ssh_connection(cls, conn):
+        key = "{}_{}_{}".format(conn.user.id, conn.asset.id, conn.system_user.id)
+        cls.connections.pop(key, None)
+
+    def __init__(self, user, asset, system_user):
+        self.user = user
+        self.asset = asset
+        self.system_user = system_user
+        self.client = None
+        self.sock = None
+        self.error = ""
+        self.ref = 1
+
+    def get_system_user_auth(self):
         """
         获取系统用户的认证信息，密码或秘钥
         :return: system user have full info
         """
         password, private_key = \
-            app_service.get_system_user_auth_info(system_user, asset)
-        system_user.password = password
-        system_user.private_key = private_key
+            app_service.get_system_user_auth_info(self.system_user, self.asset)
+        self.system_user.password = password
+        self.system_user.private_key = private_key
 
-    def get_ssh_client(self, asset, system_user):
+    def get_ssh_client(self):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         sock = None
         error = ''
 
-        if not system_user.password and not system_user.private_key:
-            self.get_system_user_auth(system_user, asset)
+        if not self.system_user.password and not self.system_user.private_key:
+            self.get_system_user_auth()
 
-        if asset.domain:
-            sock = self.get_proxy_sock_v2(asset)
+        if self.asset.domain:
+            sock = self.get_proxy_sock_v2(self.asset)
             if not sock:
                 error = 'Connect gateway failed.'
                 logger.error(error)
 
+        asset = self.asset
+        system_user = self.system_user
         try:
             try:
                 ssh.connect(
@@ -86,30 +139,53 @@ class SSHConnection:
                 password_short, key_fingerprint,
             ))
             error += '\r\n' + str(e) if error else str(e)
-            return None, None, error
-        return ssh, sock, None
+            ssh, sock, error = None, None, error
+        self.client = ssh
+        self.sock = ssh
+        self.error = error
 
-    def get_transport(self, asset, system_user):
-        ssh, sock, msg = self.get_ssh_client(asset, system_user)
-        if ssh:
-            return ssh.get_transport(), sock, None
+    def get_transport(self):
+        if not self.client:
+            self.get_ssh_client()
+        if not self.client:
+            return self.client.get_transport()
         else:
-            return None, None, msg
+            return None
 
-    def get_channel(self, asset, system_user, term="xterm", width=80, height=24):
-        ssh, sock, msg = self.get_ssh_client(asset, system_user)
-        if ssh:
-            chan = ssh.invoke_shell(term, width=width, height=height)
-            return chan, sock, None
+    def get_channel(self, term="xterm", width=80, height=24):
+        if not self.client:
+            self.get_ssh_client()
+        if self.client:
+            chan = self.client.invoke_shell(term, width=width, height=height)
+            return chan
         else:
-            return None, sock, msg
+            return None
 
-    def get_sftp(self, asset, system_user):
-        ssh, sock, msg = self.get_ssh_client(asset, system_user)
-        if ssh:
-            return ssh.open_sftp(), sock, None
+    def get_sftp(self):
+        if not self.client:
+            self.get_ssh_client()
+        if self.client:
+            return self.client.open_sftp()
         else:
-            return None, sock, msg
+            return None
+
+    def close(self):
+        if self.ref > 1:
+            self.ref -= 1
+            logger.debug("Connection ref -1: {}->{}@{}".format(
+                self.user.username, self.asset.hostname, self.system_user.username)
+            )
+            return
+        self.__class__.remove_ssh_connection(self)
+        try:
+            self.client.close()
+            if self.sock:
+                self.sock.close()
+        except Exception as e:
+            logger.error("Close connection error: ", e)
+        logger.debug("Close connection: {}->{}@{}".format(
+            self.user.username, self.asset.ip, self.system_user.username)
+        )
 
     @staticmethod
     def get_proxy_sock_v2(asset):

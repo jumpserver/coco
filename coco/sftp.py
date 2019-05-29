@@ -77,7 +77,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
     def get_permed_hosts(self):
         hosts = {}
         assets = app_service.get_user_assets(
-            self.server.connection.user
+            self.server.connection.user, cache_policy='1',
         )
         for asset in assets:
             if asset.protocol != 'ssh':
@@ -87,9 +87,9 @@ class SFTPServer(paramiko.SFTPServerInterface):
             if asset.org_id:
                 key = "{}.{}".format(asset.hostname, asset.org_name)
             value['asset'] = asset
-            value['system_users'] = {su.name: su
+            value['system_users'] = {
+                su.name: su
                 for su in asset.system_users_granted
-                if su.protocol == "ssh" and su.login_mode == 'auto'
             }
             hosts[key] = value
         return hosts
@@ -99,17 +99,9 @@ class SFTPServer(paramiko.SFTPServerInterface):
         super(SFTPServer, self).session_ended()
         for _, v in self._sftp.items():
             sftp = v['client']
-            proxy = v.get('proxy')
-            chan = sftp.get_channel()
-            trans = chan.get_transport()
+            conn = v.get('connection')
             sftp.close()
-
-            active_channels = [c for c in trans._channels.values() if not c.closed]
-            if not active_channels:
-                trans.close()
-                if proxy:
-                    proxy.close()
-                    proxy.transport.close()
+            conn.close()
         self._sftp = {}
 
     def get_host_sftp(self, host, su):
@@ -121,17 +113,18 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
         cache_key = '{}@{}'.format(su, host)
         if cache_key not in self._sftp:
-            ssh = SSHConnection()
-            __sftp, proxy, msg = ssh.get_sftp(asset, system_user)
+            conn = SSHConnection.new_connection(self.server.connection.user,
+                                                asset, system_user)
+            __sftp = conn.get_sftp()
             if __sftp:
                 sftp = {
-                    'client': __sftp, 'proxy': proxy,
+                    'client': __sftp, 'connection': conn,
                     'home': __sftp.normalize('')
                 }
                 self._sftp[cache_key] = sftp
                 return sftp
             else:
-                raise OSError("Can not connect asset sftp server: {}".format(msg))
+                raise OSError("Can not connect asset sftp server: {}".format(conn.error))
         else:
             return self._sftp[cache_key]
 
