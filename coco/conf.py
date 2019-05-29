@@ -375,7 +375,7 @@ defaults = {
     'SFTP_ROOT': '/tmp',
     'SFTP_SHOW_HIDDEN_FILE': False,
     'UPLOAD_FAILED_REPLAY_ON_START': True,
-    'REUSE_CONNECTION': False,
+    'REUSE_CONNECTION': True,
 }
 
 
