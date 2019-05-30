@@ -18,8 +18,8 @@ idna==2.6
 itsdangerous==0.24
 Jinja2==2.10.1
 jmespath==0.9.3
-jms-storage==0.0.22
-jumpserver-python-sdk==0.0.58
+jms-storage==0.0.23
+jumpserver-python-sdk==0.0.59
 MarkupSafe==1.0
 oss2==2.4.0
 paramiko==2.4.2
