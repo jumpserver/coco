@@ -101,8 +101,6 @@ class SSHConnection:
         if not self.system_user.password and not self.system_user.private_key:
             self.get_system_user_auth()
 
-        logger.debug("Password: {} ".format(self.system_user.password))
-
         if self.asset.domain:
             sock = self.get_proxy_sock_v2(self.asset)
             if not sock:
@@ -163,8 +161,8 @@ class SSHConnection:
 
     def get_transport(self):
         if self.reconnect_if_need():
-            return None
-        return self.transport
+            return self.transport
+        return None
 
     def get_channel(self, term="xterm", width=80, height=24):
         if self.reconnect_if_need():
@@ -186,10 +184,11 @@ class SSHConnection:
     def close(self):
         if self.ref > 1:
             self.ref -= 1
-            logger.debug("Connection ref -1: {}->{}@{} {}".format(
+            msg = "Connection ref -1: {}->{}@{}. {}".format(
                 self.user.username, self.asset.hostname,
                 self.system_user.username, self.ref
-            ))
+            )
+            logger.debug(msg)
             return
         self.__class__.remove_ssh_connection(self)
         try:
@@ -198,10 +197,12 @@ class SSHConnection:
                 self.sock.close()
         except Exception as e:
             logger.error("Close connection error: ", e)
-        logger.debug("Close connection: {}->{}@{}".format(
-            self.user.username, self.asset.ip, self.system_user.username)
+
+        msg = "Close connection: {}->{}@{}. Total connections live: {}".format(
+            self.user.username, self.asset.ip,
+            self.system_user.username, len(self.connections)
         )
-        logger.debug("Total connections live: {}".format(len(self.connections)))
+        logger.debug(msg)
 
     @staticmethod
     def get_proxy_sock_v2(asset):
