@@ -148,7 +148,7 @@ class ProxyServer:
             conn = SSHConnection.new_connection_from_cache(
                 self.client.user, self.asset, self.system_user
             )
-            if not conn:
+            if not conn or not conn.is_active:
                 return None
         else:
             conn = SSHConnection.new_connection(
