@@ -39,6 +39,9 @@ class SSHConnection:
         connection = cls.connections.get(key)
         if not connection:
             return None
+        if not connection.is_active:
+            cls.connections.pop(key, None)
+            return None
         connection.ref += 1
         return connection
 
@@ -59,7 +62,9 @@ class SSHConnection:
             )
             return connection
         connection = cls(user, asset, system_user)
-        cls.set_connection_to_cache(connection)
+        connection.connect()
+        if connection.is_active:
+            cls.set_connection_to_cache(connection)
         return connection
 
     @classmethod
@@ -72,6 +77,7 @@ class SSHConnection:
         self.asset = asset
         self.system_user = system_user
         self.client = None
+        self.transport = None
         self.sock = None
         self.error = ""
         self.ref = 1
@@ -86,7 +92,7 @@ class SSHConnection:
         self.system_user.password = password
         self.system_user.private_key = private_key
 
-    def get_ssh_client(self):
+    def connect(self):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         sock = None
@@ -94,6 +100,8 @@ class SSHConnection:
 
         if not self.system_user.password and not self.system_user.private_key:
             self.get_system_user_auth()
+
+        logger.debug("Password: {} ".format(self.system_user.password))
 
         if self.asset.domain:
             sock = self.get_proxy_sock_v2(self.asset)
@@ -122,6 +130,7 @@ class SSHConnection:
                 )
             transport = ssh.get_transport()
             transport.set_keepalive(20)
+            self.transport = transport
         except Exception as e:
             password_short = "None"
             key_fingerprint = "None"
@@ -144,37 +153,43 @@ class SSHConnection:
         self.sock = ssh
         self.error = error
 
+    def reconnect_if_need(self):
+        if not self.is_active:
+            self.connect()
+
+        if self.is_active:
+            return True
+        return False
+
     def get_transport(self):
-        if not self.client:
-            self.get_ssh_client()
-        if not self.client:
-            return self.client.get_transport()
-        else:
+        if self.reconnect_if_need():
             return None
+        return self.transport
 
     def get_channel(self, term="xterm", width=80, height=24):
-        if not self.client:
-            self.get_ssh_client()
-        if self.client:
+        if self.reconnect_if_need():
             chan = self.client.invoke_shell(term, width=width, height=height)
             return chan
         else:
             return None
 
     def get_sftp(self):
-        if not self.client:
-            self.get_ssh_client()
-        if self.client:
+        if self.reconnect_if_need():
             return self.client.open_sftp()
         else:
             return None
 
+    @property
+    def is_active(self):
+        return self.transport and self.transport.is_active()
+
     def close(self):
         if self.ref > 1:
             self.ref -= 1
-            logger.debug("Connection ref -1: {}->{}@{}".format(
-                self.user.username, self.asset.hostname, self.system_user.username)
-            )
+            logger.debug("Connection ref -1: {}->{}@{} {}".format(
+                self.user.username, self.asset.hostname,
+                self.system_user.username, self.ref
+            ))
             return
         self.__class__.remove_ssh_connection(self)
         try:
@@ -186,6 +201,7 @@ class SSHConnection:
         logger.debug("Close connection: {}->{}@{}".format(
             self.user.username, self.asset.ip, self.system_user.username)
         )
+        logger.debug("Total connections live: {}".format(len(self.connections)))
 
     @staticmethod
     def get_proxy_sock_v2(asset):
