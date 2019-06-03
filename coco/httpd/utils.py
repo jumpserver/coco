@@ -10,3 +10,7 @@ def get_cached_volume(sid):
 
 def set_cache_volume(sid, volume):
     __volumes_cached[sid] = volume
+
+
+def remove_cache_volume(sid):
+    __volumes_cached.pop(sid, None)
