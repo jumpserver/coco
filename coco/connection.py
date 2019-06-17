@@ -112,7 +112,7 @@ class SSHConnection:
         try:
             try:
                 ssh.connect(
-                    asset.ip, port=asset.port, username=system_user.username,
+                    asset.ip, port=asset.ssh_port, username=system_user.username,
                     password=system_user.password, pkey=system_user.private_key,
                     timeout=config['SSH_TIMEOUT'],
                     compress=False, auth_timeout=config['SSH_TIMEOUT'],
@@ -121,7 +121,7 @@ class SSHConnection:
             except paramiko.AuthenticationException:
                 # 思科设备不支持秘钥登陆，提供秘钥，必然失败
                 ssh.connect(
-                    asset.ip, port=asset.port, username=system_user.username,
+                    asset.ip, port=asset.ssh_port, username=system_user.username,
                     password=system_user.password, timeout=config['SSH_TIMEOUT'],
                     compress=False, auth_timeout=config['SSH_TIMEOUT'],
                     look_for_keys=False, sock=sock, allow_agent=False,
@@ -142,7 +142,7 @@ class SSHConnection:
 
             logger.error("Connect {}@{}:{} auth failed, password: \
                           {}, key: {}".format(
-                system_user.username, asset.ip, asset.port,
+                system_user.username, asset.ip, asset.ssh_port,
                 password_short, key_fingerprint,
             ))
             error += '\r\n' + str(e) if error else str(e)
@@ -230,7 +230,7 @@ class SSHConnection:
                 transport = ssh.get_transport()
                 transport.set_keepalive(20)
                 sock = transport.open_channel(
-                    'direct-tcpip', (asset.ip, asset.port), ('127.0.0.1', 0)
+                    'direct-tcpip', (asset.ip, asset.ssh_port), ('127.0.0.1', 0)
                 )
                 break
             except Exception as e:
@@ -272,7 +272,7 @@ class TelnetConnection:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(10)
         try:
-            self.sock.connect((self.asset.ip, self.asset.port))
+            self.sock.connect((self.asset.ip, self.asset.ssh_port))
         except Exception as e:
             msg = 'Connect telnet server failed. \r\n{}'.format(e)
             logger.error(msg)

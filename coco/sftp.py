@@ -80,7 +80,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
             self.server.connection.user, cache_policy='1',
         )
         for asset in assets:
-            if asset.protocol != 'ssh':
+            if not asset.has_protocol('ssh'):
                 continue
             value = {}
             key = asset.hostname

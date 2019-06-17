@@ -152,8 +152,7 @@ class InteractiveServer:
         assets = self.search_assets(opt)
         if assets and len(assets) == 1:
             asset = assets[0]
-            if asset.protocol == "rdp" \
-                    or asset.platform.lower().startswith("windows"):
+            if asset.platform.lower().startswith("windows"):
                 self.client.send_unicode(warning(
                     _("Terminal does not support login rdp, "
                       "please use web terminal to access"))
