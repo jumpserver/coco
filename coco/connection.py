@@ -272,7 +272,7 @@ class TelnetConnection:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(10)
         try:
-            self.sock.connect((self.asset.ip, self.asset.ssh_port))
+            self.sock.connect((self.asset.ip, self.asset.telnet_port))
         except Exception as e:
             msg = 'Connect telnet server failed. \r\n{}'.format(e)
             logger.error(msg)
