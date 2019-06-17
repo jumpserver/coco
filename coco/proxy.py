@@ -46,9 +46,9 @@ class ProxyServer:
 
     def check_protocol(self):
         if not self.asset.has_protocol(self.system_user.protocol):
-            msg = 'Asset {} do not contain system user {} protocol {}'.format(
-                self.asset.hostname, self.system_user.name,
-                self.system_user.protocol
+            msg = _('Asset {} do not contain system user {} protocol {}')
+            msg = msg.format(
+                self.asset.hostname, self.system_user.name, self.system_user.protocol
             )
             self.client.send_unicode(warning(wr(msg, before=1, after=0)))
             return False

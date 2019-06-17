@@ -152,12 +152,6 @@ class InteractiveServer:
         assets = self.search_assets(opt)
         if assets and len(assets) == 1:
             asset = assets[0]
-            if asset.platform.lower().startswith("windows"):
-                self.client.send_unicode(warning(
-                    _("Terminal does not support login rdp, "
-                      "please use web terminal to access"))
-                )
-                return
             self.proxy(asset)
         else:
             self.display_assets_paging(assets)
@@ -435,6 +429,11 @@ class InteractiveServer:
         system_user = self.choose_system_user(asset.system_users_granted)
         if system_user is None:
             self.client.send_unicode(_("No system user"))
+            return
+        if system_user.protocol.lower() == 'rdp':
+            msg = _('Terminal does not support login through RDP protocol. '
+                    'please use web terminal to access')
+            self.client.send_unicode(warning(msg))
             return
         forwarder = ProxyServer(self.client, asset, system_user)
         forwarder.proxy()
