@@ -128,7 +128,8 @@ class Session:
             "org_id": self.server.asset.org_id,
             "input": _input,
             "output": _output,
-            "user": self.client.user.username,
+            "user": "{} ({})".format(self.client.user.name,
+                                     self.client.user.username),
             "asset": self.server.asset.hostname,
             "system_user": self.server.system_user.username,
             "timestamp": time.time(),
@@ -226,7 +227,8 @@ class Session:
     def to_json(self):
         return {
             "id": self.id,
-            "user": self.client.user.username,
+            "user": "{} ({})".format(self.client.user.name,
+                                     self.client.user.username),
             "asset": self.server.asset.hostname,
             "org_id": self.server.asset.org_id,
             "system_user": self.server.system_user.username,

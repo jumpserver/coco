@@ -185,7 +185,8 @@ class SFTPServer(paramiko.SFTPServerInterface):
         asset = self.hosts.get(host)['asset']
         date_start = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S") + " +0000",
         data = {
-            "user": self.server.connection.user.username,
+            "user": "{} ({})".format(self.server.connection.user.name,
+                                     self.server.connection.user.username),
             "asset": host,
             "org_id": asset.org_id,
             "system_user": su,
