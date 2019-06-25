@@ -80,7 +80,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
             self.server.connection.user, cache_policy='1',
         )
         for asset in assets:
-            if asset.protocol != 'ssh':
+            if not asset.has_protocol('ssh'):
                 continue
             value = {}
             key = asset.hostname
@@ -185,7 +185,8 @@ class SFTPServer(paramiko.SFTPServerInterface):
         asset = self.hosts.get(host)['asset']
         date_start = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S") + " +0000",
         data = {
-            "user": self.server.connection.user.username,
+            "user": "{} ({})".format(self.server.connection.user.name,
+                                     self.server.connection.user.username),
             "asset": host,
             "org_id": asset.org_id,
             "system_user": su,

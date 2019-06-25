@@ -45,9 +45,10 @@ class ProxyServer:
         self.system_user.private_key = private_key
 
     def check_protocol(self):
-        if self.asset.protocol != self.system_user.protocol:
-            msg = 'System user <{}> and asset <{}> protocol are inconsistent.'.format(
-                self.system_user.name, self.asset.hostname
+        if not self.asset.has_protocol(self.system_user.protocol):
+            msg = _('Asset {} do not contain system user {} protocol {}')
+            msg = msg.format(
+                self.asset.hostname, self.system_user.name, self.system_user.protocol
             )
             self.client.send_unicode(warning(wr(msg, before=1, after=0)))
             return False
@@ -113,7 +114,7 @@ class ProxyServer:
         self.get_system_user_username_if_need()
         self.get_system_user_auth_or_manual_set()
         self.send_connecting_message()
-        logger.info("Connect to {}:{} ...".format(self.asset.hostname, self.asset.port))
+        logger.info("Connect to {}:{} ...".format(self.asset.hostname, self.asset.ssh_port))
         if not self.validate_permission():
             msg = _('No permission')
             self.client.send_unicode(warning(wr(msg, before=2, after=0)))

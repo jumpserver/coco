@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-03-06 14:51+0800\n"
+"POT-Creation-Date: 2019-06-17 15:37+0800\n"
 "PO-Revision-Date: 2018-08-10 10:42+0800\n"
 "Last-Translator: BaiJiangjie <bugatti_it@163.com>\n"
 "Language-Team: Language locale/en/LC\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: coco/app.py:182
+#: coco/app.py:172
 msgid "Connect idle more than {} minutes, disconnect"
 msgstr ""
 
@@ -83,80 +83,82 @@ msgstr ""
 msgid "{T}0) Enter {green}q{end} exit.{R}"
 msgstr ""
 
-#: coco/interactive.py:158
-msgid "Terminal does not support login rdp, please use web terminal to access"
-msgstr ""
-
-#: coco/interactive.py:169
+#: coco/interactive.py:162
 msgid "Refresh done"
 msgstr ""
 
-#: coco/interactive.py:211
+#: coco/interactive.py:204
 msgid "No Assets"
 msgstr ""
 
-#: coco/interactive.py:266
+#: coco/interactive.py:259
 msgid "ID"
 msgstr ""
 
-#: coco/interactive.py:266
+#: coco/interactive.py:259
 msgid "Hostname"
 msgstr ""
 
-#: coco/interactive.py:266
+#: coco/interactive.py:259
 msgid "IP"
 msgstr ""
 
-#: coco/interactive.py:266
+#: coco/interactive.py:259
 msgid "LoginAs"
 msgstr ""
 
-#: coco/interactive.py:280
+#: coco/interactive.py:273
 msgid "Comment"
 msgstr ""
 
-#: coco/interactive.py:290
+#: coco/interactive.py:283
 msgid "Page: {}, Count: {}, Total Page: {}, Total Count: {}"
 msgstr ""
 
-#: coco/interactive.py:296
+#: coco/interactive.py:289
 msgid "Tips: Enter the asset ID and log directly into the asset."
 msgstr ""
 
-#: coco/interactive.py:298
+#: coco/interactive.py:291
 msgid "Page up: P/p"
 msgstr ""
 
-#: coco/interactive.py:299
+#: coco/interactive.py:292
 msgid "Page down: Enter|N/n"
 msgstr ""
 
-#: coco/interactive.py:300
+#: coco/interactive.py:293
 msgid "BACK: b/q"
 msgstr ""
 
-#: coco/interactive.py:371
+#: coco/interactive.py:364
 msgid "No Nodes"
 msgstr ""
 
-#: coco/interactive.py:375
+#: coco/interactive.py:368
 msgid "Node: [ ID.Name(Asset amount) ]"
 msgstr ""
 
-#: coco/interactive.py:377
+#: coco/interactive.py:370
 msgid "Tips: Enter g+NodeID to display the host under the node, such as g1"
 msgstr ""
 
-#: coco/interactive.py:385
+#: coco/interactive.py:378
 msgid "There is no matched node, please re-enter"
 msgstr ""
 
-#: coco/interactive.py:415
+#: coco/interactive.py:408
 msgid "Select a login:: "
 msgstr ""
 
-#: coco/interactive.py:438
+#: coco/interactive.py:431
 msgid "No system user"
+msgstr ""
+
+#: coco/interactive.py:434
+msgid ""
+"Terminal does not support login through RDP protocol. please use web "
+"terminal to access"
 msgstr ""
 
 #: coco/models.py:252
@@ -168,15 +170,19 @@ msgstr ""
 msgid "Command `{}` is forbidden ........"
 msgstr ""
 
-#: coco/proxy.py:76
+#: coco/proxy.py:49
+msgid "Asset {} do not contain system user {} protocol {}"
+msgstr ""
+
+#: coco/proxy.py:78
 msgid "Connect with api server failed"
 msgstr ""
 
-#: coco/proxy.py:104
+#: coco/proxy.py:119
 msgid "No permission"
 msgstr ""
 
-#: coco/proxy.py:147
+#: coco/proxy.py:170
 msgid "Connecting to {}@{} {:.1f}"
 msgstr ""
 
