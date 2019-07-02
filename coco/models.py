@@ -261,6 +261,15 @@ class BaseServer(object):
                 msg = _("Command `{}` is forbidden ........").format(cmd)
                 data = self.command_forbidden(msg)
                 break
+            elif action == rule.ERROR:
+                msg = "Command filter check exceptions " \
+                      "(for safety, check for consistency of rule type " \
+                      "and content in command filter)"
+                logger.warning(msg)
+                _filter = "Command filter rule: {}".format(
+                    rule.content.replace('\r\n', ' ')
+                )
+                logger.warning(_filter)
         return data
 
     def command_forbidden(self, msg):
