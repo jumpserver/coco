@@ -79,6 +79,7 @@ class ProxyServer:
             logger.error(msg)
             self.client.send_unicode(msg)
             self.server.close()
+            return
 
         try:
             session.bridge()
@@ -151,6 +152,9 @@ class ProxyServer:
             )
             if not conn or not conn.is_active:
                 return None
+            else:
+                # 采用复用连接创建session时，系统用户用户名如果为空，创建session-400
+                self.system_user = conn.system_user
         else:
             conn = SSHConnection.new_connection(
                 self.client.user, self.asset, self.system_user
