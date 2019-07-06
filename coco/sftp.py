@@ -13,7 +13,6 @@ from .service import app_service
 from .connection import SSHConnection
 from .const import (
     PERMS_ACTION_NAME_DOWNLOAD_FILE, PERMS_ACTION_NAME_UPLOAD_FILE,
-    PERMS_ACTION_NAME_ALL,
 )
 
 CURRENT_DIR = os.path.dirname(__file__)
@@ -267,7 +266,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
 
     @staticmethod
     def validate_permission(system_user, action):
-        check_actions = [PERMS_ACTION_NAME_ALL, action]
+        check_actions = [action]
         granted_actions = getattr(system_user, 'actions', [])
         actions = list(set(granted_actions).intersection(set(check_actions)))
         return bool(actions)
