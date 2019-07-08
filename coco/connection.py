@@ -139,12 +139,11 @@ class SSHConnection:
                 key_fingerprint = get_private_key_fingerprint(
                     system_user.private_key
                 )
-
-            logger.error("Connect {}@{}:{} auth failed, password: \
-                          {}, key: {}".format(
+            msg = "Connect {}@{}:{} auth failed, password: {}, key: {}".format(
                 system_user.username, asset.ip, asset.ssh_port,
                 password_short, key_fingerprint,
-            ))
+            )
+            logger.error(msg)
             error += '\r\n' + str(e) if error else str(e)
             ssh, sock, error = None, None, error
         self.client = ssh
