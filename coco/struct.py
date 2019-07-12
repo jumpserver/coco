@@ -43,7 +43,7 @@ class SizedList(list):
             return False
 
     def append(self, b):
-        if not self.is_full():
+        if not self.is_full() and b:
             super(SizedList, self).append(b)
             self.size += len(b)
             self.end_with_ascii = b[-1] <= 126
