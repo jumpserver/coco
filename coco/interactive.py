@@ -30,6 +30,9 @@ PROXY = 'proxy'
 class InteractiveServer:
     _sentinel = object()
     _user_assets_cached = {}
+    _user_assets_cached_etag = {}
+    _user_nodes_cached = {}
+    _user_nodes_cached_etag = {}
 
     def __init__(self, client):
         self.client = client
@@ -318,13 +321,23 @@ class InteractiveServer:
             self.total_asset_count = len(assets)
 
     def get_user_assets_and_update_async(self):
-        thread = threading.Thread(target=self.get_user_assets_and_update)
+        thread = threading.Thread(
+            target=self.get_user_assets_and_update, kwargs={"cache_policy": 1}
+        )
         thread.start()
 
     def get_user_assets_and_update(self, cache_policy='1'):
-        assets = app_service.get_user_assets(self.client.user, cache_policy=cache_policy)
+        etag = self._user_assets_cached_etag.get(self.client.user.id)
+        assets, new_etag = app_service.get_user_assets(
+            self.client.user, cache_policy=cache_policy, etag=etag
+        )
+        if assets is None:
+            logger.debug("Get user assets: not modify")
+            return
         assets = self.filter_system_users(assets)
         self.__class__._user_assets_cached[self.client.user.id] = assets
+        if new_etag:
+            self.__class__._user_assets_cached_etag[self.client.user.id] = new_etag
         self.load_user_assets_from_cache()
         self.get_user_assets_finished = True
     #
@@ -332,13 +345,24 @@ class InteractiveServer:
     #
 
     def get_user_nodes_async(self):
-        thread = threading.Thread(target=self.get_user_nodes)
+        thread = threading.Thread(target=self.get_user_nodes, kwargs={"cache_policy": 1})
         thread.start()
 
     def get_user_nodes(self, cache_policy='1'):
-        nodes = app_service.get_user_asset_groups(self.client.user, cache_policy=cache_policy)
+        etag = self._user_assets_cached_etag.get(self.client.user.id)
+        if cache_policy not in ['1', 1]:
+            etag = None
+        nodes, new_etag = app_service.get_user_asset_groups(
+            self.client.user, cache_policy=cache_policy, etag=etag
+        )
+        if nodes is None:
+            logger.debug("Get user nodes: not modify")
+            return
         nodes = sorted(nodes, key=lambda node: node.key)
         self.nodes = self.filter_system_users_of_assets_under_nodes(nodes)
+        self.__class__._user_nodes_cached[self.client.user.id] = self.nodes
+        if new_etag:
+            self.__class__._user_assets_cached_etag[self.client.user.id] = new_etag
         self._construct_node_tree()
 
     def filter_system_users_of_assets_under_nodes(self, nodes):
