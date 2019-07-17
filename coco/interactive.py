@@ -158,7 +158,7 @@ class InteractiveServer:
 
     def refresh_assets_nodes(self):
         self.get_user_assets_and_update(cache_policy='2')
-        self.get_user_nodes(cache_policy='2')
+        self.get_user_nodes(cache_policy='1')
         self.client.send_unicode(_("Refresh done"))
 
     def wait_until_assets_load(self):
