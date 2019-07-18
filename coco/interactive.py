@@ -47,6 +47,7 @@ class InteractiveServer:
         self.node_tree = None  # 授权节点树
         self.load_user_assets_from_cache()
         self.get_user_assets_and_update_async()
+        self.load_user_nodes_from_cache()
         self.get_user_nodes_async()
 
     @property
@@ -344,6 +345,11 @@ class InteractiveServer:
     # Nodes
     #
 
+    def load_user_nodes_from_cache(self):
+        nodes = self.__class__._user_nodes_cached.get(self.client.user.id)
+        self.nodes = nodes
+        self._construct_node_tree()
+
     def get_user_nodes_async(self):
         thread = threading.Thread(target=self.get_user_nodes, kwargs={"cache_policy": 1})
         thread.start()
@@ -359,11 +365,11 @@ class InteractiveServer:
             logger.debug("Get user nodes: not modify")
             return
         nodes = sorted(nodes, key=lambda node: node.key)
-        self.nodes = self.filter_system_users_of_assets_under_nodes(nodes)
-        self.__class__._user_nodes_cached[self.client.user.id] = self.nodes
+        nodes = self.filter_system_users_of_assets_under_nodes(nodes)
+        self.__class__._user_nodes_cached[self.client.user.id] = nodes
         if new_etag:
             self.__class__._user_assets_cached_etag[self.client.user.id] = new_etag
-        self._construct_node_tree()
+        self.load_user_nodes_from_cache()
 
     def filter_system_users_of_assets_under_nodes(self, nodes):
         for node in nodes:
@@ -371,6 +377,8 @@ class InteractiveServer:
         return nodes
 
     def _construct_node_tree(self):
+        if not self.nodes:
+            return
         self.node_tree = Tree()
         root = 'ROOT_ALL_ORG_NODE'
         self.node_tree.create_node(tag='', identifier=root, parent=None)
@@ -390,7 +398,10 @@ class InteractiveServer:
 
         self.node_tree.show(key=lambda node: node.identifier)
         self.client.send_unicode(wr(title(_("Node: [ ID.Name(Asset amount) ]")), before=0))
-        self.client.send_unicode(wr(self.node_tree._reader.replace('\n', '\r\n'), before=0))
+
+        for line in self.node_tree._reader.splitlines():
+            self.client.send_unicode(wr(line))
+
         prompt = _("Tips: Enter g+NodeID to display the host under the node, such as g1")
         self.client.send_unicode(wr(title(prompt), before=1))
 
