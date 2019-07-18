@@ -380,20 +380,20 @@ class SFTPServer(paramiko.SFTPServerInterface):
         success = False
 
         try:
-            self.rmdir_all(client, rpath)
+            self._rmdir(client, rpath)
             success = True
             return paramiko.SFTP_OK
         finally:
             self.create_ftp_log(path, "Rmdir", success)
 
-    def rmdir_all(self, conn, path):
-        for item in list(conn.listdir_iter(path)):
+    def _rmdir(self, sftp_client, path):
+        for item in list(sftp_client.listdir_iter(path)):
             filepath = "/".join([path, item.filename])
             if stat.S_IFMT(item.st_mode) == stat.S_IFDIR:
-                self.rmdir_all(conn, filepath)
+                self._rmdir(sftp_client, filepath)
                 continue
-            conn.remove(filepath)
-        conn.rmdir(path)
+            sftp_client.remove(filepath)
+        sftp_client.rmdir(path)
 
 
 class FakeServer:
