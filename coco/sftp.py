@@ -11,6 +11,7 @@ from coco.utils import get_logger
 from .conf import config
 from .service import app_service
 from .connection import SSHConnection
+from .interactive import InteractiveServer
 from .const import (
     PERMS_ACTION_NAME_DOWNLOAD_FILE, PERMS_ACTION_NAME_UPLOAD_FILE,
 )
@@ -73,11 +74,18 @@ class SFTPServer(paramiko.SFTPServerInterface):
         self.hosts = self.get_permed_hosts()
         self.is_finished = False
 
+    def get_user_assets(self):
+        user_id = self.server.connection.user.id
+        assets = InteractiveServer._user_assets_cached.get(user_id)
+        if assets is None:
+            assets, new_etag = app_service.get_user_assets(
+                self.server.connection.user, cache_policy='1'
+            )
+        return assets
+
     def get_permed_hosts(self):
         hosts = {}
-        assets = app_service.get_user_assets(
-            self.server.connection.user, cache_policy='1',
-        )
+        assets = self.get_user_assets()
         for asset in assets:
             if not asset.has_protocol('ssh'):
                 continue
