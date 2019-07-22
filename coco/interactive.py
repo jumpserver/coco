@@ -417,6 +417,7 @@ class InteractiveServer:
 
         node = self.nodes[_id-1]
         assets = app_service.get_user_node_assets(self.client.user, node=node, cache_policy="1")
+        assets = self.filter_system_users(assets)
         self.display_assets_paging(assets)
 
     #
