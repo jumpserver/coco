@@ -9,6 +9,7 @@ import os
 import math
 import time
 from treelib import Tree
+from treelib.exceptions import NodeIDAbsentError
 
 from . import char
 from .conf import config
@@ -386,7 +387,10 @@ class InteractiveServer:
             tag = "{}.{}({})".format(index+1, node.name, node.assets_amount)
             key = node.key
             parent_key = key[:node.key.rfind(':')] or root
-            self.node_tree.create_node(tag=tag, identifier=key, data=node, parent=parent_key)
+            try:
+                self.node_tree.create_node(tag=tag, identifier=key, data=node, parent=parent_key)
+            except NodeIDAbsentError:
+                self.node_tree.create_node(tag=tag, identifier=key, data=node, parent=root)
 
     def display_nodes_as_tree(self):
         if self.nodes is None:
