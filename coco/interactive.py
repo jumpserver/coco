@@ -358,14 +358,14 @@ class InteractiveServer:
         etag = self._user_assets_cached_etag.get(self.client.user.id)
         if cache_policy not in ['1', 1]:
             etag = None
-        nodes, new_etag = app_service.get_user_asset_groups(
+        nodes, new_etag = app_service.get_user_nodes(
             self.client.user, cache_policy=cache_policy, etag=etag
         )
         if nodes is None:
             logger.debug("Get user nodes: not modify")
             return
         nodes = sorted(nodes, key=lambda node: node.key)
-        nodes = self.filter_system_users_of_assets_under_nodes(nodes)
+        # nodes = self.filter_system_users_of_assets_under_nodes(nodes)
         self.__class__._user_nodes_cached[self.client.user.id] = nodes
         if new_etag:
             self.__class__._user_assets_cached_etag[self.client.user.id] = new_etag
@@ -415,7 +415,9 @@ class InteractiveServer:
             self.display_nodes_as_tree()
             return
 
-        assets = self.nodes[_id-1].assets_granted
+        node = self.nodes[_id-1]
+        assets = app_service.get_user_node_assets(self.client.user, node=node, cache_policy="1")
+        assets = self.filter_system_users(assets)
         self.display_assets_paging(assets)
 
     #
