@@ -14,6 +14,7 @@ from .connection import SSHConnection
 from .interactive import InteractiveServer
 from .const import (
     PERMS_ACTION_NAME_DOWNLOAD_FILE, PERMS_ACTION_NAME_UPLOAD_FILE,
+    MANUAL_LOGIN,
 )
 
 CURRENT_DIR = os.path.dirname(__file__)
@@ -118,10 +119,6 @@ class SFTPServer(paramiko.SFTPServerInterface):
         if not asset or not system_user:
             raise PermissionError("No asset or system user explicit")
 
-        if system_user.login_mode == 'manual':
-            raise PermissionError("System user is in manual login mode, please "
-                                  "use SSH protocol to connect assets first.")
-
         cache_key = '{}@{}'.format(su, host)
         if cache_key not in self._sftp:
             conn = SSHConnection.new_connection(self.server.connection.user,
@@ -134,6 +131,11 @@ class SFTPServer(paramiko.SFTPServerInterface):
                 }
                 self._sftp[cache_key] = sftp
                 return sftp
+            elif system_user.login_mode == MANUAL_LOGIN:
+                raise PermissionError(
+                    "System user is in manual login mode, "
+                    "please use SSH protocol to connect assets first."
+                )
             else:
                 raise OSError("Can not connect asset sftp server: {}".format(conn.error))
         else:
