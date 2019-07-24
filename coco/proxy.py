@@ -4,6 +4,7 @@
 
 import threading
 import time
+import copy
 
 from .session import Session
 from .models import Server, TelnetServer
@@ -27,7 +28,7 @@ class ProxyServer:
     def __init__(self, client, asset, system_user):
         self.client = client
         self.asset = asset
-        self.system_user = system_user
+        self.system_user = copy.deepcopy(system_user)
         self.server = None
         self.connecting = True
 
