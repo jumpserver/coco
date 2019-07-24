@@ -4,6 +4,8 @@
 import re
 import socket
 import telnetlib
+from .const import MANUAL_LOGIN
+
 
 try:
     import selectors
@@ -87,6 +89,8 @@ class SSHConnection:
         获取系统用户的认证信息，密码或秘钥
         :return: system user have full info
         """
+        if self.system_user.login_mode == MANUAL_LOGIN:
+            return
         password, private_key = \
             app_service.get_system_user_auth_info(self.system_user, self.asset)
         self.system_user.password = password

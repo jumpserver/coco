@@ -7,18 +7,20 @@ import time
 
 from .session import Session
 from .models import Server, TelnetServer
-from .const import PERMS_ACTION_NAME_CONNECT
+from .const import (
+    PERMS_ACTION_NAME_CONNECT, MANUAL_LOGIN
+)
 from .connection import SSHConnection, TelnetConnection
 from .service import app_service
 from .conf import config
-from .utils import wrap_with_line_feed as wr, wrap_with_warning as warning, \
-     get_logger, net_input, ugettext as _, ignore_error
+from .utils import (
+    wrap_with_line_feed as wr, wrap_with_warning as warning, ugettext as _,
+    get_logger, net_input, ignore_error
+)
 
 
 logger = get_logger(__file__)
 BUF_SIZE = 4096
-MANUAL_LOGIN = 'manual'
-AUTO_LOGIN = 'auto'
 
 
 class ProxyServer:
