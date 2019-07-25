@@ -127,7 +127,7 @@ class SSHConnection:
                     look_for_keys=False, sock=sock, allow_agent=False,
                 )
             transport = ssh.get_transport()
-            transport.set_keepalive(20)
+            transport.set_keepalive(60)
             self.transport = transport
         except Exception as e:
             password_short = "None"
@@ -227,7 +227,7 @@ class SSHConnection:
                 continue
             try:
                 transport = ssh.get_transport()
-                transport.set_keepalive(20)
+                transport.set_keepalive(60)
                 sock = transport.open_channel(
                     'direct-tcpip', (asset.ip, asset.ssh_port), ('127.0.0.1', 0)
                 )
