@@ -76,6 +76,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
         self._sftp = {}
         self.hosts = self.get_permed_hosts()
         self.is_finished = False
+        self.force_rm_folder = True if config.get("FORCE_REMOVE_FOLDER") else False
 
     def get_user_assets(self):
         user_id = self.server.connection.user.id
@@ -394,7 +395,10 @@ class SFTPServer(paramiko.SFTPServerInterface):
         success = False
 
         try:
-            self._rmdir(client, rpath)
+            if self.force_rm_folder:
+                self._rmdir(client, rpath)
+            else:
+                client.rmdir(rpath)
             success = True
             return paramiko.SFTP_OK
         finally:

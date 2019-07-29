@@ -235,7 +235,7 @@ class SFTPVolume(BaseVolume):
         added = []
         parent_path = self._path(parent)
         for i, item in enumerate(files.getlist("upload[]")):
-            if upload_path and (parent != upload_path[i]):
+            if upload_path and (parent != upload_path[i]) and (item.filename in upload_path[i]):
                 path = self._join(parent_path, upload_path[i].lstrip(self.path_sep))
             else:
                 path = self._join(parent_path, item.filename)
@@ -258,10 +258,10 @@ class SFTPVolume(BaseVolume):
         filename = '.'.join(__tmp[:-2])
         num, total = __tmp[-2].split('_')
         num, total = int(num), int(total)
-        if len(upload_path) == 1 and (parent != upload_path[0]):
+        if len(upload_path) == 1 and (parent != upload_path[0]) and (filename in upload_path[0]):
             path = self._join(parent_path, upload_path[0].lstrip(self.path_sep))
         else:
-            path = self._join(parent_path, filename)
+            path = self._join(parent_path, upload_path[0].lstrip(self.path_sep), filename)
         remote_path = self._remote_path(path)
         if num == 0:
             infos = self._list(os.path.dirname(path))
