@@ -77,6 +77,7 @@ class SSHServer:
         server = SSHInterface(connection)
         try:
             transport.start_server(server=server)
+            transport.set_keepalive(60)
             while transport.is_active():
                 chan = transport.accept()
                 server.event.wait(5)
