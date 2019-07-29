@@ -17,6 +17,7 @@ from coco.sftp import SFTPServer
 from coco.conf import config
 
 logger = get_logger(__file__)
+paramiko.util.log_to_file("/dev/null", level="INFO")
 BACKLOG = 5
 
 
