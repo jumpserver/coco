@@ -1,4 +1,5 @@
 import os
+import stat
 import paramiko
 import time
 from datetime import datetime
@@ -47,6 +48,7 @@ def convert_error(func):
             if isinstance(error, Exception):
                 logger.error(error)
         return response
+
     return wrapper
 
 
@@ -74,6 +76,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
         self._sftp = {}
         self.hosts = self.get_permed_hosts()
         self.is_finished = False
+        self.force_rm_folder = config.FORCE_REMOVE_FOLDER
 
     def get_user_assets(self):
         user_id = self.server.connection.user.id
@@ -256,7 +259,7 @@ class SFTPServer(paramiko.SFTPServerInterface):
     def stat(self, path):
         request = self.parse_path(path)
         host, su, dpath, unique = request['host'], request['su'], \
-            request['dpath'], request['su_unique']
+                                  request['dpath'], request['su_unique']
 
         logger.debug("Stat path: {} => {}".format(path, request))
         if not host or not su:
@@ -392,11 +395,23 @@ class SFTPServer(paramiko.SFTPServerInterface):
         success = False
 
         try:
-            client.rmdir(rpath)
+            if self.force_rm_folder:
+                self._rmdir(client, rpath)
+            else:
+                client.rmdir(rpath)
             success = True
             return paramiko.SFTP_OK
         finally:
             self.create_ftp_log(path, "Rmdir", success)
+
+    def _rmdir(self, sftp_client, path):
+        for item in list(sftp_client.listdir_iter(path)):
+            filepath = "/".join([path, item.filename])
+            if stat.S_IFMT(item.st_mode) == stat.S_IFDIR:
+                self._rmdir(sftp_client, filepath)
+                continue
+            sftp_client.remove(filepath)
+        sftp_client.rmdir(path)
 
 
 class FakeServer:

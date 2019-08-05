@@ -60,3 +60,6 @@ BOOTSTRAP_TOKEN: <PleasgeChangeSameWithJumpserver>
 
 # 是否复用和用户后端资产已建立的连接(用户不会复用其他用户的连接)
 # REUSE_CONNECTION: true
+
+# 是否强制删除文件夹:(default false)
+# FORCE_REMOVE_FOLDER: false
