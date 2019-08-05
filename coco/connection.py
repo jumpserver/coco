@@ -300,24 +300,30 @@ class TelnetConnection:
                         logger.info(msg)
                         return None, msg
 
-                    if data.startswith(telnetlib.IAC):
-                        self.option_negotiate(data)
-                    else:
-                        result = self.login_auth(data)
-                        if result:
-                            msg = 'Successful asset connection.<{}>/<{}>/<{}>.'.format(
-                                self.client.user, self.system_user.username,
-                                self.asset.hostname
-                            )
-                            logger.info(msg)
-                            return self.sock, None
-                        elif result is False:
-                            self.sock.close()
-                            msg = 'Authentication failed.\r\n'
-                            logger.info(msg)
-                            return None, msg
-                        elif result is None:
+                    # 将数据以 \r\n 进行分割
+                    _data_list = data.split(b'\r\n')
+                    for _data in _data_list:
+                        if not _data:
                             continue
+
+                        if _data.startswith(telnetlib.IAC):
+                            self.option_negotiate(_data)
+                        else:
+                            result = self.login_auth(_data)
+                            if result:
+                                msg = 'Successful asset connection.<{}>/<{}>/<{}>.'.format(
+                                    self.client.user, self.system_user.username,
+                                    self.asset.hostname
+                                )
+                                logger.info(msg)
+                                return self.sock, None
+                            elif result is False:
+                                self.sock.close()
+                                msg = 'Authentication failed.\r\n'
+                                logger.info(msg)
+                                return None, msg
+                            elif result is None:
+                                continue
 
     def option_negotiate(self, data):
         """
