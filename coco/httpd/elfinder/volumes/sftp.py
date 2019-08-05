@@ -4,7 +4,7 @@ import stat
 import threading
 
 from flask import send_file
-import requests
+import os
 
 from coco.utils import get_logger
 from .base import BaseVolume
@@ -222,10 +222,10 @@ class SFTPVolume(BaseVolume):
             self.sftp.unlink(remote_path)
         return target
 
-    def upload_as_url(self, url, parent):
+    def upload_as_url(self, url, parent, upload_path):
         raise PermissionError("Not support upload from url")
 
-    def upload(self, files, parent):
+    def upload(self, files, parent, upload_path):
         """ For now, this uses a very naive way of storing files - the entire
             file is read in to the File model's content field in one go.
 
@@ -234,20 +234,23 @@ class SFTPVolume(BaseVolume):
         """
         added = []
         parent_path = self._path(parent)
-        item = files.get('upload[]')
-        path = self._join(parent_path, item.filename)
-        remote_path = self._remote_path(path)
-        infos = self._list(parent_path)
-        files_exist = [d['name'] for d in infos]
-        if item.filename in files_exist:
-            raise OSError("File {} exits".format(remote_path))
-        with self.sftp.open(remote_path, 'w') as rf:
-            for data in item:
-                rf.write(data)
-        added.append(self._info(path))
+        for i, item in enumerate(files.getlist("upload[]")):
+            if upload_path and (parent != upload_path[i]) and (item.filename in upload_path[i]):
+                path = self._join(parent_path, upload_path[i].lstrip(self.path_sep))
+            else:
+                path = self._join(parent_path, item.filename)
+            remote_path = self._remote_path(path)
+            infos = self._list(os.path.dirname(path))
+            files_exist = [d['name'] for d in infos]
+            if item.filename in files_exist:
+                raise OSError("File {} exits".format(remote_path))
+            with self.sftp.open(remote_path, 'w') as rf:
+                for data in item:
+                    rf.write(data)
+            added.append(self._info(path))
         return {'added': added}
 
-    def upload_as_chunk(self, files, chunk_name, parent):
+    def upload_as_chunk(self, files, chunk_name, parent, upload_path):
         added = []
         parent_path = self._path(parent)
         item = files.get('upload[]')
@@ -255,11 +258,13 @@ class SFTPVolume(BaseVolume):
         filename = '.'.join(__tmp[:-2])
         num, total = __tmp[-2].split('_')
         num, total = int(num), int(total)
-
-        path = self._join(parent_path, filename)
+        if len(upload_path) == 1 and (parent != upload_path[0]) and (filename in upload_path[0]):
+            path = self._join(parent_path, upload_path[0].lstrip(self.path_sep))
+        else:
+            path = self._join(parent_path, upload_path[0].lstrip(self.path_sep), filename)
         remote_path = self._remote_path(path)
         if num == 0:
-            infos = self._list(parent_path)
+            infos = self._list(os.path.dirname(path))
             files_exist = [d['name'] for d in infos]
             if item.filename in files_exist:
                 raise OSError("File {} exits".format(remote_path))
@@ -271,9 +276,12 @@ class SFTPVolume(BaseVolume):
         else:
             return {'added': added, '_chunkmerged': filename, '_name': filename}
 
-    def upload_chunk_merge(self, parent, chunk):
+    def upload_chunk_merge(self, parent, chunk, upload_path):
         parent_path = self._path(parent)
-        path = self._join(parent_path, chunk)
+        if len(upload_path) == 1 and (parent != upload_path[0]):
+            path = self._join(parent_path, upload_path[0].lstrip(self.path_sep))
+        else:
+            path = self._join(parent_path, chunk)
         return {"added": [self._info(path)]}
 
     def size(self, target):
