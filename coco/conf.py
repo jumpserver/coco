@@ -377,6 +377,7 @@ defaults = {
     'UPLOAD_FAILED_REPLAY_ON_START': True,
     'REUSE_CONNECTION': True,
     'FORCE_REMOVE_FOLDER': False,
+    'TELNET_TTYPE': 'XTERM-256COLOR',
 }
 
 

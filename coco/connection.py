@@ -344,7 +344,8 @@ class TelnetConnection:
             elif x == telnetlib.DO + telnetlib.TTYPE:
                 new_data_list.append(telnetlib.WILL + telnetlib.TTYPE)
             elif x == telnetlib.SB + telnetlib.TTYPE + b'\x01':
-                new_data_list.append(telnetlib.SB + telnetlib.TTYPE + b'\x00' + b'XTERM-256COLOR')
+                terminal_type = bytes(config.TELNET_TTYPE, encoding='utf-8')
+                new_data_list.append(telnetlib.SB + telnetlib.TTYPE + b'\x00' + terminal_type)
             elif telnetlib.DO in x:
                 new_data_list.append(x.replace(telnetlib.DO, telnetlib.WONT))
             elif telnetlib.WILL in x:
