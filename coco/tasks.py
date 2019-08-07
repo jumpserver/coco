@@ -22,7 +22,7 @@ class TaskHandler:
         session = Session.sessions.get(session_id)
         if session:
             session.terminate()
-        app_service.finish_task(task.id)
+            app_service.finish_task(task.id)
 
     def handle(self, task):
         func = self.routes.get(task.name)
