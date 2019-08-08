@@ -300,24 +300,30 @@ class TelnetConnection:
                         logger.info(msg)
                         return None, msg
 
-                    if data.startswith(telnetlib.IAC):
-                        self.option_negotiate(data)
-                    else:
-                        result = self.login_auth(data)
-                        if result:
-                            msg = 'Successful asset connection.<{}>/<{}>/<{}>.'.format(
-                                self.client.user, self.system_user.username,
-                                self.asset.hostname
-                            )
-                            logger.info(msg)
-                            return self.sock, None
-                        elif result is False:
-                            self.sock.close()
-                            msg = 'Authentication failed.\r\n'
-                            logger.info(msg)
-                            return None, msg
-                        elif result is None:
+                    # 将数据以 \r\n 进行分割
+                    _data_list = data.split(b'\r\n')
+                    for _data in _data_list:
+                        if not _data:
                             continue
+
+                        if _data.startswith(telnetlib.IAC):
+                            self.option_negotiate(_data)
+                        else:
+                            result = self.login_auth(_data)
+                            if result:
+                                msg = 'Successful asset connection.<{}>/<{}>/<{}>.'.format(
+                                    self.client.user, self.system_user.username,
+                                    self.asset.hostname
+                                )
+                                logger.info(msg)
+                                return self.sock, None
+                            elif result is False:
+                                self.sock.close()
+                                msg = 'Authentication failed.\r\n'
+                                logger.info(msg)
+                                return None, msg
+                            elif result is None:
+                                continue
 
     def option_negotiate(self, data):
         """
@@ -338,7 +344,8 @@ class TelnetConnection:
             elif x == telnetlib.DO + telnetlib.TTYPE:
                 new_data_list.append(telnetlib.WILL + telnetlib.TTYPE)
             elif x == telnetlib.SB + telnetlib.TTYPE + b'\x01':
-                new_data_list.append(telnetlib.SB + telnetlib.TTYPE + b'\x00' + b'XTERM-256COLOR')
+                terminal_type = bytes(config.TELNET_TTYPE, encoding='utf-8')
+                new_data_list.append(telnetlib.SB + telnetlib.TTYPE + b'\x00' + terminal_type)
             elif telnetlib.DO in x:
                 new_data_list.append(x.replace(telnetlib.DO, telnetlib.WONT))
             elif telnetlib.WILL in x:

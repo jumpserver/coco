@@ -214,23 +214,25 @@ class BaseVolume:
         """
         raise NotImplementedError
 
-    def upload(self, files, parent):
+    def upload(self, files, parent, upload_path):
         """ Uploads one or more files in to the parent directory.
 
             :param files: A list of uploaded file objects, as described here:
             https://docs.djangoproject.com/en/dev/topics/http/file-uploads/
             :param parent: The hash of the directory in which to create the
             new files.
+            :param upload_path:
             :returns: TODO
         """
         raise NotImplementedError
 
-    def upload_as_chunk(self, files, chunk_name, parent):
+    def upload_as_chunk(self, files, chunk_name, parent, upload_path):
         """
         Upload a large file as chunk
         :param files:
         :param chunk_name:
         :param cid:
         :param parent:
+        :param upload_path:
         :return:
         """

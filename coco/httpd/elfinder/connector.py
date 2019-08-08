@@ -31,7 +31,7 @@ class ElFinderConnector:
     _allowed_args = [
         'cmd', 'target', 'targets[]', 'current', 'tree',
         'name', 'content', 'src', 'dst', 'cut', 'init',
-        'type', 'width', 'height', 'upload[]', 'dirs[]',
+        'type', 'width', 'height', 'upload[]', 'upload_path[]', 'dirs[]',
         'targets', "chunk", "range", "cid", 'reload',
     ]
 
@@ -125,7 +125,7 @@ class ElFinderConnector:
         # Copy allowed parameters from the given request's GET to self.data
         for field in self._allowed_args:
             if field in request_data:
-                if field in ["targets[]", "targets", "dirs[]"]:
+                if field in ["targets[]", "targets", "dirs[]", 'upload_path[]']:
                     self.data[field] = request_data.getlist(field)
                 else:
                     self.data[field] = request_data[field]
@@ -270,20 +270,21 @@ class ElFinderConnector:
         parent = self.data['target']
         volume = self.get_volume(parent)
         upload = self.data.get('upload[]')
+        upload_paths = self.data.get('upload_path[]')
         if self.data.get('chunk') and self.data.get('cid'):
             self.response.update(
                 volume.upload_as_chunk(
-                    self.request.files, self.data.get('chunk'), parent
+                    self.request.files, self.data.get('chunk'), parent, upload_paths
                 )
             )
         elif self.data.get('chunk'):
             self.response.update(
-                volume.upload_chunk_merge(parent, self.data.get('chunk'))
+                volume.upload_chunk_merge(parent, self.data.get('chunk'), upload_paths),
             )
         elif isinstance(upload, str):
-            self.response.update(volume.upload_as_url(upload, parent))
+            self.response.update(volume.upload_as_url(upload, parent, upload))
         else:
-            self.response.update(volume.upload(self.request.files, parent))
+            self.response.update(volume.upload(self.request.files, parent, upload_paths))
 
     def __size(self):
         target = self.data['targets[]']
