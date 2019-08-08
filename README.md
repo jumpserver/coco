@@ -7,6 +7,10 @@ It's implement a ssh server and a web terminal server,
 User can connect them except jumpserver openssh server and connect.py 
 pre version.
 
+# Warning 
+
+Coco has been replace by [koko](https://github.com/jumpserver/koko.git)
+From v1.5.2, coco will be stop update
 
 ## Install
 

@@ -63,3 +63,6 @@ BOOTSTRAP_TOKEN: <PleasgeChangeSameWithJumpserver>
 
 # 是否强制删除文件夹:(default false)
 # FORCE_REMOVE_FOLDER: false
+
+# Telnet连接协商使用的终端类型
+# TELNET_TTYPE: XTERM-256COLOR

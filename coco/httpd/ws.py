@@ -72,13 +72,22 @@ class ProxyNamespace(BaseNamespace):
         client.chan = ws_proxy
         self.emit('room', {'room': client_id, 'secret': secret})
         join_room(client_id)
+
         if not asset_id or not system_user_id:
+            msg = "Not asset id or system user id found".format(
+                asset_id, system_user_id
+            )
+            logger.error(msg)
             return
 
         asset = app_service.get_asset(asset_id)
         system_user = app_service.get_system_user(system_user_id)
 
         if not asset or not system_user:
+            msg = "No asset or system user found {} {}: {} {}".format(
+                 asset_id, system_user_id, asset, system_user
+            )
+            logger.error(msg)
             return
         forwarder = ProxyServer(client, asset, system_user)
 
