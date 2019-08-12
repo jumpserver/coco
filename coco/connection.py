@@ -215,8 +215,9 @@ class SSHConnection:
         )
         if not domain.has_ssh_gateway():
             return None
-        for i in domain.gateways:
-            gateway = domain.random_ssh_gateway()
+        for gateway in domain.gateways:
+            if gateway.protocol != "ssh":
+                continue
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             try:
