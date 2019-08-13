@@ -378,6 +378,7 @@ defaults = {
     'REUSE_CONNECTION': True,
     'FORCE_REMOVE_FOLDER': False,
     'TELNET_TTYPE': 'XTERM-256COLOR',
+    'ENABLE_PROXY_PROTOCOL': True
 }
 
 
