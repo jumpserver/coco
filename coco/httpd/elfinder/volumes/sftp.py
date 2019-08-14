@@ -22,7 +22,7 @@ class SFTPVolume(BaseVolume):
         super(SFTPVolume, self).__init__()
 
     def close(self):
-        for _, fd in self._fd_cache.items():
+        for fd in self._fd_cache.values():
             fd.close()
         self.sftp.close()
 
