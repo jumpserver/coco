@@ -15,6 +15,7 @@ from coco.interactive import InteractiveServer
 from coco.models import Connection
 from coco.sftp import SFTPServer
 from coco.conf import config
+from coco.proxy_protocol import ProxyProtocol, ProxyProtocolException
 
 logger = get_logger(__file__)
 paramiko.util.log_to_file("/dev/null", level="INFO")
@@ -56,10 +57,17 @@ class SSHServer:
         while not self.stop_evt.is_set():
             try:
                 client, addr = sock.accept()
+                if config.ENABLE_PROXY_PROTOCOL:
+                    try:
+                        parser = ProxyProtocol()
+                        header = parser.parse(client)
+                        addr = (header.source_address.decode(), int(header.source_port))
+                    except ProxyProtocolException as e:
+                        logger.error(e)
                 t = threading.Thread(target=self.handle_connection, args=(client, addr))
                 t.daemon = True
                 t.start()
-            except IndexError as e:
+            except Exception as e:
                 logger.error("Start SSH server error: {}".format(e))
 
     def handle_connection(self, sock, addr):
