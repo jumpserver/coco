@@ -273,7 +273,7 @@ class ElFinderConnector:
         upload_paths = self.data.get('upload_path[]')
         if self.data.get('chunk') and self.data.get('cid'):
             self.response.update(
-                volume.upload_as_chunk(
+                volume.upload_as_chunk(self.data.get('cid'),
                     self.request.files, self.data.get('chunk'), parent, upload_paths
                 )
             )
