@@ -14,6 +14,7 @@ class BaseVolume:
         self.path_sep = '/'
         self.dir_mode = '0o755'
         self.file_mode = '0o644'
+
     #
     # @classmethod
     # def get_volume(cls, request):
@@ -226,7 +227,7 @@ class BaseVolume:
         """
         raise NotImplementedError
 
-    def upload_as_chunk(self, files, chunk_name, parent, upload_path):
+    def upload_as_chunk(self, cid, files, chunk_name, parent, upload_path):
         """
         Upload a large file as chunk
         :param files:
