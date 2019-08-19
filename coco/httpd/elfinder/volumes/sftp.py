@@ -263,10 +263,10 @@ class SFTPVolume(BaseVolume):
         num, total = int(num), int(total)
         if upload_path and len(upload_path) == 1 and (filename in upload_path[0]):
             path = self._join(parent_path, upload_path[0].lstrip(self.path_sep))
-        elif upload_path and parent == upload_path[0]:
-            path = self._join(parent_path, filename)
-        else:
+        elif upload_path and parent != upload_path[0]:
             path = self._join(parent_path, upload_path[0].lstrip(self.path_sep), filename)
+        else:
+            path = self._join(parent_path, filename)
         remote_path = self._remote_path(path)
         if num == 0:
             infos = self._list(os.path.dirname(path))
@@ -290,8 +290,10 @@ class SFTPVolume(BaseVolume):
 
     def upload_chunk_merge(self, parent, chunk, upload_path):
         parent_path = self._path(parent)
-        if len(upload_path) == 1 and (parent != upload_path[0]):
+        if upload_path and len(upload_path) == 1 and (chunk in upload_path[0]):
             path = self._join(parent_path, upload_path[0].lstrip(self.path_sep))
+        elif upload_path and (parent != upload_path[0]):
+            path = self._join(parent_path, upload_path[0].lstrip(self.path_sep), chunk)
         else:
             path = self._join(parent_path, chunk)
         return {"added": [self._info(path)]}
