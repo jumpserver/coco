@@ -17,10 +17,13 @@ class SFTPVolume(BaseVolume):
         self.sftp = sftp
         self.root_name = 'Home'
         self._stat_cache = {}
+        self._fd_cache = dict()
         self.lock = threading.Lock()
         super(SFTPVolume, self).__init__()
 
     def close(self):
+        for fd in self._fd_cache.values():
+            fd.close()
         self.sftp.close()
 
     def get_volume_id(self):
@@ -250,7 +253,7 @@ class SFTPVolume(BaseVolume):
             added.append(self._info(path))
         return {'added': added}
 
-    def upload_as_chunk(self, files, chunk_name, parent, upload_path):
+    def upload_as_chunk(self, cid, files, chunk_name, parent, upload_path):
         added = []
         parent_path = self._path(parent)
         item = files.get('upload[]')
@@ -258,28 +261,39 @@ class SFTPVolume(BaseVolume):
         filename = '.'.join(__tmp[:-2])
         num, total = __tmp[-2].split('_')
         num, total = int(num), int(total)
-        if len(upload_path) == 1 and (parent != upload_path[0]) and (filename in upload_path[0]):
+        if upload_path and len(upload_path) == 1 and (filename in upload_path[0]):
             path = self._join(parent_path, upload_path[0].lstrip(self.path_sep))
-        else:
+        elif upload_path and parent != upload_path[0]:
             path = self._join(parent_path, upload_path[0].lstrip(self.path_sep), filename)
+        else:
+            path = self._join(parent_path, filename)
         remote_path = self._remote_path(path)
         if num == 0:
             infos = self._list(os.path.dirname(path))
             files_exist = [d['name'] for d in infos]
             if item.filename in files_exist:
                 raise OSError("File {} exits".format(remote_path))
-        with self.sftp.open(remote_path, 'a') as rf:
-            for data in item:
-                rf.write(data)
+        if cid not in self._fd_cache:
+            rf = self.sftp.open(remote_path, "a")
+            self._fd_cache[cid] = rf
+        else:
+            rf = self._fd_cache.get(cid)
+
+        for data in item:
+            rf.write(data)
         if num != total:
             return {'added': added}
         else:
+            rf.close()
+            self._fd_cache.pop(cid)
             return {'added': added, '_chunkmerged': filename, '_name': filename}
 
     def upload_chunk_merge(self, parent, chunk, upload_path):
         parent_path = self._path(parent)
-        if len(upload_path) == 1 and (parent != upload_path[0]):
+        if upload_path and len(upload_path) == 1 and (chunk in upload_path[0]):
             path = self._join(parent_path, upload_path[0].lstrip(self.path_sep))
+        elif upload_path and (parent != upload_path[0]):
+            path = self._join(parent_path, upload_path[0].lstrip(self.path_sep), chunk)
         else:
             path = self._join(parent_path, chunk)
         return {"added": [self._info(path)]}

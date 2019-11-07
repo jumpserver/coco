@@ -118,14 +118,15 @@ class ProxyServer:
         self.get_system_user_username_if_need()
         self.get_system_user_auth_or_manual_set()
         self.send_connecting_message()
-        logger.info("Connect to {}:{} ...".format(self.asset.hostname, self.asset.ssh_port))
         if not self.validate_permission():
             msg = _('No permission')
             self.client.send_unicode(warning(wr(msg, before=2, after=0)))
             server = None
         elif self.system_user.protocol == 'telnet':
+            logger.info("Connect to {}:{} ...".format(self.asset.hostname, self.asset.telnet_port))
             server = self.get_telnet_server_conn()
         elif self.system_user.protocol == 'ssh':
+            logger.info("Connect to {}:{} ...".format(self.asset.hostname, self.asset.ssh_port))
             server = self.get_ssh_server_conn()
         else:
             server = None
