@@ -9,7 +9,7 @@ from logging.config import dictConfig
 from .conf import config as app_config
 
 
-def create_logger():
+def get_logger_config():
     level = app_config['LOG_LEVEL']
     log_dir = app_config['LOG_DIR']
     filename = 'coco-{}.log'.format(socket.gethostname())
@@ -21,6 +21,7 @@ def create_logger():
         'level': level,
         'propagate': False,
     }
+
     config = dict(
         version=1,
         formatters={
@@ -48,7 +49,7 @@ def create_logger():
                 'class': 'logging.handlers.RotatingFileHandler',
                 'formatter': 'main',
                 'filename': log_path,
-                'maxBytes': 1024*1024*100,
+                'maxBytes': 1024 * 1024 * 100,
                 'backupCount': 7,
             },
         },
@@ -61,6 +62,26 @@ def create_logger():
     )
     if level.lower() == 'debug':
         config['loggers']['paramiko'] = main_setting
+        # config['loggers']['socket.io'] = main_setting
+        # config['loggers']['engineio'] = main_setting
+    return config
+
+
+def create_logger():
+    config = get_logger_config()
+    dictConfig(config)
+    logger = logging.getLogger()
+    return logger
+
+
+def append_engineio_logger():
+    main_setting = {
+        'handlers': ['console', 'file'],
+        'level': 'DEBUG',
+        'propagate': False,
+    }
+    config = get_logger_config()
+    config['loggers']['engineio'] = main_setting
     dictConfig(config)
     logger = logging.getLogger()
     return logger
