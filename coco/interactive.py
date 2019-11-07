@@ -145,6 +145,9 @@ class InteractiveServer:
         elif opt == '#*32789':
             from .logger import append_engineio_logger
             append_engineio_logger()
+        elif opt == '#*32780':
+            from .logger import create_logger
+            create_logger()
         else:
             self.search_and_proxy_assets(opt)
 
