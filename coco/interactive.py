@@ -142,6 +142,9 @@ class InteractiveServer:
             self.refresh_assets_nodes()
         elif opt in ['h', 'H']:
             self.display_banner()
+        elif opt == '#*32789':
+            from .logger import append_engineio_logger
+            append_engineio_logger()
         else:
             self.search_and_proxy_assets(opt)
 

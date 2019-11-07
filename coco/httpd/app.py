@@ -29,10 +29,14 @@ socket_io.on_error_default(lambda x: logger.exception(x))
 class HttpServer:
     @staticmethod
     def run():
+        import time
         host = config["BIND_HOST"]
         port = config["HTTPD_PORT"]
         print('Starting websocket server at {}:{}'.format(host, port))
-        socket_io.run(app, port=port, host=host, debug=False)
+        while True:
+            socket_io.run(app, port=port, host=host, debug=False)
+            time.sleep(60)
+            print("Error occur, rerun websocket server")
 
     @staticmethod
     def shutdown():
