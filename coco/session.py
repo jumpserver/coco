@@ -174,6 +174,7 @@ class Session:
         self.sel.register(self.server, selectors.EVENT_READ)
         self.sel.register(self.stop_evt, selectors.EVENT_READ)
         self.sel.register(self.client.change_size_evt, selectors.EVENT_READ)
+
         while not self.is_finished:
             events = self.sel.select(timeout=60)
             if self.client.closed:
